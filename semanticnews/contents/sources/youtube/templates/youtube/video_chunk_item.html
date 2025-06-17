@@ -1,0 +1,45 @@
+{% load i18n %}
+
+
+{% with video=chunk.transcript.video %}
+
+<a href="{{ video.get_absolute_url }}#{{ chunk.start_time }}" class="text-info-emphasis text-decoration-none">
+    {{ video.title }}
+</a>
+
+<p class="mb-1 small lh-sm">
+    … {{ chunk.revised_text|truncatewords_html:60|safe }}
+</p>
+
+<div class="d-flex justify-content-between">
+
+    <span class="small text-secondary">
+        <i class="bi bi-play-btn"></i>
+        {{ video.channel|default:"" }}
+        {% if video.channel %}
+            &middot;
+        {% endif %}
+        {{ video.published_at|date }}
+
+    </span>
+
+    {# Authenticated user #}
+    <a href="#"
+       class="authenticated-only d-none small add-video-btn"
+       data-type="video"
+       data-id="{{ chunk.id }}">
+        {% trans "Add to topic" %}
+    </a>
+
+    {# Anonymous user => login #}
+    <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+       class="anonymous-only d-none small"
+    >{% trans "Add to topic" %}</a>
+
+</div>
+
+
+  {% if not forloop.last %}<hr class="my-2">{% endif %}
+
+
+{% endwith %}

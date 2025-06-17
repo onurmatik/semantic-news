@@ -8,13 +8,5 @@ def video_detail(request, video_id):
 
     return render(request, 'youtube/video_detail.html', {
         'video': video,
-        'transcript': video.videotranscript_set.first(),
-    })
-
-
-@login_required
-def dashboard(request):
-    channels = Channel.objects.filter(id__in=request.user.userchannel_set.all().values_list('id', flat=True))
-    return render(request, 'dashboard/dashboard.html', {
-        'channels': channels,
+        'transcript': video.videotranscript,
     })

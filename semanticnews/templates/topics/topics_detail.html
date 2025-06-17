@@ -1,0 +1,1132 @@
+{% extends "base.html" %}
+
+{% load static i18n humanize markdown_extras %}
+
+{% block title %}{{ topic.get_name_i18n }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .custom-popover {
+      --bs-popover-max-width: 400px;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="d-flex border-bottom mb-3 pb-2">
+
+    <div data-topic-uuid="{{ topic.uuid }}">
+
+        <h3 class="fs-5 d-flex align-items-center">
+            {% if topic.event_date %}
+                <a class="text-info-emphasis text-decoration-none" href="{% url 'topics_month' year=topic.event_date.year month=topic.event_date.month %}?#d{{ topic.event_date.day }}">
+                    {{ topic.event_date|date }}
+                </a>
+                <span class="mx-2">
+                    &middot;
+                </span>
+            {% endif %}
+
+            <span class="d-md-inline">
+            {% for keyword in topic_category_keywords %}
+                <a href="{% url 'topics_detail' slug=keyword.slug %}" class="text-info-emphasis text-decoration-none">{{ keyword.get_name_i18n }}</a>
+                {% if not forloop.last %}
+                    &middot;
+                {% endif %}
+            {% endfor %}
+            </span>
+
+        </h3>
+
+        <h1 class="fs-3">
+
+            {{ topic.get_name_i18n }}
+
+            <small class="fs-5 ms-2">
+
+                {# Authenticated user #}
+                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
+                   class="authenticated-only d-none text-info-emphasis bi bi-bookmark"
+                ></a>
+
+                {# Anonymous user => login #}
+                <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to bookmark this topic" %}"
+                   class="anonymous-only d-none text-info-emphasis bi bi-bookmark-plus"
+                ></a>
+
+                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Copy link" %}"
+                   class="text-info-emphasis bi bi-link copy-link ms-1"
+                   data-url="{{ topic.get_absolute_url }}"></a>
+
+            </small>
+
+        </h1>
+
+    </div>
+
+    <div class="ms-auto mt-auto pb-2">
+        {# Authenticated user #}
+        <button class="authenticated-only d-none btn btn-outline-primary btn-sm" id="addArticleButton">
+            {% trans "Add content to topic" %}
+        </button>
+
+        {# Anonymous user => login #}
+        <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+           class="anonymous-only d-none btn btn-outline-secondary btn-sm"
+        >{% trans "Add content to topic" %}</a>
+    </div>
+
+</div>
+
+<div class="row">
+
+    <div class="col-12 col-lg-8">
+
+        <div class="d-flex align-items-center mb-3">
+
+            <span class="me-auto text-secondary small">
+                {% include 'topics/topic_info.html' %}
+            </span>
+
+        </div>
+
+        {% if topic.status == 'd' %}
+
+            <div class="alert alert-secondary my-3" role="alert">
+                {% trans "This topic is a draft. Please add content to improve." %}
+            </div>
+
+        {% endif %}
+
+        {% if pending_videos %}
+
+            <div class="alert alert-info my-3" role="alert">
+                {% trans "Some videos are still processing. They’ll be added to the topic if they’re relevant." %}
+            </div>
+
+        {% endif %}
+
+
+        {% if topic.image %}
+
+            <img src="{{ topic.image.url }}" class="w-100 img-fluid mb-2" alt="{{ topic.get_name_i18n }}">
+
+        {% endif %}
+
+        {% if topic.recaps.last %}
+            <p>
+                {{ topic.recaps.last.get_recap_i18n|markdownify|safe }}
+            </p>
+        {% endif %}
+
+
+        {% regroup topic.contents_by_month by month as month_groups %}
+
+        {% for month_group in month_groups %}
+            <h3 class="fs-5 border-bottom mt-4 mb-2">
+                {{ month_group.grouper|date:"F Y" }}
+            </h3>
+
+            {% for content in month_group.list %}
+
+                <div class="my-4">
+
+                    {% if content.topicarticle %}
+
+                        {% with article=content.topicarticle.article %}
+
+                            <h6 class="mb-0 fw-medium">
+                                <a href="{{ article.url }}" target="_blank" class="text-info-emphasis text-decoration-none">
+                                    {{ article.get_title_i18n }} <i class="bi bi-box-arrow-up-right small"></i>
+                                </a>
+                            </h6>
+
+                            <span class="text-decoration-none small text-secondary">
+                                {{ article.source|default:"" }}
+                                {% if article.source %}
+                                    &middot;
+                                {% endif %}
+                                {{ article.time|date }}
+                                &middot;
+                            </span>
+
+                            <i class="bi bi-person" tabindex="0"
+                                   data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                   data-bs-custom-class="custom-popover"
+                                   data-bs-content="{% trans "Added by" %}: {{content.topicarticle.added_by.profile}}"></i>
+
+                            <span class="small text-secondary">&middot;</span>
+
+                            <i class="{{ content.relevance_icon }}" tabindex="0"
+                                   data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                   data-bs-custom-class="custom-popover"
+                                   data-bs-content="{% trans "Relevance level" %}: {{ content.relevance_label }}"></i>
+
+                            <p class="small mt-1 mb-4">
+                                {{ article.get_summary_i18n }}
+                            </p>
+
+                        {% endwith %}
+
+                    {% elif content.topicvideo and content.topicvideo.processed and content.topicvideo.video_chunk %}
+
+                        {% with chunk=content.topicvideo.video_chunk %}
+                        {% with video=chunk.transcript.video %}
+
+                            <div class="row">
+
+                                <div class="col-5">
+                                    <div class="ratio ratio-16x9 w-100 mb-3">
+                                        <iframe class="w-100" src="{{ chunk.get_embed_url }}" allowfullscreen></iframe>
+                                    </div>
+                                </div>
+
+                                <div class="col-7">
+
+                                    <h6 class="mb-0 fw-medium">
+                                        <a href="{{ chunk.get_video_url }}" target="_blank"
+                                           class="text-info-emphasis text-decoration-none">
+                                            {{ video.title }} <i class="bi bi-box-arrow-up-right small"></i>
+                                        </a>
+                                    </h6>
+
+                                    <span class="text-decoration-none small text-secondary">
+                                        {{ video.channel }}
+                                        &middot;
+                                        {{ video.published_at|date }}
+                                        &middot;
+                                    </span>
+
+                                    <i class="bi bi-person" tabindex="0"
+                                           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                           data-bs-custom-class="custom-popover"
+                                           data-bs-content="{% trans "Added by" %}: {{content.topicvideo.added_by.profile}}"></i>
+
+                                    <span class="small text-secondary">&middot;</span>
+
+                                    <i class="{{ content.relevance_icon }}" tabindex="0"
+                                           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                           data-bs-custom-class="custom-popover"
+                                           data-bs-content="{% trans "Relevance level" %}: {{ content.relevance_label }}"></i>
+
+                                    <p class="mt-2 small text-secondary">
+                                        "... {{ chunk.revised_text|truncatewords_html:50|safe }}"
+                                    </p>
+                                </div>
+                            </div>
+
+                        {% endwith %}
+                        {% endwith %}
+
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        {% endfor %}
+
+
+        {% with similar_topics=topic.get_similar_topics %}
+
+            {% if similar_topics %}
+
+            <h3 class="fs-5 pb-2 mb-3 border-bottom">{% trans "Related topics" %}</h3>
+
+            <div class="row row-cols-1 row-cols-md-2 g-4 align-items-stretch">
+
+              {% for similar_topic in similar_topics %}
+                <div class="col d-flex">
+                  <div class="topic-card w-100 h-100 d-flex flex-column position-relative border-bottom pb-3">
+
+                    <!-- title -->
+                    <h5 class="fs-6">
+                      <a href="{{ similar_topic.get_absolute_url }}"
+                         class="text-body text-decoration-none">
+                        {{ similar_topic.get_name_i18n }}
+                      </a>
+                    </h5>
+
+                    <!-- meta -->
+                    <p class="card-text text-secondary small mb-0">
+                      {% blocktrans with created_date=similar_topic.created_at|date created_by=similar_topic.created_by %}
+                        Created on {{ created_date }} by {{ created_by }}.
+                      {% endblocktrans %}
+                      {% with item_count=similar_topic.contents.count contributor_count=similar_topic.contributors.count %}
+                        <br>
+                        {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}{% if contributor_count > 0 %},
+                        {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
+                      {% endwith %}
+                    </p>
+
+                    <!-- stretched link stays as-is -->
+                    <a href="{{ similar_topic.get_absolute_url }}" class="stretched-link"></a>
+                  </div>
+                </div>
+              {% endfor %}
+
+            </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+    </div>
+
+
+    <div class="col-12 col-lg-4">
+
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title fs-5">{% trans "Contributors" %}</h6>
+                <p class="card-text">
+                    {% for contributor in topic.contributors.all %}
+                        <a class="text-info-emphasis" href="{% url 'user_profile' username=contributor.username %}">{{ contributor.profile }}</a>
+                        {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </p>
+            </div>
+        </div>
+
+            <form method="post" action="{% url 'submit_topic_opinion' topic.uuid %}">
+                {% csrf_token %}
+
+                <div class="card mt-3">
+                    <div class="card-body">
+
+                        <h6 class="card-title fs-5">{% trans "Opinions" %}</h6>
+
+                        <div class="opinions">
+
+                            <div class="list-group list-group-flush mb-2">
+
+                                {% if agent_opinions %}
+                                    {% for a_opinion in agent_opinions %}
+                                        <span class="list-group-item small px-0">
+                                        {{ a_opinion.get_text_i18n }}
+                                    </span>
+                                    {% endfor %}
+                                {% endif %}
+
+                                {% if user_opinions %}
+                                    {% for u_opinion in user_opinions %}
+
+                                        <span class="list-group-item px-0">
+
+                                            <span class="small">
+                                                {{ u_opinion.get_text_i18n }}
+                                            </span>
+
+                                            <span class="d-flex align-items-center justify-content-between small">
+                                                <span class="text-secondary d-block">
+                                                    <a class="text-info-emphasis" href="{% url 'user_profile' username=u_opinion.created_by.username %}">{{ u_opinion.created_by.profile }}</a>
+                                                </span>
+                                                {% if u_opinion.updated_at %}
+                                                    <small
+                                                        class="text-secondary d-block"
+                                                        data-bs-toggle="tooltip"
+                                                        title="{% trans "Edited" %}: {{ u_opinion.updated_at|date }}">
+                                                        {{ u_opinion.created_at|date }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-secondary d-block">
+                                                        {{ u_opinion.created_at|date }}
+                                                    </small>
+                                                {% endif %}
+                                            </span>
+
+                                        </span>
+
+                                    {% endfor %}
+                                {% endif %}
+
+                            </div>
+
+                            {% if user_opinion %}
+
+                                <div
+                                    class="alert alert-light border-0 mb-0 user-opinion-container"
+                                    data-opinion-id="{{ user_opinion.id }}"
+                                >
+                                    <span class="d-flex align-items-center justify-content-between small">
+                                        <small class="text-secondary d-block">{% trans "Your opinion" %}</small>
+                                        {% if user_opinion.updated_at %}
+                                            <small
+                                                class="text-secondary d-block"
+                                                data-bs-toggle="tooltip"
+                                                title="{% trans "Edited" %}: {{ user_opinion.updated_at|date }}">
+                                                {{ user_opinion.created_at|date }}
+                                            </small>
+                                        {% else %}
+                                            <small class="text-secondary d-block">
+                                                {{ user_opinion.created_at|date }}
+                                            </small>
+                                        {% endif %}
+                                    </span>
+
+                                    <p class="d-flex align-items-center justify-content-between mb-0 mt-2">
+                                        <!-- the text -->
+                                        <span class="opinion-text">{{ user_opinion.get_text_i18n }}</span>
+
+                                        <!-- icons -->
+                                        <span class="edit-controls">
+                                          <span class="d-flex flex-column align-items-end">
+                                            <!-- edit -->
+                                            <a href="#" class="text-success-emphasis text-decoration-none edit-opinion-btn">
+                                              <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                              <!-- delete -->
+                                            <a href="#"
+                                               class="text-danger text-decoration-none delete-opinion-btn mt-1">
+                                              <i class="bi bi-trash"></i>
+                                            </a>
+                                          </span>
+                                        </span>
+                                    </p>
+                                </div>
+
+                            {% else %}
+
+                                <div class="user-input mx-1 position-relative">
+                                    <textarea
+                                        class="form-control"
+                                        name="user_opinion"
+                                        id="user_opinion"
+                                        rows="2"
+                                        maxlength="500"
+                                        placeholder="{% trans 'Add your opinion about this topic' %}..."
+                                    >{{ request.POST.user_opinion }}</textarea>
+
+                                    {# Authenticated user #}
+                                    <button
+                                        type="submit"
+                                        class="authenticated-only d-none btn btn-outline-success btn-sm position-absolute bottom-0 end-0 me-2 mb-2 p-1"
+                                        id="submitOpinionBtn"
+                                        disabled>
+                                        <span
+                                            id="submitSpinner"
+                                            class="spinner-border spinner-border-sm me-0 d-none"
+                                            role="status"
+                                            aria-hidden="true"
+                                        ></span>
+                                        <i class="bi bi-send"></i>
+                                    </button>
+
+                                    {# Anonymous user => login #}
+                                    <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add an opinion" %}"
+                                       class="anonymous-only d-none btn btn-outline-success btn-sm position-absolute bottom-0 end-0 me-2 mb-2 p-1"
+                                    ><i class="bi bi-send"></i></a>
+
+                                </div>
+
+                                <small
+                                    id="userOpinionHelp"
+                                    class="form-text text-danger d-none">
+                                    {% trans "The maximum character length is reached." %}
+                                </small>
+
+                            {% endif %}
+
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+        {% if timeline %}
+
+            <div class="card mt-3">
+
+              <div class="card-body">
+
+                <div class="card-title d-flex justify-content-between">
+                    <h6 class="fs-5">
+                        {% trans "Timeline" %}
+                    </h6>
+                </div>
+
+                <div class="position-relative mt-4">
+
+                {% for timeline_topic in timeline %}
+
+                  <div class="d-flex">
+                    <!-- Dot and Line -->
+                    <div class="position-relative me-3">
+                        <span class="position-absolute top-0 start-0 translate-middle {% if topic.id == timeline_topic.id %}bg-dark{% else %}bg-dark-subtle{% endif %} rounded-circle p-1">
+                        </span>
+                        <div class="h-100 border-start border-1 border-dark-subtle"></div>
+                    </div>
+                    <!-- Content -->
+                    <div class="{% if not forloop.last %}mb-4{% endif %}" style="margin-top: -.65rem;">
+                      <small class="text-secondary d-block">{{ timeline_topic.event_date }}</small>
+                      {% if topic.id == timeline_topic.id %}
+                          <span class="text-dark fw-semibold">
+                              {{ timeline_topic.name }}
+                          </span>
+                      {% else %}
+                          <a href="{{ timeline_topic.get_absolute_url }}" class="text-decoration-none text-info-emphasis">
+                              {{ timeline_topic.name }}
+                          </a>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                {% endfor %}
+
+                </div>
+
+              </div>
+
+            </div>
+
+        {% endif %}
+
+        <div class="card mt-3">
+
+            <div class="card-body">
+
+                <h6 class="card-title fs-5">{% trans "Suggested content" %}</h6>
+
+                {% if suggested_articles %}
+
+                    {% for suggested_article in suggested_articles %}
+
+                        <a href="{{ suggested_article.url }}" target="_blank"
+                           class="text-info-emphasis text-decoration-none">
+                            {{ suggested_article.get_title_i18n }} <i class="bi bi-box-arrow-up-right small"></i>
+                        </a>
+
+                        <br>
+
+                        <div class="d-flex justify-content-between">
+
+                            <span class="small text-secondary">
+                                <i class="bi bi-newspaper"></i>
+                                {{ suggested_article.source|default:"" }}
+                                {% if suggested_article.source %}
+                                    &middot;
+                                {% endif %}
+                                {{ suggested_article.time|date }}
+
+                            </span>
+
+                            {# Authenticated user #}
+                            <a href="#"
+                               class="authenticated-only d-none small add-to-topic-btn"
+                               data-type="article"
+                               data-id="{{ suggested_article.uuid }}">
+                                {% trans "Add to topic" %}
+                            </a>
+
+                            {# Anonymous user => login #}
+                            <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+                               class="anonymous-only d-none small"
+                            >{% trans "Add to topic" %}</a>
+
+                        </div>
+
+                        <hr>
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if suggested_rss_items %}
+
+                    {% for suggested_rss_item in suggested_rss_items %}
+
+                        <a href="{{ suggested_rss_item.link }}" target="_blank"
+                           class="text-info-emphasis text-decoration-none">
+                            {{ suggested_rss_item }} <i class="bi bi-box-arrow-up-right small"></i>
+                        </a>
+
+                        <br>
+
+                        <div class="d-flex justify-content-between">
+
+                            <span class="small text-secondary">
+                                {% if suggested_rss_item.source %}
+                                    <i class="bi bi-rss text-secondary" data-bs-toggle="tooltip" data-bs-title="RSS"></i>
+                                    {{ suggested_rss_item.source|default:"" }}
+                                    &middot;
+                                {% else %}
+                                    <i class="bi bi-rss text-secondary" data-bs-toggle="tooltip" data-bs-title="RSS"></i> &middot;
+                                {% endif %}
+                                {{ suggested_rss_item.published_date|date }}
+
+                            </span>
+
+                            {# Authenticated user #}
+                            <a href="#"
+                               class="authenticated-only d-none small add-to-topic-btn"
+                               data-type="rssitem"
+                               data-id="{{ suggested_rss_item.link }}">
+                                {% trans "Add to topic" %}
+                            </a>
+
+                            {# Anonymous user => login #}
+                            <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+                               class="anonymous-only d-none small"
+                            >{% trans "Add to topic" %}</a>
+
+                        </div>
+
+                        <hr>
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if suggested_videos %}
+
+                    {% for chunk in suggested_videos %}
+
+                        {% include "youtube/video_chunk_item.html" %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if not suggested_articles and not suggested_rss_items and not suggested_videos %}
+
+                    <p class="small">{% trans "No content found." %}</p>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+{% include "topics/add_content_modal.html" %}
+{% include "topics/user_article_confirm_modal.html" %}
+
+{% endblock %}
+
+
+{% block extra_js %}
+
+<script>
+    window.addArticleUrl = "{% url 'add_article' topic.uuid %}";
+    window.addVideoUrl = "{% url 'add_video' topic.uuid %}";
+    window.deleteOpinionUrl = "{% url 'delete_topic_opinion' topic.uuid %}";
+</script>
+
+<script>
+    // Sticky-top banner for every kind of topic update
+    function showUpdateBanner() {
+        // never create a second banner
+        if (document.getElementById('topic-update-banner')) return;
+
+        const div = document.createElement('div');
+        div.id = 'topic-update-banner';
+        div.className = 'alert alert-success text-center sticky-top shadow mb-0';
+        div.innerHTML = `
+    <strong>{% trans "Topic updated" %}</strong>
+    <button class="btn btn-sm btn-outline-light ms-2">
+      {% trans "Click to refresh" %}
+    </button>`;
+        div.querySelector('button').onclick = () => location.reload();
+        document.body.prepend(div);
+    }
+
+    function initializePopovers() {
+        const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl);
+        });
+    }
+</script>
+
+{% include "bookmarks_js.html" %}
+
+{% include "topics/add_content_js.html" %}
+
+<script>
+    // handle in‑page "Add to topic" links
+    document.querySelectorAll('.add-to-topic-btn').forEach(button => {
+        button.addEventListener('click', e => {
+            e.preventDefault();
+            const btn = e.currentTarget;
+            // prevent multiple clicks
+            if (btn.dataset.loading === 'true') return;
+            btn.dataset.loading = 'true';
+
+            // show inline spinner
+            const spinner = document.createElement('span');
+            spinner.className = 'spinner-border spinner-border-sm ms-1';
+            spinner.setAttribute('role', 'status');
+            spinner.setAttribute('aria-hidden', 'true');
+            btn.appendChild(spinner);
+
+            const type = btn.dataset.type; // 'article' or 'rssitem'
+            const id = btn.dataset.id; // uuid or link
+            const payload = type === 'rssitem'
+                ? {rssitem: id}
+                : {article: id};
+
+            fetch(addArticleUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    // remove spinner
+                    spinner.remove();
+
+                    if (data.error) {
+                        appendToast('{% trans "Error" %}', data.error, 'danger');
+                        // allow retry
+                        delete btn.dataset.loading;
+                    } else {
+                        appendToast('{% trans "Article added successfully" %}', data.message, 'success');
+                        // replace link with a green check icon
+                        const successIcon = document.createElement('i');
+                        successIcon.className = 'bi bi-check-circle-fill text-success ms-1';
+                        btn.replaceWith(successIcon);
+
+                        setTimeout(showUpdateBanner, 1000);
+                    }
+                    showToasts();
+                })
+                .catch(err => {
+                    spinner.remove();
+                    appendToast('{% trans "Error" %}', err.toString(), 'danger');
+                    // allow retry
+                    delete btn.dataset.loading;
+                    showToasts();
+                });
+        });
+    });
+
+
+    // OPINIONS
+
+    const EDIT_MAX_LEN = 500;
+
+    // Create Save/Cancel buttons for edit mode:
+    function createSaveBtn() {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-link p-0 text-success save-opinion-btn ms-1';
+      btn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+      btn.disabled = true;
+      return btn;
+    }
+
+    function createCancelBtn() {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-link p-0 text-secondary cancel-opinion-btn ms-1';
+      btn.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+      return btn;
+    }
+
+    // Enter “edit” mode: swap <span class="opinion-text"> → <textarea> + Save/Cancel
+    function enterEditMode(container) {
+        const opinionId = container.getAttribute('data-opinion-id');
+        const textSpan = container.querySelector('.opinion-text');
+        const originalText = textSpan.textContent.trim();
+
+        // Remove existing controls:
+        const controlsSpan = container.querySelector('.edit-controls');
+        controlsSpan.innerHTML = '';
+
+        // Create a <textarea> (max-length enforced):
+        const textarea = document.createElement('textarea');
+        textarea.className = 'form-control edit-opinion-textarea';
+        textarea.rows = 3;
+        textarea.maxLength = EDIT_MAX_LEN;
+        textarea.value = originalText;
+        textarea.style.resize = 'vertical';
+
+        // Replace <span class="opinion-text"> with the textarea:
+        textSpan.replaceWith(textarea);
+
+        // Create Save + Cancel buttons:
+        const saveBtn = createSaveBtn();
+        const cancelBtn = createCancelBtn();
+        const wrapper = document.createElement('span');
+        wrapper.className = 'opinion-edit-buttons d-flex flex-column align-items-end';
+        wrapper.appendChild(saveBtn);
+        wrapper.appendChild(cancelBtn);
+        controlsSpan.appendChild(wrapper);
+
+        // When typing, enable Save only if (trimmed length>0 && ≤ EDIT_MAX_LEN && changed)
+        textarea.addEventListener('input', () => {
+            const newVal = textarea.value.trim();
+            if (newVal.length > 0 && newVal.length <= EDIT_MAX_LEN && newVal !== originalText) {
+                saveBtn.disabled = false;
+            } else {
+                saveBtn.disabled = true;
+            }
+        });
+
+        // “Cancel” click: restore original <span> + edit icon
+        cancelBtn.addEventListener('click', () => {
+            exitEditMode(container, originalText);
+        });
+
+        // “Save” click: AJAX POST → /edit-opinion/ → on success, re‐insert final text
+        saveBtn.addEventListener('click', () => {
+            const newText = textarea.value.trim();
+            // Disable buttons while saving:
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            saveBtn.disabled = true;
+            cancelBtn.disabled = true;
+
+            fetch("{% url 'edit_topic_opinion' topic.uuid %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    opinion_id: opinionId,
+                    text: newText
+                }),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        saveBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                        cancelBtn.disabled = false;
+                        saveBtn.disabled = false;
+                        appendToast('{% trans "Error" %}', data.error, 'danger');
+                        showToasts();
+                    } else {
+                        exitEditMode(container, data.text);
+                        appendToast('{% trans "Opinion updated" %}', '{% trans "Your opinion was saved." %}', 'success');
+                        showToasts();
+                    }
+                })
+                .catch(err => {
+                    saveBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                    cancelBtn.disabled = false;
+                    saveBtn.disabled = false;
+                    appendToast('{% trans "Error" %}', err.toString(), 'danger');
+                    showToasts();
+                });
+        });
+    }
+
+    // Exit “edit” mode: swap <textarea> back → <span class="opinion-text"> + edit icon
+    function exitEditMode(container, finalText) {
+        const textarea = container.querySelector('.edit-opinion-textarea');
+        const newSpan = document.createElement('span');
+        newSpan.className = 'opinion-text';
+        newSpan.textContent = finalText;
+
+        textarea.replaceWith(newSpan);
+
+        const controlsSpan = container.querySelector('.edit-controls');
+        controlsSpan.innerHTML = `
+    <span class="d-flex flex-column align-items-end">
+      <a href="#" class="text-success-emphasis text-decoration-none edit-opinion-btn">
+        <i class="bi bi-pencil-square"></i>
+      </a>
+      <a href="#" class="text-danger text-decoration-none delete-opinion-btn mt-1">
+        <i class="bi bi-trash"></i>
+      </a>
+    </span>
+  `;
+        attachEditListenerTo(container);
+        attachDeleteListenerTo(container);
+    }
+
+    // Listener helpers
+    function attachEditListenerTo(container) {
+        if (!container) return;
+        const editBtn = container.querySelector('.edit-opinion-btn');
+        if (!editBtn) return;
+
+        editBtn.addEventListener('click', e => {
+            e.preventDefault();
+            enterEditMode(container);
+        });
+    }
+
+    function attachDeleteListenerTo(container) {
+        if (!container) return;
+        const delBtn = container.querySelector('.delete-opinion-btn');
+        if (!delBtn) return;
+
+        delBtn.addEventListener('click', async e => {
+            e.preventDefault();
+
+            if (!window.deleteOpinionUrl) {
+                console.error('deleteOpinionUrl not defined');
+                return;
+            }
+            if (!confirm("{% trans 'Delete your opinion permanently?' %}")) return;
+
+            // spinner in place of the icon
+            if (delBtn.dataset.loading) return;
+            delBtn.dataset.loading = 'true';
+            delBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            const opinionId = container.getAttribute('data-opinion-id');
+            try {
+                const res = await fetch(window.deleteOpinionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({opinion_id: opinionId})
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    appendToast('{% trans "Error" %}', data.error, 'danger');
+                    delBtn.dataset.loading = '';
+                    delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                } else {
+                    // Remove the opinion block
+                    container.remove();
+                    appendToast('{% trans "Opinion deleted" %}', data.message, 'success');
+
+                    // Re-add the textarea so the user can post another opinion
+                    const opinionsDiv = document.querySelector('.opinions');
+                    if (opinionsDiv && !opinionsDiv.querySelector('#user_opinion')) {
+                        opinionsDiv.insertAdjacentHTML('beforeend', `
+  <div class="user-input mx-1 position-relative">
+    <textarea
+      class="form-control"
+      name="user_opinion"
+      id="user_opinion"
+      rows="2"
+      maxlength="500"
+      placeholder="{% trans 'Add your opinion about this topic' %}..."
+    ></textarea>
+    <button
+      type="submit"
+      class="authenticated-only d-none btn btn-outline-success btn-sm position-absolute bottom-0 end-0 me-2 mb-2 p-1"
+      id="submitOpinionBtn" disabled>
+      <span id="submitSpinner" class="spinner-border spinner-border-sm me-0 d-none"
+            role="status" aria-hidden="true"></span>
+      <i class="bi bi-send"></i>
+    </button>
+    <a href="{% url 'login_form' %}" data-bs-toggle="tooltip"
+       data-bs-title="{% trans 'Login to add an opinion' %}"
+       class="anonymous-only d-none btn btn-outline-success btn-sm position-absolute bottom-0 end-0 me-2 mb-2 p-1">
+       <i class="bi bi-send"></i></a>
+  </div>
+  <small id="userOpinionHelp" class="form-text text-danger d-none">
+    {% trans "The maximum character length is reached." %}
+  </small>
+          `);
+                        // if the user is authenticated, reveal the button immediately
+                        const newSubmitBtn = opinionsDiv.querySelector('#submitOpinionBtn');
+                        if (newSubmitBtn && {{ user.is_authenticated|yesno:"true,false" }}) {
+                            newSubmitBtn.classList.remove('d-none');
+                        }
+                        // Re-initialise form controls for the new textarea
+                        initialiseOpinionForm();
+                    }
+                }
+            } catch (err) {
+                appendToast('{% trans "Error" %}', err.message, 'danger');
+                delBtn.dataset.loading = '';
+                delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            } finally {
+                showToasts();
+            }
+        });
+    }
+
+    // helper: (re)-initialise the “add opinion” textarea
+    function initialiseOpinionForm() {
+        const textarea = document.getElementById("user_opinion");
+        if (!textarea) return;
+
+        const form = textarea.closest('form');
+        /* guard so we don’t wire the same form twice */
+        if (!form || form.dataset.initialised === "true") return;
+        form.dataset.initialised = "true";
+
+        const submitBtn = document.getElementById("submitOpinionBtn");
+        const submitSpinner = document.getElementById("submitSpinner");
+        const userOpinionHelp = document.getElementById("userOpinionHelp");
+        const maxLen = 500;
+
+        /* enable / disable send button + length warning */
+        function updateButtonState() {
+            userOpinionHelp?.classList.toggle("d-none", textarea.value.length < maxLen);
+            submitBtn.disabled = textarea.value.trim().length === 0;
+        }
+
+        textarea.addEventListener("input", updateButtonState);
+        updateButtonState();
+
+        /* intercept submit */
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitSpinner.classList.remove("d-none");
+
+            try {
+                const res = await fetch(form.action, {
+                    method: "POST",
+                    headers: {"X-CSRFToken": getCookie("csrftoken")},
+                    body: new FormData(form),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    appendToast("{% trans 'Info' %}", data.message, "success");
+
+                    /* replace textarea with opinion block */
+                    textarea.closest(".user-input").outerHTML = `
+    <div class="alert alert-light border-0 mb-0 user-opinion-container"
+         data-opinion-id="${data.id}">
+      <span class="d-flex align-items-center justify-content-between small">
+        <small class="text-secondary d-block">{% trans "Your opinion" %}</small>
+        <small class="text-secondary d-block">{% now "j F Y" %}</small>
+      </span>
+      <p class="d-flex align-items-center justify-content-between mb-0 mt-2">
+        <span class="opinion-text">${textarea.value.replace(/\n/g, "<br>")}</span>
+        <span class="edit-controls">
+          <span class="d-flex flex-column align-items-end">
+            <a href="#" class="text-success-emphasis text-decoration-none edit-opinion-btn">
+              <i class="bi bi-pencil-square"></i>
+            </a>
+            <a href="#" class="text-danger text-decoration-none delete-opinion-btn mt-1">
+              <i class="bi bi-trash"></i>
+            </a>
+          </span>
+        </span>
+      </p>
+    </div>`;
+
+                    const newContainer = document.querySelector(".user-opinion-container");
+                    attachEditListenerTo(newContainer);
+                    attachDeleteListenerTo(newContainer);
+                } else {
+                    appendToast("{% trans 'Error' %}", data.error || "{% trans 'Unexpected error.' %}", "danger");
+                }
+            } catch (err) {
+                appendToast("{% trans 'Error' %}", err.message, "danger");
+            } finally {
+                submitSpinner.classList.add("d-none");
+                updateButtonState();
+                showToasts();
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // (re)-initialise the textarea + submit handler
+        initialiseOpinionForm();
+
+        initializePopovers();
+
+        // On page‐load, attach to any existing .user-opinion-container
+        document.querySelectorAll('.user-opinion-container')
+                .forEach(container => {
+                  attachEditListenerTo(container);
+                  attachDeleteListenerTo(container);
+                });
+
+
+        // handle in‑page "Add to topic" links for videos
+        const buttons = document.querySelectorAll('.add-video-btn');
+        if (!buttons.length) return;
+
+        // must be injected by the template:
+        const addVideoUrl = window.addVideoUrl;
+        if (!addVideoUrl) return console.error("addVideoUrl not set");
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.preventDefault();
+                if (btn.dataset.loading) return;
+                btn.dataset.loading = 'true';
+
+                // spinner
+                const spinner = document.createElement('span');
+                spinner.className = 'spinner-border spinner-border-sm ms-1';
+                spinner.setAttribute('role', 'status');
+                spinner.setAttribute('aria-hidden', 'true');
+                btn.appendChild(spinner);
+
+                const chunk_id = btn.dataset.id;
+                try {
+                    const res = await fetch(addVideoUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
+                        body: JSON.stringify({ chunk_id: chunk_id }),
+                    });
+                    const data = await res.json();
+                    spinner.remove();
+
+                    if (data.error) {
+                        appendToast('Error', data.error, 'danger');
+                        delete btn.dataset.loading;
+                    } else {
+                        appendToast('{% trans "Video added successfully" %}', data.message, 'success');
+                        const icon = document.createElement('i');
+                        icon.className = 'bi bi-check-circle-fill text-success ms-1';
+                        btn.replaceWith(icon);
+
+                        setTimeout(showUpdateBanner, 1000);
+                    }
+                } catch (err) {
+                    spinner.remove();
+                    appendToast('Error', err.message, 'danger');
+                    delete btn.dataset.loading;
+                } finally {
+                    showToasts();
+                }
+            });
+        });
+    });
+</script>
+
+
+{% if not topic.name_en %}
+    <script>
+        (function () {
+            const checkEveryMs = 5000;      // poll every 5 s
+            const timeoutMs = 20000;     // stop after 20 s
+            const statusUrl = `{% url 'topic_translation_status' topic_uuid=topic.uuid %}`;
+
+            let timer = null;
+            let timeoutId = null;
+
+            async function poll() {
+                try {
+                    const r = await fetch(statusUrl, {credentials: "same-origin"});
+                    if (!r.ok) return;                       // ignore 5xx, etc.
+                    const data = await r.json();
+                    if (data.translated) {
+                        clearInterval(timer);
+                        clearTimeout(timeoutId);
+                        showUpdateBanner();
+                    }
+                } catch (_) { /* network hiccup — ignore */
+                }
+            }
+
+            timer = setInterval(poll, checkEveryMs);
+            timeoutId = setTimeout(() => {
+                clearInterval(timer);
+            }, timeoutMs);
+        })();
+    </script>
+{% endif %}
+
+{% endblock %}

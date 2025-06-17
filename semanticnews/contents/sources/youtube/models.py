@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from django.urls import reverse
 from django.utils.functional import cached_property
 from django.utils import timezone as django_timezone
 from django.db import models, transaction
@@ -116,9 +117,15 @@ class Video(models.Model):
             from .tasks import fetch_transcript
             fetch_transcript.delay_on_commit(self.pk)
 
+    def get_absolute_url(self):
+        return reverse('video_detail', kwargs={'video_id': self.video_id})
+
     @cached_property
-    def video_url(self):
+    def get_video_url(self):
         return f"https://www.youtube.com/watch?v={self.video_id}"
+
+    def get_embed_url(self):
+        return f"https://www.youtube.com/embed/{self.video_id}"
 
     def fetch_transcript(self):
         """Fetch and store the transcript for the video in the database."""
@@ -179,6 +186,21 @@ class VideoTranscript(models.Model):
         if not VideoTranscriptChunk.objects.filter(transcript=self).exists():
             from .tasks import create_transcript_chunks
             create_transcript_chunks.delay_on_commit(self.pk)
+
+    def get_non_overlapping_chunks(self, overlap=1000):
+        """Return transcript chunks with the leading overlap removed."""
+        cleaned = []
+        for i, chunk in enumerate(self.chunks.all()):
+            text = chunk.revised_text or ""
+            if i > 0:
+                text = text[overlap:]
+            cleaned.append({"start_time": chunk.start_time, "text": text})
+        return cleaned
+
+    @property
+    def revised_transcript(self) -> str:
+        """Concatenate all revised chunks dropping overlaps."""
+        return "".join(c["text"] for c in self.get_non_overlapping_chunks())
 
     def create_chunks(self, size=3000, overlap=1000):
         # Clear existing chunks to avoid duplicates when re-running.

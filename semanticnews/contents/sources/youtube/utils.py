@@ -1,31 +1,29 @@
-import random
-
 from django.conf import settings
 from youtube_transcript_api import (
     TranscriptsDisabled, NoTranscriptFound, AgeRestricted, VideoUnplayable, VideoUnavailable,
     InvalidVideoId, RequestBlocked, IpBlocked, YouTubeRequestFailed, NotTranslatable,
     TranslationLanguageNotAvailable, FailedToCreateConsentCookie, CouldNotRetrieveTranscript, YouTubeTranscriptApi
 )
+from youtube_transcript_api.proxies import GenericProxyConfig
 from django.utils.translation import gettext_lazy as _
 
 
-PROXIES_LIST = None
-if settings.PROXY_ENDPOINTS:
-    PROXIES_LIST = [
-        {"http": url, "https": url}
-        for url in settings.PROXY_ENDPOINTS
-    ]
+proxy_config = None
+proxy_endpoint = getattr(settings, 'PROXY_ENDPOINT', None)
+
+if proxy_endpoint:
+    proxy_config = GenericProxyConfig(
+        http_url=proxy_endpoint,
+        https_url=proxy_endpoint,  # this also uses the http endpoint
+    )
 
 
 def list_youtube_transcripts(video_id):
     """
     Try to list YouTube transcripts, using a random proxy.
     """
-    proxies = random.choice(PROXIES_LIST) if PROXIES_LIST else None
-    return YouTubeTranscriptApi.list_transcripts(
-        video_id,
-        proxies=proxies,
-    )
+    ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config)
+    return ytt_api.list(video_id)
 
 
 def map_transcript_exception(exc) -> (str, str):
