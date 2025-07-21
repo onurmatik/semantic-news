@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+
+{% load static i18n %}
+
+{% get_current_language as CURRENT_LANGUAGE %}
+
+<html lang="{{ CURRENT_LANGUAGE }}">
+
+<head>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C9TRTE9EGK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-C9TRTE9EGK');
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/x-icon" href="{% static 'gi-logo.png' %}">
+
+    <title>{% block title %}Genel İzleyici{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <!--link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet"-->
+    <!--link href="https://bootswatch.com/5/sandstone/bootstrap.min.css" rel="stylesheet"-->
+    <link href="{% static 'theme/bootstrap.min.css' %}" rel="stylesheet">
+
+    <link href="https://fastly.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <!-- ECharts -->
+    <script src="https://fastly.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://fastly.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Mustache.js -->
+    <script src="https://fastly.jsdelivr.net/npm/mustache@4.2.0/mustache.min.js"></script>
+
+
+    <style>
+        .dropdown-submenu {
+            position: relative;
+        }
+
+        .dropdown-submenu .dropdown-menu {
+            top: 0;
+            left: 100%;
+            margin-top: -6px;
+        }
+
+        .form-check-input {
+            border-color: #f8f9fa; /* Light color, you can adjust as needed */
+        }
+
+        .form-check-input:checked {
+            background-color: #198754; /* Light color, you can adjust as needed */
+        }
+
+        .form-check-input:focus {
+            border-color: #f8f9fa; /* Keep the border color consistent */
+            box-shadow: none; /* Remove the default focus box-shadow */
+        }
+
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+
+    <nav class="navbar navbar-expand bg-dark small mb-2" data-bs-theme="dark">
+        <div class="container">
+
+            <ul class="navbar-nav me-auto">
+
+                {% comment %}
+                <li class="nav-item">
+                    <div class="form-check form-switch text-light shadow-none mb-0">
+                        <input class="form-check-input shadow-none" type="checkbox" role="switch" id="flexSwitchCheckDefault">
+                        <label class="form-check-label" for="flexSwitchCheckDefault">{% trans "Enable notifications" %}</label>
+                    </div>
+                </li>
+                {% endcomment %}
+
+                <li class="nav-item dropdown mx-2">
+
+                    <a class="nav-link p-0 active" role="button" data-bs-toggle="dropdown" href="#">
+                        <i class="bi bi-globe"></i>
+                        {{ CURRENT_LANGUAGE|upper }}
+                    </a>
+
+                    <ul class="dropdown-menu">
+                        <li>
+                            <form action="{% url 'set_lang' %}" method="post">
+                                {% csrf_token %}
+                                <input name="next" type="hidden"
+                                       value="{% if request.get_full_path == '/nedir/' %}/en/nedir/{% elif request.get_full_path == '/cerezler/' %}/en/cerezler/{% elif request.get_full_path == '/gizlilik/' %}/en/gizlilik/{% else %}{{ request.get_full_path }}{% endif %}">
+                                <button name="language" type="submit" value="en" class="dropdown-item">
+                                    English
+                                </button>
+                            </form>
+                        </li>
+                        <li>
+                            <form action="{% url 'set_lang' %}" method="post">
+                                {% csrf_token %}
+                                <input name="next" type="hidden" value="{% if request.get_full_path|slice:':4' == '/en/' %}{{ request.get_full_path|slice:'3:' }}{% endif %}">
+                                <button name="language" type="submit" value="tr" class="dropdown-item">
+                                    Türkçe
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+
+                </li>
+
+                <!-- About Page -->
+                <li class="nav-item mx-2">
+                    <a class="nav-link p-0 active"
+                    {% if CURRENT_LANGUAGE == "en" %}
+                       href="/en/nedir/"
+                    {% else %}
+                       href="/nedir/"
+                    {% endif %}
+                    >
+                        <i class="bi bi-info-circle"></i>
+                    </a>
+                </li>
+
+
+            </ul>
+
+            <ul class="navbar-nav ms-auto">
+
+                <li class="nav-item mx-2">
+                    <a id="btnOffcanvasMenu" class="nav-link p-0 active" aria-current="page" href="#bookmarksOffcanvas" data-bs-toggle="offcanvas">
+                        <i class="bi bi-bookmark"></i>
+                    </a>
+                </li>
+
+                <li class="nav-item dropdown mx-2">
+
+                    <a class="nav-link p-0 active" role="button" data-bs-toggle="dropdown" href="#">
+                        <i class="bi bi-person-fill"></i>
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end">
+
+                        <li class="authenticated-only d-none">
+                            {% if request.user.is_authenticated %}
+                                <a href="{% url 'user_profile' username=request.user.username %}" class="dropdown-item">
+                                    {% trans "Profile" %}
+                                </a>
+                                <a href="{% url 'profile_settings' %}" class="dropdown-item">
+                                    {% trans "Settings" %}
+                                </a>
+                            {% endif %}
+                        </li>
+
+                        <li class="authenticated-only d-none">
+                            <a href="{% url 'logout' %}" class="dropdown-item">
+                                {% trans "Logout" %}
+                            </a>
+                        </li>
+
+                        <li class="anonymous-only d-none">
+                            <a class="dropdown-item" href="{% url 'login_form' %}">{% trans "Login" %}</a>
+                        </li>
+
+                    </ul>
+
+                </li>
+
+            </ul>
+
+        </div>
+    </nav>
+
+
+    <nav class="navbar navbar-expand-lg navbar-light nav-underline">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <img src="{% static 'gi-logo.png' %}" alt="Logo" width="64" height="64" class="me-2">
+                <!--img src="{% static 'logo-2.png' %}" alt="Logo" width="" height="64" class="me-2"-->
+                <span class="lead fs-4">Genel İzleyici</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mr-auto me-auto">
+
+                    <li class="nav-item dropdown mx-2">
+                        <a class="nav-link" href="{% url 'topics_detail' slug='siyaset' %}">
+                            {% trans "Politics" %}
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown mx-2">
+                        <a class="nav-link" href="{% url 'topics_detail' slug='ekonomi' %}">
+                            {% trans "Economy" %}
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown mx-2">
+                        <a class="nav-link" href="{% url 'topics_detail' slug='teknoloji' %}">
+                            {% trans "Technology" %}
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown mx-2">
+                        <a class="nav-link" href="{% url 'topics_detail' slug='cevre' %}">
+                            {% trans "Environment" %}
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown mx-2">
+                        <a class="nav-link" href="{% url 'topics_detail' slug='dunya' %}">
+                            {% trans "World" %}
+                        </a>
+                    </li>
+
+                </ul>
+
+                <!-- Search form -->
+                <form action="{% url 'topics_search_results' %}" class="d-flex flex-fill justify-content-end" autocomplete="off" id="navSearchForm">
+                    <div class="input-group w-75">
+                        <!-- Spinner Element (initially hidden) -->
+                        <span id="searchSpinner" class="input-group-text border-0 rounded-0 bg-white" style="display:none;">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        </span>
+                        <input name="q" autocomplete="off" required value="{{ search_query }}" class="form-control shadow-none border-0 border-bottom rounded-0" type="search" placeholder="{% trans 'Search' %}" aria-label="Search">
+                        <span class="input-group-text border-0 border-bottom rounded-0 bg-white">
+                            <i class="bi bi-search"></i>
+                        </span>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="container mt-md-4 mb-4">
+        {% block content %}
+        <!-- Default content will go here if none is provided -->
+        {% endblock %}
+    </div>
+
+
+<div aria-live="polite" aria-atomic="true" class="position-relative">
+    <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-4">
+    </div>
+</div>
+
+
+
+<div class="offcanvas offcanvas-start" tabindex="-1" id="bookmarksOffcanvas" aria-labelledby="offcanvasLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasLabel">{% trans "Bookmarks" %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body" id="bookmarks-offcanvas-body">
+    </div>
+</div>
+
+{% include 'cookie_consent_modal.html' %}
+
+<script src="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+
+
+<script>
+
+    // Loading bookmarks offcanvas on menu button click
+
+    var btnOffcanvasMenu = document.getElementById('btnOffcanvasMenu');
+
+    btnOffcanvasMenu.addEventListener('click', function (event) {
+
+        // Fetch the offcanvas contents via AJAX
+        fetch(`{% url 'bookmarks_offcanvas_body' %}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'  // Indicate that this is an AJAX request
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update the offcanvas content with the bookmarks
+            document.querySelector('#bookmarks-offcanvas-body').innerHTML = data.html;
+        })
+        .catch(error => {
+            console.error('Error fetching bookmarks:', error);
+        });
+
+    });
+
+</script>
+
+
+<script>
+
+    // Show the elements that depend on the user authentication status
+
+    fetch(`{% url 'get_username' %}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'  // Indicate that this is an AJAX request
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        // User is authenticated
+
+        document.querySelectorAll('.authenticated-only').forEach(function (el) {
+            el.classList.remove('d-none');
+        });
+
+    })
+    .catch(error => {
+
+        // User is not authenticated
+
+        document.querySelectorAll('.anonymous-only').forEach(function (el) {
+            el.classList.remove('d-none');
+        });
+
+    });
+
+
+</script>
+
+
+<script>
+
+// Show messages as toasts
+
+function appendToast(title, body, style) {
+    var toastHtml = `<div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="3000">
+        <div class="toast-header text-${style}-emphasis">
+            <strong class="me-auto">${title}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">${body}</div>
+    </div>`;
+
+    $('#toast-container').append(toastHtml);
+}
+
+function showToasts() {
+    var toasts = document.querySelectorAll('.toast-container .toast');
+    toasts.forEach(function(toastNode) {
+        var toast = new bootstrap.Toast(toastNode);
+
+        // Attach an event listener to remove the toast from the DOM once it's hidden
+        toastNode.addEventListener('hidden.bs.toast', function () {
+            toastNode.remove();
+        });
+
+        // Show the toast
+        toast.show();
+    });
+}
+
+$(document).ready(function(){
+    $.ajax({
+        url: '{% url "get_messages" %}',
+        type: 'GET',
+        success: function(data) {
+            if(data.messages){
+                data.messages.forEach(function(msg){
+                    appendToast(msg.title, msg.body, msg.style);
+                });
+                showToasts();
+            }
+        },
+        error: function(){
+            console.log('Error: Could not retrieve messages.');
+        }
+    });
+});
+
+</script>
+
+
+<script>
+// Handle copy to clipboard buttons
+document.addEventListener('DOMContentLoaded', () => {
+    const copyLinkIcons = document.querySelectorAll('.copy-link');
+    copyLinkIcons.forEach(copyLinkIcon => {
+        copyLinkIcon.addEventListener('click', function(e) {
+            e.preventDefault();
+            hideTooltip(copyLinkIcon);
+
+            // Retrieve the URL from the data attribute of the clicked element
+            const relativeUrl = this.getAttribute('data-url');
+            const fullUrl = window.location.origin + relativeUrl;
+            navigator.clipboard.writeText(fullUrl)
+                .then(() => {
+                    // Show the success message
+                    appendToast('{% trans "Success" %}', 'Link copied to clipboard.', 'success');
+                    showToasts();
+                })
+                .catch((err) => {
+                    console.error('Error copying link: ', err);
+                });
+        });
+    });
+});
+
+</script>
+
+
+<script>
+// Navbar search form spinner functionality
+document.addEventListener("DOMContentLoaded", function() {
+    const navSearchForm = document.getElementById("navSearchForm");
+    const searchInput = navSearchForm.querySelector('input[name="q"]');
+    const searchSpinner = document.getElementById("searchSpinner");
+
+    navSearchForm.addEventListener("submit", function() {
+        searchSpinner.style.display = "inline-flex";
+    });
+
+    window.addEventListener('pageshow', () => {
+        searchSpinner.style.display = 'none';
+        searchInput.value = '';
+    });
+});
+</script>
+
+
+{% if error_message %}
+    <script>
+        appendToast('{% trans "Error" %}', '{{ error_message|escapejs }}', 'danger');
+        showToasts();
+    </script>
+{% endif %}
+
+
+{% block extra_js %}{% endblock %}
+
+
+<script>
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+
+    function hideTooltip(element) {
+        const tooltipInstance = bootstrap.Tooltip.getInstance(element);
+        if (tooltipInstance) {
+            tooltipInstance.hide();
+        }
+    }
+
+    function disposeTooltip(el) {
+        const instance = bootstrap.Tooltip.getInstance(el);
+        if (instance) {
+            instance.dispose();
+        }
+    }
+
+    function disposeTooltips(element) {
+        const tooltipElements = element.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipElements.forEach((el) => {
+            const tooltipInstance = bootstrap.Tooltip.getInstance(el);
+            if (tooltipInstance) {
+                tooltipInstance.dispose();
+            }
+        });
+    }
+</script>
+
+
+</body>
+
+</html>

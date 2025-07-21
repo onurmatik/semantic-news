@@ -32,8 +32,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'semanticnews.topics',
     'semanticnews.users',
+    'semanticnews.topics',
+    'semanticnews.incidents',
 
     'semanticnews.contents',
     'semanticnews.contents.sources.rss',
