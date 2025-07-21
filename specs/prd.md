@@ -41,13 +41,14 @@ Topics represent a curated collection of related events or content. They can var
 #### Requirements
 
 - Users create and own topics.
-- Topics are **unique per user** (URL structure: `/username/topic-slug/`).
+- Topics are **unique per user** and published under a canonical URL: `/username/topic-slug/`.
+- Topics can start in **draft** mode. Once published, they are **public** and cannot be made private.
 - Topics can be **edited** by the creator and **collaboratively updated** by others.
 - Topic metadata includes:
   - Title
   - Description
   - Tags
-  - Visibility (Public / Private)
+  - Status: Draft / Published
 
 ### 2. Content
 
@@ -55,13 +56,11 @@ Content is any external URL representing a piece of news, video, blog post, etc.
 
 #### Requirements
 
-- Periodic fetching from predefined sources:
-  - RSS feeds
-  - YouTube channel transcripts
-- User can manually add content via URL input.
-- Platform performs **relevance checks** between content and topic (based on semantic embeddings).
-- Irrelevant content may be rejected based on a configurable threshold.
-- Each content entry stores:
+- Periodic fetching from predefined sources (RSS feeds, YouTube channels).
+- Users can manually add content by submitting URLs.
+- All content entries are **globally unique** by URL.
+- For the MVP, relevance checks are **not enforced**.
+- Each content object includes:
   - URL
   - Title
   - Date
@@ -71,7 +70,7 @@ Content is any external URL representing a piece of news, video, blog post, etc.
 
 ### 3. Annotations
 
-Annotations are **modular summaries and visualizations** generated for a topic by processing its content.
+Annotations are summaries, visualizations, or derived metadata based on the topic’s content.
 
 #### Examples
 
@@ -83,61 +82,70 @@ Annotations are **modular summaries and visualizations** generated for a topic b
 
 #### Requirements
 
-- Modular: annotations can be added or removed by topic owner.
-- Dynamically updated when new content is added.
-- Open for community suggestions and enhancements.
+- Modular: annotations can be added or removed by the topic owner.
+- Some annotations are generated **automatically** on topic updates (e.g., recaps).
+- Others can be **manually added** via UI.
+- Annotation generation is handled by **Celery background tasks**.
+- Community suggestions for annotations are possible.
 
 ### 4. Collaboration Model
 
-Inspired by Git workflows, adapted with natural language for non-technical users.
+Inspired by Git-style collaboration, adapted for non-technical users.
 
 #### Workflow
 
 - A user creates a topic.
-- Another user can **fork** the topic and modify its content relationships.
-- The forked version can be submitted as a **merge suggestion** (PR equivalent).
-- The original topic owner can:
+- Other users can **fork** the topic and modify associated content.
+- Forks can be submitted as **update suggestions**.
+- Topic owners can:
   - Accept or reject the update
-  - Merge contributions
+  - Merge parts or all of the contribution
   - Add contributor credits
-- Forked topics can **sync** with the original topic if updates occur.
-- UI uses human-friendly terminology (e.g., “Suggest update” instead of “Pull request”).
+- Forks can **sync** updates from the original topic.
+- MVP does **not** include diff/compare UI.
 
 ### 5. Opinions and Comments
 
-Users can:
+Users can contribute by commenting on:
 
-- Comment on:
-  - Specific content items
-  - Annotations
-  - Overall topic
-- Upvote or react to opinions.
-- Topic owners can **accept** external opinions and embed them into the topic.
+- Individual content items
+- Annotations
+- Entire topics
+
+Topic owners may choose to **accept** user comments into the topic display.
 
 ---
 
 ## User Roles
 
-- **Anonymous Visitors**: View public topics and content.
+- **Anonymous Visitors**:
+  - Browse and view topics and their content
+
 - **Registered Users**:
   - Create topics
-  - Add and annotate content
-  - Comment and suggest updates to others' topics
+  - Add content to topics
+  - Add or remove annotations
+  - Fork topics and suggest updates
+  - Comment on content and annotations
+
 - **Topic Owners**:
   - Moderate contributions
-  - Accept/merge suggested updates
+  - Accept/merge suggestions
   - Enable/disable annotations
+  - Manage topic status (draft/published)
 
 ---
 
 ## MVP Scope
 
-- User registration and profile
-- Topic creation and per-user uniqueness
-- Content ingestion (manual + automated)
-- Basic relevance filtering using embeddings
-- Annotation engine (with recap + timeline)
-- Fork-and-suggest-update flow
-- Comments on content and annotations
+- User registration and profiles
+- Topic creation with draft/publish flow
+- Globally unique content model
+- Manual content addition and periodic fetching from predefined sources
+- Basic annotation engine (recap + timeline)
+- Background job processing via Celery
+- Fork and suggest update flow (no comparison UI)
+- Commenting on topics, content, and annotations
+- AI-based moderation for content and suggestions
 
 ---
