@@ -12,19 +12,6 @@ from semanticnews.users.models import User
 from ..utils import translate, get_relevance
 
 
-def slugify_topic(name, event_date=None):
-    if event_date:
-        slug = slugify(
-            f'{name} '
-            f'{event_date.strftime("%-d")} '
-            f'{_(event_date.strftime("%B"))} '
-            f'{event_date.strftime("%Y")}'
-        )
-    else:
-        slug = slugify(name)
-    return slug
-
-
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=200)
@@ -65,7 +52,7 @@ class Topic(models.Model):
             self.embedding = self.get_embedding()
 
         if not self.slug:
-            self.slug = slugify_topic(self.name, self.event_date)
+            self.slug = slugify(self.name)
 
         super().save(*args, **kwargs)
 

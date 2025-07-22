@@ -17,9 +17,10 @@ from django.utils.translation import gettext as _
 from django.db.models import Q, Count, ExpressionWrapper, F, Func, Value, DurationField, FloatField
 from googleapiclient.discovery import build
 from pgvector.django import L2Distance
+from slugify import slugify
 
 from .agents import TopicListSuggestionAgent, TopicEvaluationAgent, TopicCreationAgent, TopicSuggestionAgent
-from .models import Topic, Keyword, TopicSearchTerm, slugify_topic, TopicArticle, TopicVideo, TopicContent
+from .models import Topic, Keyword, TopicSearchTerm, TopicArticle, TopicVideo, TopicContent
 from .utils import add_article_to_topic, get_or_create_article_from_rssitem, add_video_to_topic, ensure_keyword, \
     build_recommendations, valid_suggestion_token, make_suggestion_token
 from ..news.agents import FetchUserNewsAgent
@@ -390,11 +391,12 @@ async def create_new_topic(request):
     categories = topic_schema.categories
     significance = topic_schema.significance
 
-    # Generate slug
-    topic_slug = slugify_topic(parsed_name, event_date=event_date)
-
     # Check if the topic exists
-    topic = await Topic.objects.filter(slug=topic_slug).afirst()
+    topic = await Topic.objects.filter(
+        slug=slugify(parsed_name),
+        created_by=request.user,
+    ).afirst()
+
     if not topic:
         # Create a new topic
         topic = await Topic.objects.acreate(
