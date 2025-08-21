@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% load static i18n humanize markdown_extras %}
+
+{% block title %}{{ topic.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .custom-popover {
+      --bs-popover-max-width: 400px;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="d-flex border-bottom mb-3 pb-2">
+
+    <div data-topic-uuid="{{ topic.uuid }}">
+
+        <h3 class="fs-5 d-flex align-items-center">
+
+            <span class="d-md-inline">
+            {% for keyword in topic.categories.all %}
+                <a href="{% url 'topics_detail' slug=keyword.slug %}" class="text-info-emphasis text-decoration-none">{{ keyword.name }}</a>
+                {% if not forloop.last %}
+                    &middot;
+                {% endif %}
+            {% endfor %}
+            </span>
+
+        </h3>
+
+        <h1 class="fs-3">
+
+            {{ topic.title }}
+
+            <small class="fs-5 ms-2">
+
+                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
+                   class="text-info-emphasis bi bi-bookmark"
+                ></a>
+
+                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Copy link" %}"
+                   class="text-info-emphasis bi bi-link copy-link ms-1"
+                   data-url="{{ topic.get_absolute_url }}"></a>
+
+            </small>
+
+        </h1>
+
+    </div>
+
+    <div class="ms-auto mt-auto pb-2">
+        <button class="btn btn-outline-primary btn-sm" id="addArticleButton">
+            {% trans "Add content to topic" %}
+        </button>
+    </div>
+
+</div>
+
+<div class="row">
+
+    <div class="col-12 col-lg-8">
+
+        <div class="d-flex align-items-center mb-3">
+
+            <p class="me-auto mb-3 text-secondary small">
+
+                {% if topic.status == "d" %}
+                    <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
+                {% endif %}
+
+                {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
+
+                {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; updated {{ modified_ago }} ago.{% endblocktrans %}
+                {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
+                    <nobr>
+                        {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}{% if contributor_count > 0 %},
+                        {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
+                    </nobr>
+                {% endwith %}
+
+            </p>
+
+        </div>
+
+        {% if topic.status == 'd' %}
+
+            <div class="alert alert-secondary my-3" role="alert">
+                {% trans "This topic is a draft. Please add content to improve." %}
+            </div>
+
+        {% endif %}
+
+        {% if pending_videos %}
+
+            <div class="alert alert-info my-3" role="alert">
+                {% trans "Some videos are still processing. They’ll be added to the topic if they’re relevant." %}
+            </div>
+
+        {% endif %}
+
+
+        {% if topic.image %}
+
+            <img src="{{ topic.image.url }}" class="w-100 img-fluid mb-2" alt="{{ topic.get_name_i18n }}">
+
+        {% endif %}
+
+        {% if topic.recaps.last %}
+            <p>
+                {{ topic.recaps.last.get_recap_i18n|markdownify|safe }}
+            </p>
+        {% endif %}
+
+
+        {% regroup topic.contents_by_month by month as month_groups %}
+
+        {% for month_group in month_groups %}
+            <h3 class="fs-5 border-bottom mt-4 mb-2">
+                {{ month_group.grouper|date:"F Y" }}
+            </h3>
+
+            {% for content in month_group.list %}
+
+                <div class="my-4">
+
+                    {% if content.topicarticle %}
+
+                        {% with article=content.topicarticle.article %}
+
+                            <h6 class="mb-0 fw-medium">
+                                <a href="{{ article.url }}" target="_blank" class="text-info-emphasis text-decoration-none">
+                                    {{ article.get_title_i18n }} <i class="bi bi-box-arrow-up-right small"></i>
+                                </a>
+                            </h6>
+
+                            <span class="text-decoration-none small text-secondary">
+                                {{ article.source|default:"" }}
+                                {% if article.source %}
+                                    &middot;
+                                {% endif %}
+                                {{ article.time|date }}
+                                &middot;
+                            </span>
+
+                            <i class="bi bi-person" tabindex="0"
+                                   data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                   data-bs-custom-class="custom-popover"
+                                   data-bs-content="{% trans "Added by" %}: {{content.topicarticle.added_by.profile}}"></i>
+
+                            <span class="small text-secondary">&middot;</span>
+
+                            <i class="{{ content.relevance_icon }}" tabindex="0"
+                                   data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                   data-bs-custom-class="custom-popover"
+                                   data-bs-content="{% trans "Relevance level" %}: {{ content.relevance_label }}"></i>
+
+                            <p class="small mt-1 mb-4">
+                                {{ article.get_summary_i18n }}
+                            </p>
+
+                        {% endwith %}
+
+                    {% elif content.topicvideo and content.topicvideo.processed and content.topicvideo.video_chunk %}
+
+                        {% with chunk=content.topicvideo.video_chunk %}
+                        {% with video=chunk.transcript.video %}
+
+                            <div class="row">
+
+                                <div class="col-5">
+                                    <div class="ratio ratio-16x9 w-100 mb-3">
+                                        <iframe class="w-100" src="{{ chunk.get_embed_url }}" allowfullscreen></iframe>
+                                    </div>
+                                </div>
+
+                                <div class="col-7">
+
+                                    <h6 class="mb-0 fw-medium">
+                                        <a href="{{ chunk.get_video_url }}" target="_blank"
+                                           class="text-info-emphasis text-decoration-none">
+                                            {{ video.title }} <i class="bi bi-box-arrow-up-right small"></i>
+                                        </a>
+                                    </h6>
+
+                                    <span class="text-decoration-none small text-secondary">
+                                        {{ video.channel }}
+                                        &middot;
+                                        {{ video.published_at|date }}
+                                        &middot;
+                                    </span>
+
+                                    <i class="bi bi-person" tabindex="0"
+                                           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                           data-bs-custom-class="custom-popover"
+                                           data-bs-content="{% trans "Added by" %}: {{content.topicvideo.added_by.profile}}"></i>
+
+                                    <span class="small text-secondary">&middot;</span>
+
+                                    <i class="{{ content.relevance_icon }}" tabindex="0"
+                                           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                                           data-bs-custom-class="custom-popover"
+                                           data-bs-content="{% trans "Relevance level" %}: {{ content.relevance_label }}"></i>
+
+                                    <p class="mt-2 small text-secondary">
+                                        "... {{ chunk.revised_text|truncatewords_html:50|safe }}"
+                                    </p>
+                                </div>
+                            </div>
+
+                        {% endwith %}
+                        {% endwith %}
+
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        {% endfor %}
+
+
+        {% with similar_topics=topic.get_similar_topics %}
+
+            {% if similar_topics %}
+
+            <h3 class="fs-5 pb-2 mb-3 border-bottom">{% trans "Related topics" %}</h3>
+
+            <div class="row row-cols-1 row-cols-md-2 g-4 align-items-stretch">
+
+              {% for similar_topic in similar_topics %}
+                <div class="col d-flex">
+                  <div class="topic-card w-100 h-100 d-flex flex-column position-relative border-bottom pb-3">
+
+                    <!-- title -->
+                    <h5 class="fs-6">
+                      <a href="{{ similar_topic.get_absolute_url }}"
+                         class="text-body text-decoration-none">
+                        {{ similar_topic.get_name_i18n }}
+                      </a>
+                    </h5>
+
+                    <!-- meta -->
+                    <p class="card-text text-secondary small mb-0">
+                      {% blocktrans with created_date=similar_topic.created_at|date created_by=similar_topic.created_by %}
+                        Created on {{ created_date }} by {{ created_by }}.
+                      {% endblocktrans %}
+                      {% with item_count=similar_topic.contents.count contributor_count=similar_topic.contributors.count %}
+                        <br>
+                        {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}{% if contributor_count > 0 %},
+                        {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
+                      {% endwith %}
+                    </p>
+
+                    <!-- stretched link stays as-is -->
+                    <a href="{{ similar_topic.get_absolute_url }}" class="stretched-link"></a>
+                  </div>
+                </div>
+              {% endfor %}
+
+            </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+    </div>
+
+
+    <div class="col-12 col-lg-4">
+
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title fs-5">{% trans "Contributors" %}</h6>
+                <p class="card-text">
+                    {% for contributor in topic.contributors.all %}
+                        <a class="text-info-emphasis" href="{% url 'user_profile' username=contributor.username %}">{{ contributor.profile }}</a>
+                        {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </p>
+            </div>
+        </div>
+
+        {% if timeline %}
+
+            <div class="card mt-3">
+
+              <div class="card-body">
+
+                <div class="card-title d-flex justify-content-between">
+                    <h6 class="fs-5">
+                        {% trans "Timeline" %}
+                    </h6>
+                </div>
+
+                <div class="position-relative mt-4">
+
+                {% for timeline_topic in timeline %}
+
+                  <div class="d-flex">
+                    <!-- Dot and Line -->
+                    <div class="position-relative me-3">
+                        <span class="position-absolute top-0 start-0 translate-middle {% if topic.id == timeline_topic.id %}bg-dark{% else %}bg-dark-subtle{% endif %} rounded-circle p-1">
+                        </span>
+                        <div class="h-100 border-start border-1 border-dark-subtle"></div>
+                    </div>
+                    <!-- Content -->
+                    <div class="{% if not forloop.last %}mb-4{% endif %}" style="margin-top: -.65rem;">
+                      <small class="text-secondary d-block">{{ timeline_topic.event_date }}</small>
+                      {% if topic.id == timeline_topic.id %}
+                          <span class="text-dark fw-semibold">
+                              {{ timeline_topic.name }}
+                          </span>
+                      {% else %}
+                          <a href="{{ timeline_topic.get_absolute_url }}" class="text-decoration-none text-info-emphasis">
+                              {{ timeline_topic.name }}
+                          </a>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                {% endfor %}
+
+                </div>
+
+              </div>
+
+            </div>
+
+        {% endif %}
+
+        <div class="card mt-3">
+
+            <div class="card-body">
+
+                <h6 class="card-title fs-5">{% trans "Suggested content" %}</h6>
+
+                {% if suggested_articles %}
+
+                    {% for suggested_article in suggested_articles %}
+
+                        <a href="{{ suggested_article.url }}" target="_blank"
+                           class="text-info-emphasis text-decoration-none">
+                            {{ suggested_article.get_title_i18n }} <i class="bi bi-box-arrow-up-right small"></i>
+                        </a>
+
+                        <br>
+
+                        <div class="d-flex justify-content-between">
+
+                            <span class="small text-secondary">
+                                <i class="bi bi-newspaper"></i>
+                                {{ suggested_article.source|default:"" }}
+                                {% if suggested_article.source %}
+                                    &middot;
+                                {% endif %}
+                                {{ suggested_article.time|date }}
+
+                            </span>
+
+                            {# Authenticated user #}
+                            <a href="#"
+                               class="authenticated-only d-none small add-to-topic-btn"
+                               data-type="article"
+                               data-id="{{ suggested_article.uuid }}">
+                                {% trans "Add to topic" %}
+                            </a>
+
+                            {# Anonymous user => login #}
+                            <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+                               class="anonymous-only d-none small"
+                            >{% trans "Add to topic" %}</a>
+
+                        </div>
+
+                        <hr>
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if suggested_rss_items %}
+
+                    {% for suggested_rss_item in suggested_rss_items %}
+
+                        <a href="{{ suggested_rss_item.link }}" target="_blank"
+                           class="text-info-emphasis text-decoration-none">
+                            {{ suggested_rss_item }} <i class="bi bi-box-arrow-up-right small"></i>
+                        </a>
+
+                        <br>
+
+                        <div class="d-flex justify-content-between">
+
+                            <span class="small text-secondary">
+                                {% if suggested_rss_item.source %}
+                                    <i class="bi bi-rss text-secondary" data-bs-toggle="tooltip" data-bs-title="RSS"></i>
+                                    {{ suggested_rss_item.source|default:"" }}
+                                    &middot;
+                                {% else %}
+                                    <i class="bi bi-rss text-secondary" data-bs-toggle="tooltip" data-bs-title="RSS"></i> &middot;
+                                {% endif %}
+                                {{ suggested_rss_item.published_date|date }}
+
+                            </span>
+
+                            {# Authenticated user #}
+                            <a href="#"
+                               class="authenticated-only d-none small add-to-topic-btn"
+                               data-type="rssitem"
+                               data-id="{{ suggested_rss_item.link }}">
+                                {% trans "Add to topic" %}
+                            </a>
+
+                            {# Anonymous user => login #}
+                            <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+                               class="anonymous-only d-none small"
+                            >{% trans "Add to topic" %}</a>
+
+                        </div>
+
+                        <hr>
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if suggested_videos %}
+
+                    {% for chunk in suggested_videos %}
+
+                        {% include "youtube/video_chunk_item.html" %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if not suggested_articles and not suggested_rss_items and not suggested_videos %}
+
+                    <p class="small">{% trans "No content found." %}</p>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+{% endblock %}
+

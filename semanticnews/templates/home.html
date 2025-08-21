@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% load static i18n humanize %}
+{% load static i18n %}
 
 
 {% block content %}
@@ -9,11 +9,17 @@
 
     <div class="row h-100">
 
-        <div class="col-12 col-md-7">
+        <div class="col-12 col-md-8">
+
+            {% for topic in topics %}
+
+                {% include "topics/topics_list_item.html" %}
+
+            {% endfor %}
 
         </div>
 
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-md-4">
 
         </div>
 

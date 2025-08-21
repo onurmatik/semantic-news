@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% load static i18n humanize %}
+
+{% block title %}{% trans "Search" %} &middot; {{ block.super }}{% endblock %}
+
+
+{% block content %}
+
+
+<!-- title section -->
+<div class="d-flex border-bottom mb-3 pb-2">
+
+    <div>
+
+        <h1 class="fs-3">
+
+            {% blocktrans %}Search results for "{{ search_query }}"{% endblocktrans %}
+
+        </h1>
+
+    </div>
+
+
+    <div class="ms-auto mt-auto pb-2">
+        {# Authenticated user #}
+        <button type="button"
+                class="authenticated-only d-none btn btn-outline-primary btn-sm"
+                data-flow="search"
+                data-bs-toggle="modal"
+                data-bs-target="#createTopicModal">
+          {% trans "Create new topic" %}
+        </button>
+
+        {# Anonymous user => login #}
+            <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to create a topic" %}"
+               class="anonymous-only d-none btn btn-outline-secondary btn-sm"
+            >{% trans "Create new topic" %}</a>
+    </div>
+
+</div>
+
+
+
+<div class="row">
+
+    <div class="col-12 col-md-8">
+
+        {% if search_query %}
+
+            <div id="searchResultsList">
+
+                {% for topic in similar_topics %}
+
+                    {% include "topics/topics_list_item.html" with topic=topic %}
+
+                {% endfor %}
+
+{% comment %}
+                <small class="d-flex justify-content-end">
+                    <a href="#"
+                       class="text-info-emphasis text-decoration-none">
+                        {% trans "See more" %}
+                        <i class="bi bi-box-arrow-right ms-1"></i>
+                    </a>
+                </small>
+{% endcomment %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <div class="col-12 col-md-4">
+
+        {% if recommended_keywords %}
+
+            <div class="card">
+
+                <div class="card-body">
+
+                    <h6 class="card-title fs-5">{% trans "Related keywords" %}</h6>
+
+                    <div class="card-text d-flex flex-wrap">
+                        {% for keyword in recommended_keywords %}
+                            <a class="text-info-emphasis text-decoration-none w-50" href="{% url 'topics_detail' slug=keyword.slug %}">
+                                {{ keyword.get_name_i18n }}
+                            </a>
+                            {% if not forloop.last %}<br>{% endif %}
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% endif %}
+
+        <div class="card mt-3">
+
+            <div class="card-body">
+
+                <h6 class="card-title fs-5">{% trans "Recommended content" %}</h6>
+
+                {% if recommended_articles %}
+
+                    {% for recommended_article in recommended_articles %}
+
+                          {% include "topics/topics_list_article_item.html" %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if recommended_rss_items %}
+
+                    {% for rss_item in recommended_rss_items %}
+
+                        {% include "topics/topics_list_rssitem_item.html" %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if recommended_videos %}
+
+                    {% for chunk in recommended_videos %}
+
+                        {% include "topics/topics_list_video_item.html" %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                {% if not recommended_articles and not recommended_rss_items and not recommended_videos %}
+
+                    <p class="small">{% trans "No content found." %}</p>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+{% include "topics/create_topic_modal.html" %}
+
+{% endblock %}
+
+
+{% block extra_js %}
+
+{% include "bookmarks_js.html" %}
+
+{% include "topics/create_topic_js.html" %}
+
+{% endblock %}

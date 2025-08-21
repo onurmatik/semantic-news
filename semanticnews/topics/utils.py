@@ -14,10 +14,7 @@ from django.utils import timezone
 from pgvector.django import L2Distance
 from slugify import slugify
 
-from ..news.agents import FetchNewsFromRSSItemAgent
-from ..news.models import Article, RssItem
-from ..topics.models import TopicArticle, TopicVideo, Keyword
-from ..youtube.models import VideoTranscriptChunk, VideoTranscript, Video
+from ..topics.models import Keyword
 
 User = get_user_model()
 
@@ -180,7 +177,7 @@ def build_recommendations(
         embedding: Optional[Any],  # None ⇢ time-based | Vector ⇢ distance-based
         since_days: int = 2,
         limit: int = 3,
-) -> Tuple[List[Article], List[RssItem], List[VideoTranscriptChunk]]:
+):
     """
     1.  Build candidate `QuerySet`s for Article / RssItem / VideoTranscriptChunk
         according to *embedding* or *recency*.

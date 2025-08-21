@@ -1,4 +1,3 @@
-import uuid
 from urllib.parse import urlparse, urlunparse
 from datetime import datetime
 
@@ -10,21 +9,19 @@ from django.utils.html import strip_tags
 from django.db import models
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
-from semanticnews.users.models import User
-from ...models import Content
 
-
-class RssSource(models.Model):
+class RssFeed(models.Model):
     url = models.URLField(unique=True)
-    name = models.CharField(max_length=20, blank=True, null=True)
+    title = models.CharField(max_length=20, blank=True, null=True)
     active = models.BooleanField(default=True)
+
     last_fetch = models.DateTimeField(auto_now=True)
     last_fetch_error = models.CharField(max_length=500, blank=True, null=True)
     consecutive_error_count = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
-        if self.name:
-            return self.name
+        if self.title:
+            return self.title
         else:
             parsed_url = urlparse(self.url)
             domain = parsed_url.netloc
@@ -35,7 +32,7 @@ class RssSource(models.Model):
     def save(self, *args, **kwargs):
         # If instance exists, fetch its previous active state
         if self.pk:
-            previous = RssSource.objects.get(pk=self.pk)
+            previous = self.__class__.objects.get(pk=self.pk)
             # If active changed from False to True, reset consecutive_error_count
             if not previous.active and self.active:
                 self.consecutive_error_count = 0
@@ -126,14 +123,29 @@ class RssSource(models.Model):
 
 
 class RssItem(models.Model):
-    source = models.ForeignKey(RssSource, related_name='items', on_delete=models.CASCADE)
-    title = models.CharField(max_length=500)
+    """Tracks per-entry ingestion state for a feed (dedupe, audit, linking)."""
+
+    feed = models.ForeignKey(RssFeed, related_name='items', on_delete=models.CASCADE)
+    guid = models.CharField(max_length=500)
     link = models.URLField(unique=True, max_length=500)
-    description = models.TextField(blank=True, null=True)
-    published_date = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    title = models.CharField(max_length=500)
+    summary = models.TextField(blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    fetched_at = models.DateTimeField(auto_now=True)
+
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        UPSERTED = "upserted", "Upserted"
+        SKIPPED = "skipped", "Skipped"
+        ERROR = "error", "Error"
+
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.NEW, db_index=True)
+    error_message = models.TextField(blank=True)
+
     embedding = VectorField(dimensions=1536, blank=True, null=True)
 
-    # De-normalization, referencing the content object, if the RSS item is fetched
+    # Reference the content object, if the RSS item is fetched
     content = models.ForeignKey('contents.Content', blank=True, null=True, on_delete=models.SET_NULL)
 
     class Meta:

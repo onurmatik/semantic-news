@@ -19,7 +19,9 @@ SECRET_KEY = 'django-insecure-w7h0dw4!8vjodxdnovwd7j9qhn^$f#t%%%u^4lt5k51k9-f1y+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', True)
 
-ALLOWED_HOSTS = []
+HOST = os.getenv('HOST', 'localhost')
+
+ALLOWED_HOSTS = [HOST]
 
 
 # Application definition
@@ -31,17 +33,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
 
-    'semanticnews.users',
-    'semanticnews.topics',
-    'semanticnews.incidents',
-
+    'semanticnews.profiles',
+    'semanticnews.agenda',
     'semanticnews.contents',
-    'semanticnews.contents.sources.rss',
-    'semanticnews.contents.sources.youtube',
-
-    'semanticnews.annotations.recaps',
-    'semanticnews.annotations.images',
+    'semanticnews.topics',
 ]
 
 MIDDLEWARE = [
@@ -59,7 +56,7 @@ ROOT_URLCONF = 'semanticnews.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'genelizleyici/templates')],
+        'DIRS': [os.path.join(BASE_DIR, 'semanticnews/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -168,9 +165,6 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
-AUTH_USER_MODEL = 'users.User'
 
 
 # For fetching YouTube transcripts

@@ -4,17 +4,18 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _, get_language
+from django.conf import settings
 from slugify import slugify
 from openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
-from semanticnews.users.models import User
 from ..utils import translate, get_relevance
 
 
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    name = models.CharField(max_length=200)
+    title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
     status = models.CharField(max_length=1, db_index=True, choices=(
@@ -22,19 +23,20 @@ class Topic(models.Model):
         ('d', 'Draft'),
         ('p', 'Published'),
     ), default='d')
-    event_date = models.DateField(blank=True, null=True, db_index=True)
 
     created_by = models.ForeignKey(
-        User, blank=True, null=True,
+        settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='topics'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    categories = models.ManyToManyField('Keyword', through='TopicCategory', blank=True)
+
     contents = models.ManyToManyField('contents.Content', blank=True, through='TopicContent', related_name='topics')
 
     def __str__(self):
-        return f"{self.name}"
+        return f"{self.title}"
 
     class Meta:
         indexes = [
@@ -52,7 +54,7 @@ class Topic(models.Model):
             self.embedding = self.get_embedding()
 
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(self.title)
 
         super().save(*args, **kwargs)
 
@@ -74,21 +76,11 @@ class Topic(models.Model):
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0:
             client = OpenAI()
-            text = (
-                f"{self.name}\n"
-                f"{', '.join(self.entities)}\n"
-                f"{', '.join(self.categories)}\n"
-            )
             embedding = client.embeddings.create(
-                input=text,
+                input=self.title,
                 model='text-embedding-3-small'
             ).data[0].embedding
             return embedding
-
-    @cached_property
-    def category_objects(self):
-        slugs = [slugify(kw) for kw in self.categories]
-        return Keyword.objects.filter(slug__in=slugs, ignore=False)
 
     @cached_property
     def get_similar_topics(self, limit=5):
@@ -99,19 +91,8 @@ class Topic(models.Model):
                    .order_by(L2Distance('embedding', self.embedding))[:limit]
 
     @cached_property
-    def get_timeline(self, limit=5):
-        # Related topics with event_date
-        max_distance = 1
-        return Topic.objects\
-                .exclude(event_date__isnull=True)\
-                .exclude(embedding__isnull=True)\
-                .exclude(status='r')\
-                .annotate(distance=L2Distance('embedding', self.embedding))\
-                .filter(distance__lte=max_distance)\
-                .order_by('event_date')[:limit]
-
-    @cached_property
     def contributors(self):
+        User = get_user_model()  # noqa
         users = User.objects.filter(topiccontent__topic=self).exclude(topiccontent__added_by__isnull=True)
         if self.created_by:
             users |= User.objects.filter(id=self.created_by.id)
@@ -122,7 +103,7 @@ class TopicContent(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
     content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
 
-    added_by = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
     added_at = models.DateTimeField(auto_now_add=True)
 
     embedding = VectorField(dimensions=1536, blank=True, null=True)
@@ -163,10 +144,7 @@ class TopicContent(models.Model):
 
 class Keyword(models.Model):
     name = models.CharField(max_length=100)
-    name_en = models.CharField(max_length=200, blank=True, null=True)
-
     slug = models.CharField(max_length=100, blank=True, unique=True)
-    slug_en = models.CharField(max_length=100, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -201,18 +179,11 @@ class Keyword(models.Model):
     def save(self, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
-        if self.name_en and not self.slug_en:
-            self.slug_en = slugify(self.name_en)
 
         if self.embedding is None or len(self.embedding) == 0:
             self.embedding = self.get_embedding()
 
         super().save(**kwargs)
-
-        # If English name is missing, enqueue translation
-        if not self.name_en:
-            from .tasks import translate_keyword  # lazy import
-            translate_keyword.delay_on_commit(self.pk)
 
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0:
@@ -222,3 +193,11 @@ class Keyword(models.Model):
                 model='text-embedding-3-small'
             ).data[0].embedding
             return embedding
+
+
+class TopicCategory(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    category = models.ForeignKey(Keyword, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
+

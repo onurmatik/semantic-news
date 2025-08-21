@@ -5,10 +5,10 @@ from .models import Topic, Keyword, TopicContent
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status', 'event_date', 'created_at', 'updated_at')
+    list_display = ('title', 'status', 'created_at', 'updated_at')
     list_editable = ('status',)
     list_filter = ('status',)
-    search_fields = ('name',)
+    search_fields = ('title',)
     actions = [
         'update_recap',
         'extract_entity_graph',
@@ -32,16 +32,15 @@ class TopicAdmin(admin.ModelAdmin):
 class TopicContentAdmin(admin.ModelAdmin):
     list_display = ('topic', 'added_by', 'added_at', 'get_relevance')
     list_filter = ('added_by',)
-    search_fields = ('topic__name', 'added_by__username')
+    search_fields = ('topic__title', 'added_by__username')
 
 
 @admin.register(Keyword)
 class KeywordAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'name_en', 'ignore', 'created_at', 'updated_at']
+    list_display = ['name', 'slug', 'ignore', 'created_at', 'updated_at']
     list_filter = [
-        ('name_en', admin.EmptyFieldListFilter),
-        'ignore'
+        'ignore',
     ]
-    list_editable = ['name_en', 'ignore']
-    search_fields = ['name', 'name_en', 'slug']
+    list_editable = ['ignore']
+    search_fields = ['name', 'slug']
     autocomplete_fields = ['variant_of']

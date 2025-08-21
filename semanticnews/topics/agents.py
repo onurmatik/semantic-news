@@ -38,12 +38,10 @@ class TopicSchema(BaseModel):
 
     Attributes:
         name (str): The name of the news agenda topic.
-        event_date (str): If the topic is referring to a specific event, date of the event in YYYY-MM-DD format.
         categories (List[str]): The list of categories that the news agenda topic belongs to. Avoid overly generic categories like "Gündem", "Haber", etc.
         significance (str): 'low', 'normal' or 'high'; the importance of the event covered in the article, particularly in the Turkish context
     """
     name: str
-    event_date: Optional[str]
     categories: List[str]
     significance: str
 
@@ -106,10 +104,7 @@ class TopicEvaluationAgent:
 class TopicCreationAgent:
     name = "Topic Creation Agent"
     instructions = (
-        "You are a news editor, tasked to parse the given topic string. "
-        "If the topic string contains a date, extract it from the topic and return them separately.\n"
-        "E.g.: 19 Mart 2025 - Ekrem İmamoğlu'nun gözaltına alınması => "
-        "name: 'Ekrem İmamoğlu'nun gözaltına alınması'; event_date: '2025-03-19'. "
+        "You are a news editor, tasked to parse the given topic string."
     )
 
     async def run(self, topic, lang='tr'):

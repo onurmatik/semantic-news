@@ -20,47 +20,11 @@ from pgvector.django import L2Distance
 from slugify import slugify
 
 from .agents import TopicListSuggestionAgent, TopicEvaluationAgent, TopicCreationAgent, TopicSuggestionAgent
-from .models import Topic, Keyword, TopicSearchTerm, TopicArticle, TopicVideo, TopicContent
+from .models import Topic, Keyword, TopicContent
 from .utils import add_article_to_topic, get_or_create_article_from_rssitem, add_video_to_topic, ensure_keyword, \
     build_recommendations, valid_suggestion_token, make_suggestion_token
-from ..news.agents import FetchUserNewsAgent
-from ..news.models import Article, RssItem
-from ..youtube.models import VideoTranscriptChunk, VideoTranscript, Video, Channel
-from ..utils import get_relevance, anonymous_only_cache
-from ..youtube.utils import list_youtube_transcripts, map_transcript_exception
 
 
-@anonymous_only_cache(5*60)
-def home(request):
-    today = date.today()
-
-    topics_qs = Topic.objects.filter(status='p').order_by('-updated_at')
-
-    # Today in history
-    today_history_qs = Topic.objects.filter(
-        event_date__isnull=False,
-        status='p'
-    ).annotate(
-        month=ExtractMonth('event_date'),
-        day=ExtractDay('event_date'),
-    ).filter(
-        month=today.month,
-        day=today.day
-    ).exclude(
-        event_date=today,
-    ).order_by('-event_date')
-
-    featured_topics = Topic.objects.filter(featured=True).order_by('-updated_at')[:5]
-
-    return render(request, 'topics/home.html', {
-        'topics': topics_qs[:20],
-        'today_in_history': today_history_qs,
-        'today': today,
-        'featured_topics': featured_topics,
-    })
-
-
-@anonymous_only_cache(5*60)
 def topics_list(request, keyword):
     if keyword.embedding is None:
         keyword.save()  # creates the embedding
@@ -138,190 +102,19 @@ def topics_list(request, keyword):
     })
 
 
-@anonymous_only_cache(60*60)
-def topics_month(request, year: int, month: int):
-    date_obj = date(year, month, 1)
-    page_title = formats.date_format(date_obj, "YEAR_MONTH_FORMAT", use_l10n=True)
-    topics = (Topic.objects
-              .filter(status='p',
-                      event_date__year=year,
-                      event_date__month=month)
-              .annotate(day=TruncDate('event_date'))
-              .order_by('day', 'event_date')
-    )
-
-    # Build the calendar
-    daily_counts_qs = (
-        Topic.objects
-        .filter(status='p',
-                event_date__year=year,
-                event_date__month=month)
-        .annotate(day=TruncDate('event_date'))  # 2025‑05‑17, 2025‑05‑18, …
-        .values('day')
-        .annotate(cnt=Count('id'))
-    )
-    counts_dict = {row['day'].day: row['cnt'] for row in daily_counts_qs}
-    cal = calendar.Calendar(firstweekday=0)  # 0: Monday
-    weeks = cal.monthdatescalendar(year, month)
-
-    return render(request, 'topics/topics_month.html', {
-        'topics': topics,
-        'page_title': page_title,
-        'year': year, 'month': month,
-        'weeks': weeks,
-        'counts_dict': counts_dict,
-        'weekdays': [_(day) for day in calendar.day_abbr],
-        'prev_month': date_obj - timedelta(days=1),
-        'next_month': date_obj + timedelta(days=31),
-    })
-
-
-@anonymous_only_cache(60*60)
-def topics_year(request, year):
-    try:
-        year = int(year)
-    except ValueError:
-        raise Http404("Bad year")
-
-    now = django_timezone.now()
-    current_year = now.year
-    if not 2000 <= year <= current_year+1:
-        raise Http404("Not available")
-
-    topics = Topic.objects.filter(status='p').filter(event_date__year=year)
-    topics = topics.order_by('event_date')
-
-    months = [(i, calendar.month_name[i]) for i in range(1, 13)]
-
-    return render(request, 'topics/topics_year.html', {
-        'topics': topics,
-        'year': year,
-        'months': months,
-        'prev_year': year - 1,
-        'next_year': year + 1,
-    })
-
-
-@anonymous_only_cache(5*60)
 def topics_detail(request, slug):
-    suggestions_count = 3
     try:
         topic = Topic.objects.get(slug=slug)
     except Topic.DoesNotExist:
         keyword = get_object_or_404(Keyword, slug=slug)
         return topics_list(request, keyword=keyword)
 
-    suggested_articles_qs = (
-        Article.objects
-           .filter(embedding__isnull=False)
-           .annotate(dist=L2Distance("embedding", topic.embedding))
-           .order_by("dist")[:20]
-    )
-    linked_article_ids = set(
-        topic.articles.values_list("uuid", flat=True)
-    )
-    suggested_articles = [
-        art for art in suggested_articles_qs
-        if art.uuid not in linked_article_ids
-    ][:suggestions_count]
-
-    suggested_rss_items = (
-             RssItem.objects
-                 .filter(embedding__isnull=False)
-                 .exclude(fetched_article__isnull=False)
-                 .annotate(dist=L2Distance("embedding", topic.embedding))
-                 .order_by("dist")[:suggestions_count]
-    )
-
-    suggested_video_chunks_qs = (
-        VideoTranscriptChunk.objects
-            .filter(embedding__isnull=False)
-            .annotate(
-                dist=L2Distance("embedding", topic.embedding),
-                video_id=F("transcript__video_id"),        # ← add the column we need
-            )
-            .select_related("transcript__video")           # pull the FK in one query
-            .order_by("dist")[:100]                        # 2–5 ms via HNSW/IVFFlat
-    )
-    linked_video_ids = set(
-        TopicVideo.objects
-        .filter(topic=topic)
-        .values_list("video_id", flat=True)
-    )
-    suggested_videos = []
-    seen_videos = set()
-    for chunk in suggested_video_chunks_qs:
-        vid = chunk.video_id
-        if vid in linked_video_ids or vid in seen_videos:
-            continue
-        suggested_videos.append(chunk)  # keep the first chunk for this video
-        seen_videos.add(vid)
-        if len(suggested_videos) == suggestions_count:
-            break
-
-    pending_videos = TopicVideo.objects.filter(
-        topic=topic, processed=False
-    ).exists()
-
     return render(request, 'topics/topics_detail.html', {
         'topic': topic,
-        'pending_videos': pending_videos,
-        'topic_category_keywords': topic.category_objects,
-        'suggested_articles': suggested_articles,
-        'suggested_rss_items': suggested_rss_items,
-        'suggested_videos': suggested_videos,
-        'timeline': topic.get_timeline if topic.get_timeline.count() > 1 else None,
     })
 
 
-# Search & Topic Creation
-
-@anonymous_only_cache(5*60)
-def topics_search_results(request):
-    recommendation_count = 3
-    search_query = request.GET.get('q', '').strip()
-
-    if not search_query:
-        return render(request, 'topics/topics_search_results.html',
-                      {'search_query': search_query})
-
-    user_obj = request.user if request.user.is_authenticated else None
-    search_term, created = TopicSearchTerm.objects.get_or_create(
-        term=search_query,
-        user=user_obj,
-    )
-
-    if search_term.embedding is not None:
-        similar_topics = Topic.objects.filter(embedding__isnull=False) \
-                             .filter(status='p') \
-                             .order_by(L2Distance('embedding', search_term.embedding))
-        recommended_keywords = (
-            Keyword.objects
-            .filter(embedding__isnull=False)
-            .annotate(distance=L2Distance('embedding', search_term.embedding))
-            .order_by('distance')[:10]
-        )
-        rec_articles, rec_rss_items, rec_videos = build_recommendations(
-            embedding=search_term.embedding,
-            limit=recommendation_count,
-        )
-    else:
-        # no embedding → no recommendations
-        similar_topics = Topic.objects.none()
-        recommended_keywords = Keyword.objects.none()
-        rec_articles = rec_rss_items = rec_videos = []
-
-    context = {
-        'search_query': search_query,
-        'similar_topics': similar_topics[:20],
-        'recommended_keywords': recommended_keywords,
-        'recommended_articles': rec_articles,
-        'recommended_rss_items': rec_rss_items,
-        'recommended_videos': rec_videos,
-    }
-
-    return render(request, 'topics/topics_search_results.html', context)
-
+# Topic Creation
 
 @login_required
 async def get_topic_suggestions(request):
