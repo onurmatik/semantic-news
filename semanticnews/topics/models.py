@@ -1,7 +1,7 @@
 import uuid
 
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.utils import timezone
 from django.utils.functional import cached_property
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -33,7 +33,12 @@ class Topic(models.Model):
 
     categories = models.ManyToManyField('Keyword', through='TopicCategory', blank=True)
 
-    contents = models.ManyToManyField('contents.Content', blank=True, through='TopicContent', related_name='topics')
+    entries = models.ManyToManyField(
+        'agenda.Entry', through='TopicEntry',
+        related_name='topics', blank=True)
+    contents = models.ManyToManyField(
+        'contents.Content', through='TopicContent',
+        related_name='topics', blank=True)
 
     def __str__(self):
         return f"{self.title}"
@@ -93,53 +98,97 @@ class Topic(models.Model):
     @cached_property
     def contributors(self):
         User = get_user_model()  # noqa
-        users = User.objects.filter(topiccontent__topic=self).exclude(topiccontent__added_by__isnull=True)
+        users = User.objects.filter(topiccontent__topic=self).exclude(topiccontent__created_by__isnull=True)
         if self.created_by:
             users |= User.objects.filter(id=self.created_by.id)
         return users.distinct()
+
+
+class TopicEntry(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    entry = models.ForeignKey('agenda.Entry', on_delete=models.CASCADE)
+
+    role = models.CharField(
+        max_length=20,
+        choices=[('support','Support'), ('counter','Counter'), ('context','Context')],
+        default='support'
+    )
+    source = models.CharField(
+        max_length=10,
+        choices=[('user','User'), ('agent','Agent'), ('rule','Rule')],
+        default='user'
+    )
+
+    relevance = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+
+    pinned = models.BooleanField(default=False)
+    rank = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True, null=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['topic', 'entry'], name='uniq_topic_entry')
+        ]
+        indexes = [
+            models.Index(fields=['topic']),
+            models.Index(fields=['entry']),
+            models.Index(fields=['topic', 'pinned', 'rank']),
+        ]
+
+    def __str__(self):
+        return f"{self.topic} ↔ {self.entry} ({self.role})"
+
+    def save(self, *args, **kwargs):
+        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.entry, 'embedding', None) is not None:
+            self.relevance = get_relevance(self.topic.embedding, self.entry.embedding)
+        super().save(*args, **kwargs)
 
 
 class TopicContent(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
     content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
 
-    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
-    added_at = models.DateTimeField(auto_now_add=True)
+    role = models.CharField(
+        max_length=20,
+        choices=[('evidence', 'Evidence'), ('summary', 'Summary'), ('quote', 'Quote')],
+        default='evidence'
+    )
+    source = models.CharField(
+        max_length=10,
+        choices=[('user', 'User'), ('ml', 'ML'), ('rule', 'Rule')],
+        default='user'
+    )
 
-    embedding = VectorField(dimensions=1536, blank=True, null=True)
-    relevance = models.FloatField()
+    relevance = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+
+    pinned = models.BooleanField(default=False)
+    rank = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        unique_together = [('topic', 'content')]
+        indexes = [models.Index(fields=['topic']), models.Index(fields=['content'])]
 
     def __str__(self):
         return f'Topic: {self.topic}'
 
-    class Meta:
-        indexes = [
-            HnswIndex(
-                name='topiccontent_embedding_hnsw',
-                fields=['embedding'],
-                m=16,
-                ef_construction=64,
-                opclasses=['vector_l2_ops']
-            )
-        ]
-
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
+        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.content, 'embedding', None) is not None:
+            self.relevance = get_relevance(self.topic.embedding, self.content.embedding)
         super().save(*args, **kwargs)
-
-        # Update topic metadata
-        self.topic.updated_at = timezone.now()
-        if self.topic.status == 'd':  # draft
-            self.topic.status = 'p'  # published
-        self.topic.save()
-
-        if is_new:
-            # Trigger recap update for the topic
-            from .tasks import update_topic_recap
-            update_topic_recap.delay_on_commit(self.topic.pk)
-
-    def get_relevance(self):
-        return get_relevance(self.topic.embedding, self.embedding)
 
 
 class Keyword(models.Model):

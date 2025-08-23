@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
-{% load static i18n %}
+{% load static i18n humanize markdown_extras %}
+
+{% block title %}{{ topic.title }}{% endblock %}
 
 
 {% block content %}
@@ -11,9 +13,9 @@
 
         <div class="col-12 col-md-8">
 
-            {% for topic in topics %}
+            {% for entry in entries %}
 
-                {% include "topics/topics_list_item.html" %}
+                <h2 class="fs-4">{{ entry.title }}</h2>
 
             {% endfor %}
 
@@ -21,7 +23,6 @@
 
         <div class="col-12 col-md-4">
 
-            {% include "topics/topics_list_item.html" %}
 
         </div>
 
@@ -30,3 +31,4 @@
 </div>
 
 {% endblock %}
+

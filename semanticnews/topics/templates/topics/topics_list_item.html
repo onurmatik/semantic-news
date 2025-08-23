@@ -40,7 +40,10 @@
         {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; updated {{ modified_ago }} ago.{% endblocktrans %}
         {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
             <nobr>
-                {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}{% if contributor_count > 0 %},
+                {% if item_count > 0 %}
+                    {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}
+                {% endif %}
+                {% if contributor_count > 0 %},
                 {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
             </nobr>
         {% endwith %}

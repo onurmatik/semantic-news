@@ -30,9 +30,9 @@ class TopicAdmin(admin.ModelAdmin):
 
 @admin.register(TopicContent)
 class TopicContentAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'added_by', 'added_at', 'get_relevance')
-    list_filter = ('added_by',)
-    search_fields = ('topic__title', 'added_by__username')
+    list_display = ('topic', 'created_by', 'created_at', 'relevance')
+    list_filter = ('created_by',)
+    search_fields = ('topic__title', 'created_by__username')
 
 
 @admin.register(Keyword)

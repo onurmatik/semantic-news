@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% load static i18n humanize markdown_extras %}
+
+{% block title %}{{ topic.title }}{% endblock %}
+
+
+{% block content %}
+
+    <h1 class="fs-3">
+        {{ entry.title }}
+    </h1>
+
+{% endblock %}

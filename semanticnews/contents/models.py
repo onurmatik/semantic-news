@@ -3,8 +3,10 @@ import uuid
 from openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 from django.db import models
-from django.core.validators import URLValidator
+from django.core.validators import URLValidator, MinValueValidator, MaxValueValidator
 from django.conf import settings
+
+from semanticnews.utils import get_relevance
 
 
 class Source(models.Model):
@@ -26,12 +28,19 @@ class Content(models.Model):
     title = models.CharField(max_length=500, blank=True, null=True)
     markdown = models.TextField(blank=True, null=True)
 
-    published_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now=True)
     language_code = models.CharField(max_length=10, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='content'
+    )
+
+    entries = models.ManyToManyField(
+        'agenda.Entry',
+        through='ContentEntry',
+        related_name='contents'
     )
 
     # Source specific extra information, if any
@@ -73,3 +82,40 @@ class Content(models.Model):
     def get_related_content(self, limit=5):
         # Similar content by embedding vector
         return Content.objects.exclude(embedding__isnull=True).order_by(L2Distance('embedding', self.embedding))[:limit]
+
+
+class ContentEntry(models.Model):
+    content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
+    entry = models.ForeignKey('agenda.Entry', on_delete=models.CASCADE)
+
+    source = models.CharField(
+        max_length=10,
+        choices=[('agent','Agent'), ('user','User'), ('rule','Rule')],
+        default='agent'
+    )
+    relevance = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+
+    pinned = models.BooleanField(default=False)
+    rank = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True, null=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        unique_together = [('content', 'entry', 'source')]
+        indexes = [
+            models.Index(fields=['entry']),
+            models.Index(fields=['content']),
+            models.Index(fields=['-relevance']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.relevance is None and getattr(self.content, 'embedding', None) is not None and getattr(self.entry, 'embedding', None) is not None:
+            self.relevance = get_relevance(self.content.embedding, self.entry.embedding)
+        super().save(*args, **kwargs)
