@@ -25,7 +25,9 @@ class SimilarEntryResponse(Schema):
 
     uuid: str
     title: str
+    slug: str
     date: date
+    url: str
     similarity: float
 
 
@@ -59,7 +61,9 @@ def get_similar(request, payload: EntryCheckRequest):
         SimilarEntryResponse(
             uuid=str(entry.uuid),
             title=entry.title,
+            slug=entry.slug,
             date=entry.date,
+            url=entry.get_absolute_url(),
             similarity=entry.similarity,
         )
         for entry in queryset
@@ -105,6 +109,40 @@ def validate_event(request, payload: EventValidationRequest):
             response_format=response_format,
         )
 
-    result = response.output[0].content[0].model_dump_json()
+    result = response.output[0].content[0].json
     return result
+
+
+class EventCreateRequest(Schema):
+    """Request body for creating a new event."""
+
+    title: str
+    date: date
+
+
+class EventCreateResponse(Schema):
+    """Response returned after creating an event."""
+
+    uuid: str
+    title: str
+    date: date
+    url: str
+
+
+@api.post("/create", response=EventCreateResponse)
+def create_event(request, payload: EventCreateRequest):
+    """Create a new agenda event."""
+
+    event = Event.objects.create(
+        title=payload.title,
+        date=payload.date,
+        created_by=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+    )
+
+    return EventCreateResponse(
+        uuid=str(event.uuid),
+        title=event.title,
+        date=event.date,
+        url=event.get_absolute_url(),
+    )
 
