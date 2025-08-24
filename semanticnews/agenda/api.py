@@ -29,8 +29,8 @@ class SimilarEntryResponse(Schema):
     similarity: float
 
 
-@api.post("/check-similarity", response=List[SimilarEntryResponse])
-def check_similarity(request, payload: EntryCheckRequest):
+@api.post("/get-similar", response=List[SimilarEntryResponse])
+def get_similar(request, payload: EntryCheckRequest):
     """Check whether an agenda entry already exists.
 
     The endpoint creates an embedding based on the entry's title and date
