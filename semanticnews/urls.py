@@ -7,6 +7,7 @@ from . import views as core_views
 from .profiles import views as profiles_views
 from .topics import views as topics_views
 from .agenda import views as agenda_views
+from .agenda.api import api as agenda_api
 
 
 urlpatterns = [
@@ -14,6 +15,7 @@ urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),
     path("login/", LoginView.as_view(), name="login"),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('api/agenda/', agenda_api.urls),
 ]
 
 
