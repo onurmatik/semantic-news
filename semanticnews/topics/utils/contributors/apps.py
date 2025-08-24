@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 
-class RecapConfig(AppConfig):
+class ContributorsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'semanticnews.topics.tools.recaps'
+    name = 'semanticnews.topics.utils.contributors'
     app_label = 'topics'

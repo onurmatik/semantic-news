@@ -18,11 +18,11 @@ class Topic(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
-    status = models.CharField(max_length=1, db_index=True, choices=(
-        ('r', 'Removed'),
-        ('d', 'Draft'),
-        ('p', 'Published'),
-    ), default='d')
+    status = models.CharField(max_length=20, db_index=True, choices=(
+        ('removed', 'Removed'),
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+    ), default='draft')
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
@@ -30,8 +30,6 @@ class Topic(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    categories = models.ManyToManyField('Keyword', through='TopicCategory', blank=True)
 
     entries = models.ManyToManyField(
         'agenda.Entry', through='TopicEntry',
@@ -94,14 +92,6 @@ class Topic(models.Model):
                    .exclude(embedding__isnull=True)\
                    .exclude(status='r')\
                    .order_by(L2Distance('embedding', self.embedding))[:limit]
-
-    @cached_property
-    def contributors(self):
-        User = get_user_model()  # noqa
-        users = User.objects.filter(topiccontent__topic=self).exclude(topiccontent__created_by__isnull=True)
-        if self.created_by:
-            users |= User.objects.filter(id=self.created_by.id)
-        return users.distinct()
 
 
 class TopicEntry(models.Model):
@@ -189,64 +179,3 @@ class TopicContent(models.Model):
         if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.content, 'embedding', None) is not None:
             self.relevance = get_relevance(self.topic.embedding, self.content.embedding)
         super().save(*args, **kwargs)
-
-
-class Keyword(models.Model):
-    name = models.CharField(max_length=100)
-    slug = models.CharField(max_length=100, blank=True, unique=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    embedding = VectorField(dimensions=1536, blank=True, null=True)
-
-    # Variant of another more standard name
-    variant_of = models.ForeignKey('self', blank=True, null=True, on_delete=models.CASCADE)
-
-    # Keywords to ignore; ambiguous abbreviations, etc.
-    ignore = models.BooleanField(default=False, db_index=True)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        indexes = [
-            HnswIndex(
-                name='keyword_embedding_hnsw',
-                fields=['embedding'],
-                m=16,
-                ef_construction=64,
-                opclasses=['vector_l2_ops']
-            )
-        ]
-
-    def get_name_i18n(self):
-        if get_language() != 'tr':
-            return self.name_en or self.name
-        return self.name
-
-    def save(self, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-
-        if self.embedding is None or len(self.embedding) == 0:
-            self.embedding = self.get_embedding()
-
-        super().save(**kwargs)
-
-    def get_embedding(self):
-        if self.embedding is None or len(self.embedding) == 0:
-            client = OpenAI()
-            embedding = client.embeddings.create(
-                input=self.name,
-                model='text-embedding-3-small'
-            ).data[0].embedding
-            return embedding
-
-
-class TopicCategory(models.Model):
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    category = models.ForeignKey(Keyword, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
-

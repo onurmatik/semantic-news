@@ -14,10 +14,10 @@ def user_profile(request, username):
     user = get_object_or_404(User, username=username)
     topics = (Topic.objects
               .filter(Q(created_by=user) |
-                      Q(contents__added_by=user))
+                      Q(contents__created_by=user))
               .exclude(status='r').distinct()).order_by('-updated_at')
 
-    topic_content = TopicContent.objects.filter(added_by=user).select_related(
+    topic_content = TopicContent.objects.filter(created_by=user).select_related(
         'topicarticle__article',
         'topicvideo__video_chunk',
     )

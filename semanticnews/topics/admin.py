@@ -1,6 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, Keyword, TopicContent
+from .models import Topic, TopicContent
 
 
 @admin.register(Topic)
@@ -33,14 +33,3 @@ class TopicContentAdmin(admin.ModelAdmin):
     list_display = ('topic', 'created_by', 'created_at', 'relevance')
     list_filter = ('created_by',)
     search_fields = ('topic__title', 'created_by__username')
-
-
-@admin.register(Keyword)
-class KeywordAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'ignore', 'created_at', 'updated_at']
-    list_filter = [
-        'ignore',
-    ]
-    list_editable = ['ignore']
-    search_fields = ['name', 'slug']
-    autocomplete_fields = ['variant_of']
