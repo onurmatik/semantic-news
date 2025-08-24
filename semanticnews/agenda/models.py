@@ -41,8 +41,6 @@ class Event(models.Model):
         return f"{self.title} - {self.date}"
 
     class Meta:
-        verbose_name = 'Agenda entry'
-        verbose_name_plural = 'Agenda entries'
         constraints = [
             models.UniqueConstraint(fields=['title', 'date'], name='unique_entry_title_date'),
         ]

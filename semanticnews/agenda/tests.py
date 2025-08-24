@@ -66,7 +66,7 @@ class SuggestEventsTests(SimpleTestCase):
 
 class CreateEventTests(TestCase):
     def test_create_event_endpoint_creates_event(self):
-        payload = {"title": "My Event", "date": "2024-01-02"}
+        payload = {"title": "My Event", "date": "2024-01-02", "confidence": 0.85}
         response = self.client.post(
             "/api/agenda/create", payload, content_type="application/json"
         )
@@ -74,9 +74,11 @@ class CreateEventTests(TestCase):
         data = response.json()
         self.assertEqual(data["title"], "My Event")
         self.assertEqual(data["date"], "2024-01-02")
+        self.assertEqual(data["confidence"], 0.85)
 
         from .models import Event
 
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
         self.assertEqual(data["url"], event.get_absolute_url())
+        self.assertEqual(event.confidence, 0.85)

@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const createRes = await fetch('/api/agenda/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, date })
+        body: JSON.stringify({ title, date, confidence: valData.confidence })
       });
       const created = await createRes.json();
       window.location.href = created.url;

@@ -110,6 +110,7 @@ class EventCreateRequest(Schema):
 
     title: str
     date: date
+    confidence: float | None = None
 
 
 class EventCreateResponse(Schema):
@@ -119,6 +120,7 @@ class EventCreateResponse(Schema):
     title: str
     date: date
     url: str
+    confidence: float | None
 
 
 @api.post("/create", response=EventCreateResponse)
@@ -128,6 +130,7 @@ def create_event(request, payload: EventCreateRequest):
     event = Event.objects.create(
         title=payload.title,
         date=payload.date,
+        confidence=payload.confidence,
         created_by=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
     )
 
@@ -136,6 +139,7 @@ def create_event(request, payload: EventCreateRequest):
         title=event.title,
         date=event.date,
         url=event.get_absolute_url(),
+        confidence=event.confidence,
     )
 
 
