@@ -12,15 +12,22 @@ class Entry(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
-    embedding = VectorField(dimensions=1536, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     date = models.DateField(db_index=True)
 
+    source = models.CharField(
+        max_length=10,
+        choices=[('user','User'), ('agent','Agent'), ('rule','Rule')],
+        default='user'
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='entries'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    embedding = VectorField(dimensions=1536, blank=True, null=True)
 
     previous_version = models.OneToOneField(
         'self',
@@ -35,6 +42,9 @@ class Entry(models.Model):
     class Meta:
         verbose_name = 'Agenda entry'
         verbose_name_plural = 'Agenda entries'
+        constraints = [
+            models.UniqueConstraint(fields=['title', 'date'], name='unique_entry_title_date'),
+        ]
         indexes = [
             HnswIndex(
                 name='entry_embedding_hnsw',
