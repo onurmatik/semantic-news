@@ -109,7 +109,7 @@ def validate_event(request, payload: EventValidationRequest):
             response_format=response_format,
         )
 
-    result = response.output[0].content[0].json
+    result = response.output[0].content[0].model_dump_json()
     return result
 
 
