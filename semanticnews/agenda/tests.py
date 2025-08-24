@@ -39,6 +39,31 @@ class ValidateEventTests(SimpleTestCase):
         )
 
 
+class SuggestEventsTests(SimpleTestCase):
+    @patch("semanticnews.agenda.api.OpenAI")
+    def test_suggest_events_returns_events(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_content = MagicMock()
+        mock_events = [
+            {"title": "Event A", "date": "2024-06-01"},
+            {"title": "Event B", "date": "2024-06-15"},
+        ]
+        mock_content.json = mock_events
+        mock_response.output = [MagicMock(content=[mock_content])]
+        mock_client.responses.create.return_value = mock_response
+
+        response = self.client.get(
+            "/api/agenda/suggest",
+            {"year": 2024, "month": 6, "locality": "USA", "limit": 2},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), mock_events)
+        mock_client.responses.create.assert_called_once()
+
+
 class CreateEventTests(TestCase):
     def test_create_event_endpoint_creates_event(self):
         payload = {"title": "My Event", "date": "2024-01-02"}
