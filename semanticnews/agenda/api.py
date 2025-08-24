@@ -65,3 +65,53 @@ def get_similar(request, payload: EntryCheckRequest):
         for entry in queryset
     ]
 
+
+class EventValidationRequest(Schema):
+    """Request body for agenda event validation."""
+
+    title: str
+    date: date
+
+
+class EventValidationResponse(Schema):
+    """Response containing the confidence score that the event happened."""
+
+    confidence: float
+
+
+@api.post("/validate", response=EventValidationResponse)
+def validate_event(request, payload: EventValidationRequest):
+    """Validate that the topic describes an event that occurred on the given date."""
+    prompt = (
+        f"Does the following describe an event or incident that occurred on {payload.date:%Y-%m-%d}?\n"
+        f"Title: {payload.title}\n"
+        "Return a JSON object with a single field 'confidence' between 0 and 1 representing how confident you are that the"
+        " event happened on that date."
+    )
+
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "event_validation",
+            "schema": EventValidationResponse.model_json_schema(),
+        },
+    }
+
+    with OpenAI() as client:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            tools=[{"type": "web_search"}],
+            input=[
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}],
+                }
+            ],
+            response_format=response_format,
+        )
+
+    result = EventValidationResponse.model_validate(
+        response.output[0].content[0].json
+    )
+    return result
+
