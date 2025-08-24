@@ -30,7 +30,7 @@ class Entry(models.Model):
     )
 
     def __str__(self):
-        return f"{self.name}"
+        return f"{self.title} - {self.date}"
 
     class Meta:
         verbose_name = 'Agenda entry'
@@ -47,7 +47,7 @@ class Entry(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(self.title)
 
         super().save(*args, **kwargs)
 

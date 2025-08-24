@@ -31,7 +31,7 @@ class Content(models.Model):
     language_code = models.CharField(max_length=10, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
 
-    created_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='content'
@@ -71,17 +71,6 @@ class Content(models.Model):
                 model='text-embedding-3-small'
             ).data[0].embedding
             return embedding
-
-    def get_related_topics(self, limit=5):
-        # Similar topics by embedding vector
-        from ..topics.models import Topic
-        return Topic.objects.exclude(embedding__isnull=True).exclude(
-            name__isnull=True).exclude(status='r'
-        ).order_by(L2Distance('embedding', self.embedding))[:limit]
-
-    def get_related_content(self, limit=5):
-        # Similar content by embedding vector
-        return Content.objects.exclude(embedding__isnull=True).order_by(L2Distance('embedding', self.embedding))[:limit]
 
 
 class ContentEntry(models.Model):
