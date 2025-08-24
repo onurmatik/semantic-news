@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from .api import EventValidationResponse
 
@@ -32,8 +32,26 @@ class ValidateEventTests(SimpleTestCase):
 
         mock_client.responses.create.assert_called_once()
         _, kwargs = mock_client.responses.create.call_args
-        self.assertEqual(kwargs["tools"], [{"type": "web_search"}])
+        self.assertEqual(kwargs["tools"], [{"type": "web_search_preview"}])
         self.assertEqual(
             kwargs["response_format"]["json_schema"]["schema"],
             EventValidationResponse.model_json_schema(),
         )
+
+
+class CreateEventTests(TestCase):
+    def test_create_event_endpoint_creates_event(self):
+        payload = {"title": "My Event", "date": "2024-01-02"}
+        response = self.client.post(
+            "/api/agenda/create", payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["title"], "My Event")
+        self.assertEqual(data["date"], "2024-01-02")
+
+        from .models import Event
+
+        self.assertEqual(Event.objects.count(), 1)
+        event = Event.objects.first()
+        self.assertEqual(data["url"], event.get_absolute_url())
