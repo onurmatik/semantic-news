@@ -14,8 +14,6 @@ urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),
     path("login/", LoginView.as_view(), name="login"),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('@<slug:username>', profiles_views.user_profile, name='user_profile'),
-    path("profile/", profiles_views.profile_settings, name="profile_settings"),
 ]
 
 
@@ -44,7 +42,10 @@ urlpatterns += i18n_patterns(
         name='entry_list_year',
     ),
 
-    path('<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
+    path('@<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
+
+    path('@<slug:username>', profiles_views.user_profile, name='user_profile'),
+    path("profile/", profiles_views.profile_settings, name="profile_settings"),
 
     prefix_default_language=False
 )

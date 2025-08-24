@@ -61,6 +61,12 @@ class Topic(models.Model):
 
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        return reverse('topics_detail', kwargs={
+            'slug': str(self.slug),
+            'username': self.created_by.username,
+        })
+
     @cached_property
     def image(self):
         img = self.images.first()
@@ -72,9 +78,6 @@ class Topic(models.Model):
         img = self.images.first()
         if img:
             return img.thumbnail
-
-    def get_absolute_url(self):
-        return reverse('topics_detail', args=[str(self.slug)])
 
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0:
