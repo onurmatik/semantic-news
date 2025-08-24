@@ -146,3 +146,59 @@ def create_event(request, payload: EventCreateRequest):
         url=event.get_absolute_url(),
     )
 
+
+class AgendaEventResponse(Schema):
+    """Schema for suggested agenda events."""
+
+    title: str
+    date: date
+
+
+@api.get("/suggest", response=List[AgendaEventResponse])
+def suggest_events(
+    request,
+    year: int,
+    month: int | None = None,
+    day: int | None = None,
+    locality: str | None = None,
+    limit: int = 10,
+):
+    """Return suggested important events for a given period."""
+
+    if month is None:
+        timeframe = f"in {year}"
+    elif day is None:
+        timeframe = f"in {year}-{month:02d}"
+    else:
+        timeframe = f"on {year}-{month:02d}-{day:02d}"
+
+    if locality:
+        timeframe += f" in {locality}"
+
+    prompt = (
+        f"List the top {limit} most significant events {timeframe}. "
+        "Return a JSON array where each item has 'title' and 'date' in ISO format (YYYY-MM-DD)."
+    )
+
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "agenda_suggestions",
+            "schema": {
+                "type": "array",
+                "items": AgendaEventResponse.model_json_schema(),
+            },
+        },
+    }
+
+    with OpenAI() as client:
+        response = client.responses.create(
+            model="gpt-5",
+            tools=[{"type": "web_search_preview"}],
+            input=prompt,
+            response_format=response_format,
+        )
+
+    events = response.output[0].content[0].json
+    return [AgendaEventResponse(**event) for event in events]
+
