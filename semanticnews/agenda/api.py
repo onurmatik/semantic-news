@@ -17,6 +17,7 @@ class EntryCheckRequest(Schema):
 
     title: str
     date: date
+    threshold: float = 0.8
 
 
 class SimilarEntryResponse(Schema):
@@ -25,18 +26,17 @@ class SimilarEntryResponse(Schema):
     uuid: str
     title: str
     date: date
-    relevance: float
-    distance: float
+    similarity: float
 
 
-@api.post("/check-entry", response=List[SimilarEntryResponse])
-def check_entry(request, payload: EntryCheckRequest):
+@api.post("/check-similarity", response=List[SimilarEntryResponse])
+def check_similarity(request, payload: EntryCheckRequest):
     """Check whether an agenda entry already exists.
 
     The endpoint creates an embedding based on the entry's title and date
     (title + month + year) and compares it against existing agenda entries
     using cosine similarity. Entries with a similarity greater than the
-    defined threshold are returned, ordered by relevance.
+    defined threshold are returned, ordered by similarity.
     """
 
     embedding_input = f"{payload.title} {payload.date:%B} {payload.date:%Y}"
@@ -47,14 +47,12 @@ def check_entry(request, payload: EntryCheckRequest):
             input=embedding_input,
         ).data[0].embedding
 
-    threshold = 0.8
-
     queryset = (
         Entry.objects.exclude(embedding__isnull=True)
         .annotate(distance=CosineDistance("embedding", embedding))
-        .annotate(relevance=Value(1.0) - F("distance"))
-        .filter(relevance__gte=threshold)
-        .order_by("-relevance")
+        .annotate(similarity=Value(1.0) - F("distance"))
+        .filter(similarity__gte=payload.threshold)
+        .order_by("-similarity")
     )
 
     return [
@@ -62,8 +60,7 @@ def check_entry(request, payload: EntryCheckRequest):
             uuid=str(entry.uuid),
             title=entry.title,
             date=entry.date,
-            relevance=entry.relevance,
-            distance=entry.distance,
+            similarity=entry.similarity,
         )
         for entry in queryset
     ]
