@@ -25,22 +25,22 @@ urlpatterns += i18n_patterns(
 
     re_path(
         r'^(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/(?P<slug>[-\w]+)/$',
-        agenda_views.entry_detail,
+        agenda_views.event_detail,
         name='entry_detail',
     ),
     re_path(
         r'^(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/$',
-        agenda_views.entry_list,
+        agenda_views.event_list,
         name='entry_list_day',
     ),
     re_path(
         r'^(?P<year>\d{4})/(?P<month>\d{2})/$',
-        agenda_views.entry_list,
+        agenda_views.event_list,
         name='entry_list_month',
     ),
     re_path(
         r'^(?P<year>\d{4})/$',
-        agenda_views.entry_list,
+        agenda_views.event_list,
         name='entry_list_year',
     ),
 

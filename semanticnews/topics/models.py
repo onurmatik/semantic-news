@@ -31,8 +31,8 @@ class Topic(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    entries = models.ManyToManyField(
-        'agenda.Entry', through='TopicEntry',
+    events = models.ManyToManyField(
+        'agenda.Event', through='TopicEvent',
         related_name='topics', blank=True)
     contents = models.ManyToManyField(
         'contents.Content', through='TopicContent',
@@ -97,9 +97,9 @@ class Topic(models.Model):
                    .order_by(L2Distance('embedding', self.embedding))[:limit]
 
 
-class TopicEntry(models.Model):
+class TopicEvent(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    entry = models.ForeignKey('agenda.Entry', on_delete=models.CASCADE)
+    event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
 
     role = models.CharField(
         max_length=20,
@@ -128,20 +128,20 @@ class TopicEntry(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['topic', 'entry'], name='uniq_topic_entry')
+            models.UniqueConstraint(fields=['topic', 'event'], name='unique_topic_event')
         ]
         indexes = [
             models.Index(fields=['topic']),
-            models.Index(fields=['entry']),
+            models.Index(fields=['event']),
             models.Index(fields=['topic', 'pinned', 'rank']),
         ]
 
     def __str__(self):
-        return f"{self.topic} ↔ {self.entry} ({self.role})"
+        return f"{self.topic} ↔ {self.event} ({self.role})"
 
     def save(self, *args, **kwargs):
-        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.entry, 'embedding', None) is not None:
-            self.relevance = get_relevance(self.topic.embedding, self.entry.embedding)
+        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.event, 'embedding', None) is not None:
+            self.relevance = get_relevance(self.topic.embedding, self.event.embedding)
         super().save(*args, **kwargs)
 
 
@@ -172,7 +172,9 @@ class TopicContent(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
 
     class Meta:
-        unique_together = [('topic', 'content')]
+        constraints = [
+            models.UniqueConstraint(fields=['topic', 'content'], name='unique_topic_content')
+        ]
         indexes = [models.Index(fields=['topic']), models.Index(fields=['content'])]
 
     def __str__(self):

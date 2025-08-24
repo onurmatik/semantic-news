@@ -6,7 +6,7 @@ from ninja import NinjaAPI, Schema
 from openai import OpenAI
 from pgvector.django import CosineDistance
 
-from .models import Entry
+from .models import Event
 
 
 api = NinjaAPI(title="Agenda API")
@@ -48,7 +48,7 @@ def get_similar(request, payload: EntryCheckRequest):
         ).data[0].embedding
 
     queryset = (
-        Entry.objects.exclude(embedding__isnull=True)
+        Event.objects.exclude(embedding__isnull=True)
         .annotate(distance=CosineDistance("embedding", embedding))
         .annotate(similarity=Value(1.0) - F("distance"))
         .filter(similarity__gte=payload.threshold)
@@ -99,19 +99,12 @@ def validate_event(request, payload: EventValidationRequest):
 
     with OpenAI() as client:
         response = client.responses.create(
-            model="gpt-4.1-mini",
-            tools=[{"type": "web_search"}],
-            input=[
-                {
-                    "role": "user",
-                    "content": [{"type": "text", "text": prompt}],
-                }
-            ],
+            model="gpt-5",
+            tools=[{"type": "web_search_preview"}],
+            input=prompt,
             response_format=response_format,
         )
 
-    result = EventValidationResponse.model_validate(
-        response.output[0].content[0].json
-    )
+    result = response.output[0].content[0].model_dump_json()
     return result
 

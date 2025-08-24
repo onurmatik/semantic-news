@@ -1,11 +1,11 @@
 from django.shortcuts import render
-from .agenda.models import Entry
+from .agenda.models import Event
 from .topics.models import Topic
 
 
 def home(request):
     return render(request, 'home.html', {
-        'agenda': Entry.objects.all(),
+        'events': Event.objects.all(),
         'topics': Topic.objects.all(),
     })
 

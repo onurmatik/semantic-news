@@ -8,7 +8,7 @@ from pgvector.django import VectorField, HnswIndex
 from slugify import slugify
 
 
-class Entry(models.Model):
+class Event(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)

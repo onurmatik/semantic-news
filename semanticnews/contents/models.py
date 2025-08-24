@@ -37,9 +37,9 @@ class Content(models.Model):
         on_delete=models.SET_NULL, related_name='content'
     )
 
-    entries = models.ManyToManyField(
-        'agenda.Entry',
-        through='ContentEntry',
+    events = models.ManyToManyField(
+        'agenda.Event',
+        through='ContentEvent',
         related_name='contents'
     )
 
@@ -73,9 +73,9 @@ class Content(models.Model):
             return embedding
 
 
-class ContentEntry(models.Model):
+class ContentEvent(models.Model):
     content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
-    entry = models.ForeignKey('agenda.Entry', on_delete=models.CASCADE)
+    event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
 
     source = models.CharField(
         max_length=10,
@@ -97,14 +97,16 @@ class ContentEntry(models.Model):
     )
 
     class Meta:
-        unique_together = [('content', 'entry', 'source')]
+        constraints = [
+            models.UniqueConstraint(fields=['content', 'event', 'source'], name='unique_content_event__source')
+        ]
         indexes = [
-            models.Index(fields=['entry']),
+            models.Index(fields=['event']),
             models.Index(fields=['content']),
             models.Index(fields=['-relevance']),
         ]
 
     def save(self, *args, **kwargs):
-        if self.relevance is None and getattr(self.content, 'embedding', None) is not None and getattr(self.entry, 'embedding', None) is not None:
-            self.relevance = get_relevance(self.content.embedding, self.entry.embedding)
+        if self.relevance is None and getattr(self.content, 'embedding', None) is not None and getattr(self.event, 'embedding', None) is not None:
+            self.relevance = get_relevance(self.content.embedding, self.event.embedding)
         super().save(*args, **kwargs)

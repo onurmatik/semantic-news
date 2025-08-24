@@ -1,11 +1,9 @@
 from django.contrib import admin
 from django.db.models import Count, Q
-from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.urls import reverse
 from slugify import slugify
 
-from .models import Entry
+from .models import Event
 
 
 class HasEmbeddingFilter(admin.SimpleListFilter):
@@ -38,8 +36,8 @@ class HasContentsFilter(admin.SimpleListFilter):
         return queryset
 
 
-@admin.register(Entry)
-class EntryAdmin(admin.ModelAdmin):
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
     # Columns
     list_display = (
         "title",
@@ -114,11 +112,11 @@ class EntryAdmin(admin.ModelAdmin):
     @admin.action(description="Fill missing slugs from titles")
     def fill_missing_slugs(self, request, queryset):
         updated = 0
-        for entry in queryset.filter(Q(slug__isnull=True) | Q(slug__exact="")):
-            new_slug = slugify(entry.title) if entry.title else None
+        for event in queryset.filter(Q(slug__isnull=True) | Q(slug__exact="")):
+            new_slug = slugify(event.title) if event.title else None
             if new_slug:
-                entry.slug = new_slug
-                entry.save(update_fields=["slug"])
+                event.slug = new_slug
+                event.save(update_fields=["slug"])
                 updated += 1
         self.message_user(request, f"Filled slugs for {updated} entr{ 'y' if updated == 1 else 'ies' }.")
 

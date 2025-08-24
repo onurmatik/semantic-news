@@ -4,19 +4,19 @@ import calendar
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
 
-from .models import Entry
+from .models import Event
 
 
-def entry_detail(request, year, month, day, slug):
-    obj = get_object_or_404(Entry, slug=slug, date__year=year, date__month=month, date__day=day)
-    return render(request, 'agenda/agenda_detail.html', {
-        'entry': obj
+def event_detail(request, year, month, day, slug):
+    obj = get_object_or_404(Event, slug=slug, date__year=year, date__month=month, date__day=day)
+    return render(request, 'agenda/event_detail.html', {
+        'event': obj
     })
 
 
-def entry_list(request, year, month=None, day=None):
+def event_list(request, year, month=None, day=None):
     """
-    Lists entries for a given year, month, or day, based on which
+    Lists events for a given year, month, or day, based on which
     URL pattern matched:
       - /<year>/
       - /<year>/<month>/
@@ -43,7 +43,7 @@ def entry_list(request, year, month=None, day=None):
         period = {"granularity": "year", "year": year}
 
     qs = (
-        Entry.objects.filter(date__range=(start, end))
+        Event.objects.filter(date__range=(start, end))
         .select_related("created_by")
         .prefetch_related("contents")
         .order_by("date", "slug")  # stable order within the period
@@ -53,16 +53,16 @@ def entry_list(request, year, month=None, day=None):
     paginator = Paginator(qs, 20)  # 20 per page; tweak as needed
     page = request.GET.get("page")
     try:
-        entries = paginator.page(page)
+        events = paginator.page(page)
     except PageNotAnInteger:
-        entries = paginator.page(1)
+        events = paginator.page(1)
     except EmptyPage:
-        entries = paginator.page(paginator.num_pages)
+        events = paginator.page(paginator.num_pages)
 
     context = {
-        "entries": entries,
+        "events": events,
         "period": period,   # helpful for headings/breadcrumbs
         "start": start,
         "end": end,
     }
-    return render(request, "agenda/agenda_list.html", context)
+    return render(request, "agenda/event_list.html", context)
