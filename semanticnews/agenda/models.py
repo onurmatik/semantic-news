@@ -20,6 +20,7 @@ class Event(models.Model):
         choices=[('user','User'), ('agent','Agent'), ('rule','Rule')],
         default='user'
     )
+    confidence = models.FloatField(blank=True, null=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='entries'
@@ -70,7 +71,7 @@ class Event(models.Model):
     def get_absolute_url(self) -> str:
         # Use zero-padded YYYY/MM/DD to match the requested format exactly
         return reverse(
-            'entry_detail',
+            'event_detail',
             kwargs={
                 'year': f'{self.date:%Y}',
                 'month': f'{self.date:%m}',

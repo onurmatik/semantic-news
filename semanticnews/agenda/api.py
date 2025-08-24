@@ -78,7 +78,7 @@ class EventValidationRequest(Schema):
 
 
 class EventValidationResponse(Schema):
-    """Response containing the confidence score that the event happened."""
+    """Response containing the confidence score that the event happened at the given date."""
 
     confidence: float
 
@@ -93,23 +93,15 @@ def validate_event(request, payload: EventValidationRequest):
         " event happened on that date."
     )
 
-    response_format = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "event_validation",
-            "schema": EventValidationResponse.model_json_schema(),
-        },
-    }
-
     with OpenAI() as client:
-        response = client.responses.create(
+        response = client.responses.parse(
             model="gpt-5",
             tools=[{"type": "web_search_preview"}],
             input=prompt,
-            response_format=response_format,
+            text_format=EventValidationResponse,
         )
 
-    result = response.output[0].content[0].model_dump_json()
+    result = response.output_parsed
     return result
 
 
