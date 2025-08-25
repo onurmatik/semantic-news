@@ -4,8 +4,9 @@ from .topics.models import Topic
 
 
 def home(request):
+    recent_events = Event.objects.filter(status='published').order_by('-date')[:5]
     return render(request, 'home.html', {
-        'events': Event.objects.all(),
+        'events': recent_events,
         'topics': Topic.objects.all(),
     })
 

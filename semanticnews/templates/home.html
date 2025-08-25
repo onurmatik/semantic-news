@@ -20,9 +20,11 @@
         </div>
 
         <div class="col-12 col-md-4">
-
-            {% include "agenda/event_list_item.html" %}
-
+            {% for event in events %}
+                {% include "agenda/event_list_item.html" %}
+            {% empty %}
+                <p>{% trans "No upcoming events" %}</p>
+            {% endfor %}
         </div>
 
     </div>
