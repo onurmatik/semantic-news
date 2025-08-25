@@ -1,9 +1,13 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import Count, Q
+from django.shortcuts import redirect, render
+from django.urls import path
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
 from .models import Event, Locality, Category
+from .forms import EventSuggestForm
+from .api import suggest_events, AgendaEventResponse
 
 
 class HasEmbeddingFilter(admin.SimpleListFilter):
@@ -80,6 +84,7 @@ class EventAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
 
     actions = ("fill_missing_slugs", "clear_embeddings")
+    change_list_template = "admin/agenda/event/change_list.html"
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -124,6 +129,57 @@ class EventAdmin(admin.ModelAdmin):
     def clear_embeddings(self, request, queryset):
         updated = queryset.update(embedding=None)
         self.message_user(request, f"Cleared embeddings on {updated} entr{ 'y' if updated == 1 else 'ies' }.")
+
+    # Custom URLs
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path("suggest/", self.admin_site.admin_view(self.suggest_view), name="agenda_event_suggest"),
+        ]
+        return my_urls + urls
+
+    def suggest_view(self, request):
+        form = EventSuggestForm(request.POST or None)
+        if request.method == "POST" and form.is_valid():
+            start = form.cleaned_data["start_date"]
+            end = form.cleaned_data["end_date"]
+            locality = form.cleaned_data.get("locality")
+            categories = form.cleaned_data.get("categories")
+
+            existing = Event.objects.filter(date__range=(start, end)).values("title", "date")
+            exclude = [AgendaEventResponse(title=e["title"], date=e["date"]) for e in existing]
+
+            suggestions = suggest_events(
+                request,
+                start_date=start,
+                end_date=end,
+                locality=locality.name if locality else None,
+                categories=", ".join(c.name for c in categories) if categories else None,
+                exclude=exclude,
+            )
+
+            created = 0
+            for item in suggestions:
+                event = Event.objects.create(
+                    title=item.title,
+                    date=item.date,
+                    locality=locality,
+                    source="agent",
+                    created_by=request.user if request.user.is_authenticated else None,
+                )
+                if categories:
+                    event.categories.set(categories)
+                created += 1
+
+            messages.success(request, f"Created {created} new events from suggestions.")
+            return redirect("admin:agenda_event_changelist")
+
+        context = {
+            "form": form,
+            "opts": self.model._meta,
+            "app_label": self.model._meta.app_label,
+        }
+        return render(request, "admin/agenda/event/suggest.html", context)
 
 
 @admin.register(Locality)

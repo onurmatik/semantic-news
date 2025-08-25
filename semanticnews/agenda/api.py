@@ -156,6 +156,7 @@ def suggest_events(
     start_date: date | None = None,
     end_date: date | None = None,
     locality: str | None = None,
+    categories: str | None = None,
     limit: int = 10,
     exclude: List[AgendaEventResponse] | None = None,
 ):
@@ -163,6 +164,7 @@ def suggest_events(
 
     Args:
         exclude: Optional list of events to omit from the suggestions.
+        categories: Optional comma-separated list of categories to focus on.
     """
 
     if start_date and end_date:
@@ -181,6 +183,8 @@ def suggest_events(
 
     if locality:
         timeframe += f" in {locality}"
+    if categories:
+        timeframe += f" about {categories}"
 
     parsed_exclude: List[AgendaEventResponse] = []
     if exclude:
