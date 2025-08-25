@@ -156,6 +156,8 @@ class EventAdmin(admin.ModelAdmin):
                 exclude=exclude,
             )
 
+            print(suggestions.event_list)
+
             created = 0
             for item in suggestions.event_list:
                 event = Event.objects.create(
