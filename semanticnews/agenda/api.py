@@ -158,6 +158,7 @@ class AgendaEventResponse(Schema):
 
     title: str
     date: date
+    categories: List[str] = []
 
 
 class AgendaEventList(Schema):
@@ -204,7 +205,8 @@ def suggest_events(
 
     prompt = (
         f"List the top {limit} most significant events {timeframe}. "
-        "Return a JSON array where each item has 'title' and 'date' in ISO format (YYYY-MM-DD)."
+        "Return a JSON array where each item has 'title', 'date' in ISO format (YYYY-MM-DD), "
+        "and 'categories' as an array of 1-3 high-level categories."
     )
 
     if exclude:
