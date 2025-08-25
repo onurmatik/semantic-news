@@ -22,7 +22,10 @@
 
         <div class="col-12 col-md-4">
 
-            <h2 class="fs-5">{% trans "Related events" %}</h2>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="fs-5 mb-0">{% trans "Related events" %}</h2>
+                <button id="suggestEventsBtn" data-event-title="{{ event.title }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add events' %}">[+]</button>
+            </div>
 
             {% for sim_event in similar_events %}
                 {% include "agenda/event_list_item.html" with event=sim_event %}
@@ -34,4 +37,27 @@
     </div>
 </div>
 
+<div class="modal fade" id="suggestEventsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Add related events" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body" id="suggestedEventsList">
+                <p>{% trans "Loading suggestions..." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="createSelectedEventsBtn">{% trans "Create selected" %}</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'agenda/event_suggestions.js' %}"></script>
 {% endblock %}
