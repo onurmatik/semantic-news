@@ -174,6 +174,7 @@ def suggest_events(
     end_date: date | None = None,
     locality: str | None = None,
     categories: str | None = None,
+    related_event: str | None = None,
     limit: int = 10,
     exclude: AgendaEventList | None = None,
 ):
@@ -182,6 +183,7 @@ def suggest_events(
     Args:
         exclude: Optional list of events to omit from the suggestions.
         categories: Optional comma-separated list of categories to focus on.
+        related_event: Optional event title to find related events for.
     """
 
     if start_date and end_date:
@@ -203,8 +205,14 @@ def suggest_events(
     if categories:
         timeframe += f" about {categories}"
 
+    descriptor_parts = []
+    if related_event:
+        descriptor_parts.append(f"related to {related_event}")
+    descriptor_parts.append(timeframe)
+    descriptor = " ".join(descriptor_parts)
+
     prompt = (
-        f"List the top {limit} most significant events {timeframe}. "
+        f"List the top {limit} most significant events {descriptor}. "
         "Return a JSON array where each item has 'title', 'date' in ISO format (YYYY-MM-DD), "
         "and 'categories' as an array of 1-3 high-level categories."
     )
