@@ -126,3 +126,17 @@ class CreateEventTests(TestCase):
         event = Event.objects.first()
         self.assertEqual(data["url"], event.get_absolute_url())
         self.assertEqual(event.confidence, 0.85)
+        self.assertEqual(event.status, "published")
+
+    def test_low_confidence_creates_draft_event(self):
+        payload = {"title": "Low Confidence", "date": "2024-01-03", "confidence": 0.5}
+        response = self.client.post(
+            "/api/agenda/create", payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        from .models import Event
+
+        self.assertEqual(Event.objects.count(), 1)
+        event = Event.objects.first()
+        self.assertEqual(event.status, "draft")
