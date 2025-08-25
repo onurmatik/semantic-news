@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+import json
 
 from django.test import SimpleTestCase, TestCase
 
@@ -62,6 +63,39 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), mock_events)
         mock_client.responses.create.assert_called_once()
+
+    @patch("semanticnews.agenda.api.OpenAI")
+    def test_suggest_events_excludes_events(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_content = MagicMock()
+        mock_events = [
+            {"title": "Event A", "date": "2024-06-01"},
+            {"title": "Event B", "date": "2024-06-15"},
+        ]
+        mock_content.json = mock_events
+        mock_response.output = [MagicMock(content=[mock_content])]
+        mock_client.responses.create.return_value = mock_response
+
+        exclude = json.dumps([
+            {"title": "Event A", "date": "2024-06-01"}
+        ])
+
+        response = self.client.get(
+            "/api/agenda/suggest",
+            {"year": 2024, "month": 6, "limit": 2, "exclude": exclude},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            [{"title": "Event B", "date": "2024-06-15"}],
+        )
+        mock_client.responses.create.assert_called_once()
+        _, kwargs = mock_client.responses.create.call_args
+        self.assertIn("Do not include the following events", kwargs["input"])
+        self.assertIn("Event A on 2024-06-01", kwargs["input"])
 
 
 class CreateEventTests(TestCase):

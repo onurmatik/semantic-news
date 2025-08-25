@@ -1,5 +1,6 @@
 from datetime import date
 from typing import List
+import json
 
 from django.db.models import F, Value
 from ninja import NinjaAPI, Schema
@@ -101,8 +102,7 @@ def validate_event(request, payload: EventValidationRequest):
             text_format=EventValidationResponse,
         )
 
-    result = response.output_parsed
-    return result
+    return response.output_parsed
 
 
 class EventCreateRequest(Schema):
@@ -158,8 +158,13 @@ def suggest_events(
     day: int | None = None,
     locality: str | None = None,
     limit: int = 10,
+    exclude: List[AgendaEventResponse] | None = None,
 ):
-    """Return suggested important events for a given period."""
+    """Return suggested important events for a given period.
+
+    Args:
+        exclude: Optional list of events to omit from the suggestions.
+    """
 
     if month is None:
         timeframe = f"in {year}"
@@ -171,30 +176,35 @@ def suggest_events(
     if locality:
         timeframe += f" in {locality}"
 
+    parsed_exclude: List[AgendaEventResponse] = []
+    if exclude:
+        if isinstance(exclude, str):
+            try:
+                parsed_exclude = [
+                    AgendaEventResponse(**item) for item in json.loads(exclude)
+                ]
+            except Exception:
+                parsed_exclude = []
+        else:
+            parsed_exclude = exclude
+
     prompt = (
         f"List the top {limit} most significant events {timeframe}. "
         "Return a JSON array where each item has 'title' and 'date' in ISO format (YYYY-MM-DD)."
     )
 
-    response_format = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "agenda_suggestions",
-            "schema": {
-                "type": "array",
-                "items": AgendaEventResponse.model_json_schema(),
-            },
-        },
-    }
+    if parsed_exclude:
+        excluded_events = "\n".join(
+            f"- {e.title} on {e.date.isoformat()}" for e in parsed_exclude
+        )
+        prompt += "\nExclude the following already known events:\n" + excluded_events
 
     with OpenAI() as client:
-        response = client.responses.create(
+        response = client.responses.parse(
             model="gpt-5",
             tools=[{"type": "web_search_preview"}],
             input=prompt,
-            response_format=response_format,
+            text_format=AgendaEventResponse,
         )
 
-    events = response.output[0].content[0].json
-    return [AgendaEventResponse(**event) for event in events]
-
+    return response.output_parsed
