@@ -55,16 +55,15 @@ document.addEventListener('DOMContentLoaded', function () {
       body: JSON.stringify({ title, date })
     });
     const valData = await valRes.json();
-    if (valData.confidence >= CONFIDENCE_THRESHOLD) {
-      const createRes = await fetch('/api/agenda/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, date, confidence: valData.confidence })
-      });
-      const created = await createRes.json();
-      window.location.href = created.url;
-    } else {
-      alert('Event could not be validated.');
+    const createRes = await fetch('/api/agenda/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, date, confidence: valData.confidence })
+    });
+    const created = await createRes.json();
+    if (valData.confidence < CONFIDENCE_THRESHOLD) {
+      alert('Event created as draft due to low confidence.');
     }
+    window.location.href = created.url;
   }
 });

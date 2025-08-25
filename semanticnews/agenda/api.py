@@ -10,6 +10,9 @@ from pgvector.django import CosineDistance
 from .models import Event
 
 
+CONFIDENCE_THRESHOLD = 0.85
+
+
 api = NinjaAPI(title="Agenda API")
 
 
@@ -127,10 +130,17 @@ class EventCreateResponse(Schema):
 def create_event(request, payload: EventCreateRequest):
     """Create a new agenda event."""
 
+    status = (
+        "published"
+        if payload.confidence is not None and payload.confidence >= CONFIDENCE_THRESHOLD
+        else "draft"
+    )
+
     event = Event.objects.create(
         title=payload.title,
         date=payload.date,
         confidence=payload.confidence,
+        status=status,
         created_by=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
     )
 
