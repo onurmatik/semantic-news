@@ -20,7 +20,10 @@
         </div>
 
         <div class="col-12 col-md-4">
-            <h2 class="fs-5">{%  trans "Agenda" %}</h2>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="fs-5 mb-0">{%  trans "Agenda" %}</h2>
+                <button id="addEventBtn" class="btn btn-sm btn-primary" title="{% trans 'Add event' %}">+</button>
+            </div>
             {% for event in events %}
                 {% include "agenda/event_list_item.html" %}
             {% empty %}
@@ -32,4 +35,38 @@
 
 </div>
 
+<div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Add event" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="eventDate" class="form-label">{% trans "Date" %}</label>
+                        <input type="date" class="form-control" id="eventDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventTitle" class="form-label">{% trans "Title" %}</label>
+                        <input type="text" class="form-control" id="eventTitle" required>
+                    </div>
+                    <div id="similarEvents"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">{% trans "Submit" %}</button>
+                    <button type="button" class="btn btn-success d-none" id="confirmCreateBtn">{% trans "Create event" %}</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'agenda/event_modal.js' %}"></script>
 {% endblock %}
