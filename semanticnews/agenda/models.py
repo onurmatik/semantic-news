@@ -15,7 +15,7 @@ class Event(models.Model):
     description = models.TextField(blank=True, null=True)
     date = models.DateField(db_index=True)
     locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
-    category = models.ForeignKey('agenda.Category', on_delete=models.CASCADE, blank=True, null=True)
+    categories = models.ManyToManyField('agenda.Category', blank=True)
 
     source = models.CharField(
         max_length=10,
