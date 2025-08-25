@@ -14,6 +14,8 @@ class Event(models.Model):
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     date = models.DateField(db_index=True)
+    locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
+    category = models.ForeignKey('agenda.Category', on_delete=models.CASCADE, blank=True, null=True)
 
     source = models.CharField(
         max_length=10,
@@ -85,3 +87,17 @@ class Event(models.Model):
             node = node.previous_version
             version += 1
         return node, version
+
+
+class Locality(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
