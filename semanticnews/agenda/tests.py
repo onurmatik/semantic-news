@@ -109,6 +109,31 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertIn("Do not include the following events", kwargs["input"])
         self.assertIn("Event A on 2024-06-01", kwargs["input"])
 
+    @patch("semanticnews.agenda.api.OpenAI")
+    def test_suggest_events_with_related_event(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_content = MagicMock()
+        mock_events = [
+            {"title": "Related Event", "date": "2024-07-01", "categories": ["Sports"]}
+        ]
+        mock_content.json = mock_events
+        mock_response.output = [MagicMock(content=[mock_content])]
+        mock_response.output_parsed = mock_events
+        mock_client.responses.parse.return_value = mock_response
+
+        response = self.client.get(
+            "/api/agenda/suggest",
+            {"related_event": "2024 Olympics", "limit": 1},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), mock_events)
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn("related to 2024 Olympics", kwargs["input"])
+
 
 class CreateEventTests(TestCase):
     def test_create_event_endpoint_creates_event(self):
