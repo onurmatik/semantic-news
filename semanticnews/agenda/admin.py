@@ -3,7 +3,7 @@ from django.db.models import Count, Q
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
-from .models import Event
+from .models import Event, Locality, Category
 
 
 class HasEmbeddingFilter(admin.SimpleListFilter):
@@ -124,3 +124,15 @@ class EventAdmin(admin.ModelAdmin):
     def clear_embeddings(self, request, queryset):
         updated = queryset.update(embedding=None)
         self.message_user(request, f"Cleared embeddings on {updated} entr{ 'y' if updated == 1 else 'ies' }.")
+
+
+@admin.register(Locality)
+class LocalityAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
