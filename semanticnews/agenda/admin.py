@@ -47,12 +47,10 @@ class EventAdmin(admin.ModelAdmin):
         "title",
         "slug",
         "date",
-        "contents_count",
-        "created_by",
-        "created_at",
-        "updated_at",
+        "status",
         "has_embedding_flag",
     )
+    list_editable = ("slug", "status",)
     list_display_links = ("title",)
 
     # Filters & search

@@ -14,8 +14,13 @@ class Event(models.Model):
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     date = models.DateField(db_index=True)
+
     locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
     categories = models.ManyToManyField('agenda.Category', blank=True)
+    status = models.CharField(max_length=20, choices=(
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+    ), default='draft')
 
     source = models.CharField(
         max_length=10,
