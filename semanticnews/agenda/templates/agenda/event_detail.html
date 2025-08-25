@@ -2,13 +2,29 @@
 
 {% load static i18n humanize markdown_extras %}
 
-{% block title %}{{ topic.title }}{% endblock %}
+{% block title %}{{ event.title }}{% endblock %}
 
 
 {% block content %}
 
-    <h1 class="fs-3">
-        {{ event.title }}
-    </h1>
+<div class="container">
+    <div class="row">
+        <div class="col-12 col-md-8">
+            <h1 class="fs-3">{{ event.title }}</h1>
+            {% if event.description %}
+                <p>{{ event.description }}</p>
+            {% endif %}
+        </div>
+
+        <div class="col-12 col-md-4">
+            <h2 class="fs-5">{% trans "Similar events" %}</h2>
+            {% for sim_event in similar_events %}
+                {% include "agenda/event_list_item.html" with event=sim_event %}
+            {% empty %}
+                <p>{% trans "No similar events" %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 
 {% endblock %}

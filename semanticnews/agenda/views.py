@@ -3,15 +3,33 @@ import calendar
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
+from pgvector.django import L2Distance
 
 from .models import Event
 
 
 def event_detail(request, year, month, day, slug):
-    obj = get_object_or_404(Event, slug=slug, date__year=year, date__month=month, date__day=day)
-    return render(request, 'agenda/event_detail.html', {
-        'event': obj
-    })
+    obj = get_object_or_404(
+        Event, slug=slug, date__year=year, date__month=month, date__day=day
+    )
+
+    if obj.embedding is not None:
+        similar_events = (
+            Event.objects.exclude(id=obj.id)
+            .exclude(embedding__isnull=True)
+            .order_by(L2Distance("embedding", obj.embedding))[:5]
+        )
+    else:
+        similar_events = Event.objects.none()
+
+    return render(
+        request,
+        "agenda/event_detail.html",
+        {
+            "event": obj,
+            "similar_events": similar_events,
+        },
+    )
 
 
 def event_list(request, year, month=None, day=None):
