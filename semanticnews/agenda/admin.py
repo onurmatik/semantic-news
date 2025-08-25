@@ -81,7 +81,7 @@ class EventAdmin(admin.ModelAdmin):
     exclude = ("embedding",)
     prepopulated_fields = {"slug": ("title",)}
 
-    actions = ("fill_missing_slugs", "clear_embeddings")
+    actions = ("update_embeddings",)
     change_list_template = "admin/agenda/event/change_list.html"
 
     def get_queryset(self, request):
@@ -112,21 +112,13 @@ class EventAdmin(admin.ModelAdmin):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
         return queryset.distinct(), True
 
-    @admin.action(description="Fill missing slugs from titles")
-    def fill_missing_slugs(self, request, queryset):
+    def update_embeddings(self, request, queryset):
         updated = 0
-        for event in queryset.filter(Q(slug__isnull=True) | Q(slug__exact="")):
-            new_slug = slugify(event.title) if event.title else None
-            if new_slug:
-                event.slug = new_slug
-                event.save(update_fields=["slug"])
-                updated += 1
-        self.message_user(request, f"Filled slugs for {updated} entr{ 'y' if updated == 1 else 'ies' }.")
-
-    @admin.action(description="Clear embeddings")
-    def clear_embeddings(self, request, queryset):
-        updated = queryset.update(embedding=None)
-        self.message_user(request, f"Cleared embeddings on {updated} entr{ 'y' if updated == 1 else 'ies' }.")
+        for event in queryset:
+            event.embedding = event.get_embedding()
+            event.save(update_fields=["embedding"])
+            updated += 1
+        self.message_user(request, f"Updated embeddings for {updated} event(s).", messages.SUCCESS)
 
     # Custom URLs
     def get_urls(self):

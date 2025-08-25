@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.conf import settings
+from openai import OpenAI
 from pgvector.django import VectorField, HnswIndex
 from slugify import slugify
 
@@ -65,6 +66,9 @@ class Event(models.Model):
         if not self.slug:
             self.slug = slugify(self.title)
 
+        if not self.embedding:
+            self.embedding = self.get_embedding()
+
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -84,6 +88,19 @@ class Event(models.Model):
                 'slug': self.slug,
             },
         )
+
+    def get_embedding(self):
+        if self.embedding is None or len(self.embedding) == 0:
+            client = OpenAI()
+            text = (
+                f"{self.title} - {self.date}\n"
+                f"{', '.join([c.name for c in self.categories.all()])}"
+            )
+            embedding = client.embeddings.create(
+                input=text,
+                model='text-embedding-3-small'
+            ).data[0].embedding
+            return embedding
 
     @property
     def latest(self):
