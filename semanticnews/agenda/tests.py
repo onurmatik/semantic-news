@@ -3,7 +3,7 @@ import json
 
 from django.test import SimpleTestCase, TestCase
 
-from .api import EventValidationResponse
+from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
 
 
 class ValidateEventTests(SimpleTestCase):
@@ -48,11 +48,12 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Event A", "date": "2024-06-01"},
-            {"title": "Event B", "date": "2024-06-15"},
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy", "Business"]},
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
+        mock_response.output_parsed = mock_events
         mock_client.responses.parse.return_value = mock_response
 
         response = self.client.get(
@@ -76,15 +77,16 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Event A", "date": "2024-06-01"},
-            {"title": "Event B", "date": "2024-06-15"},
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]},
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
+        mock_response.output_parsed = mock_events
         mock_client.responses.parse.return_value = mock_response
 
         exclude = json.dumps([
-            {"title": "Event A", "date": "2024-06-01"}
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]}
         ])
 
         response = self.client.get(
@@ -100,7 +102,7 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            [{"title": "Event B", "date": "2024-06-15"}],
+            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]}],
         )
         mock_client.responses.parse.assert_called_once()
         _, kwargs = mock_client.responses.parse.call_args
@@ -140,3 +142,45 @@ class CreateEventTests(TestCase):
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
         self.assertEqual(event.status, "draft")
+
+
+class SuggestViewAdminTests(TestCase):
+    @patch("semanticnews.agenda.admin.suggest_events")
+    def test_admin_suggest_view_creates_categories(self, mock_suggest):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        from datetime import date
+        from .models import Event, Locality
+
+        mock_suggest.return_value = AgendaEventList(
+            event_list=[
+                AgendaEventResponse(
+                    title="Event A",
+                    date=date(2024, 6, 1),
+                    categories=["Politics", "Economy"],
+                )
+            ]
+        )
+
+        User = get_user_model()
+        user = User.objects.create_superuser("admin", "a@example.com", "password")
+        self.client.force_login(user)
+
+        locality = Locality.objects.create(name="USA")
+
+        response = self.client.post(
+            reverse("admin:agenda_event_suggest"),
+            {
+                "start_date": "2024-06-01",
+                "end_date": "2024-06-30",
+                "locality": locality.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Event.objects.count(), 1)
+        event = Event.objects.first()
+        self.assertEqual(
+            set(event.categories.values_list("name", flat=True)),
+            {"Politics", "Economy"},
+        )

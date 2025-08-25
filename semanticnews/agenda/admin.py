@@ -142,7 +142,7 @@ class EventAdmin(admin.ModelAdmin):
             start = form.cleaned_data["start_date"]
             end = form.cleaned_data["end_date"]
             locality = form.cleaned_data.get("locality")
-            categories = form.cleaned_data.get("categories")
+            selected_categories = form.cleaned_data.get("categories")
 
             existing = Event.objects.filter(date__range=(start, end)).values("title", "date")
             exclude = [AgendaEventResponse(title=e["title"], date=e["date"]) for e in existing]
@@ -152,7 +152,7 @@ class EventAdmin(admin.ModelAdmin):
                 start_date=start,
                 end_date=end,
                 locality=locality.name if locality else None,
-                categories=", ".join(c.name for c in categories) if categories else None,
+                categories=", ".join(c.name for c in selected_categories) if selected_categories else None,
                 exclude=exclude,
             )
 
@@ -165,8 +165,9 @@ class EventAdmin(admin.ModelAdmin):
                     source="agent",
                     created_by=request.user if request.user.is_authenticated else None,
                 )
-                if categories:
-                    event.categories.set(categories)
+                for cat_name in item.categories:
+                    category, _ = Category.objects.get_or_create(name=cat_name)
+                    event.categories.add(category)
                 created += 1
 
             messages.success(request, f"Created {created} new events from suggestions.")
