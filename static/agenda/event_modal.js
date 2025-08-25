@@ -1,5 +1,7 @@
 // Handles the add event modal workflow
 
+const CONFIDENCE_THRESHOLD = 0.85;
+
 document.addEventListener('DOMContentLoaded', function () {
   const modalElement = document.getElementById('addEventModal');
   if (!modalElement) return;
@@ -53,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
       body: JSON.stringify({ title, date })
     });
     const valData = await valRes.json();
-    if (valData.confidence >= 0.5) {
+    if (valData.confidence >= CONFIDENCE_THRESHOLD) {
       const createRes = await fetch('/api/agenda/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
