@@ -15,7 +15,7 @@ class ValidateEventTests(SimpleTestCase):
         mock_content = MagicMock()
         mock_content.json = {"confidence": 0.91}
         mock_response.output = [MagicMock(content=[mock_content])]
-        mock_client.responses.create.return_value = mock_response
+        mock_client.responses.parse.return_value = mock_response
 
         payload = {
             "title": "Sample Event",
@@ -31,8 +31,8 @@ class ValidateEventTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"confidence": 0.91})
 
-        mock_client.responses.create.assert_called_once()
-        _, kwargs = mock_client.responses.create.call_args
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
         self.assertEqual(kwargs["tools"], [{"type": "web_search_preview"}])
         self.assertEqual(
             kwargs["response_format"]["json_schema"]["schema"],
@@ -53,16 +53,21 @@ class SuggestEventsTests(SimpleTestCase):
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
-        mock_client.responses.create.return_value = mock_response
+        mock_client.responses.parse.return_value = mock_response
 
         response = self.client.get(
             "/api/agenda/suggest",
-            {"year": 2024, "month": 6, "locality": "USA", "limit": 2},
+            {
+                "start_date": "2024-06-01",
+                "end_date": "2024-06-30",
+                "locality": "USA",
+                "limit": 2,
+            },
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), mock_events)
-        mock_client.responses.create.assert_called_once()
+        mock_client.responses.parse.assert_called_once()
 
     @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_excludes_events(self, mock_openai):
@@ -76,7 +81,7 @@ class SuggestEventsTests(SimpleTestCase):
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
-        mock_client.responses.create.return_value = mock_response
+        mock_client.responses.parse.return_value = mock_response
 
         exclude = json.dumps([
             {"title": "Event A", "date": "2024-06-01"}
@@ -84,7 +89,12 @@ class SuggestEventsTests(SimpleTestCase):
 
         response = self.client.get(
             "/api/agenda/suggest",
-            {"year": 2024, "month": 6, "limit": 2, "exclude": exclude},
+            {
+                "start_date": "2024-06-01",
+                "end_date": "2024-06-30",
+                "limit": 2,
+                "exclude": exclude,
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -92,8 +102,8 @@ class SuggestEventsTests(SimpleTestCase):
             response.json(),
             [{"title": "Event B", "date": "2024-06-15"}],
         )
-        mock_client.responses.create.assert_called_once()
-        _, kwargs = mock_client.responses.create.call_args
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
         self.assertIn("Do not include the following events", kwargs["input"])
         self.assertIn("Event A on 2024-06-01", kwargs["input"])
 

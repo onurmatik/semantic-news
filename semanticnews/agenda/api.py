@@ -153,9 +153,8 @@ class AgendaEventResponse(Schema):
 @api.get("/suggest", response=List[AgendaEventResponse])
 def suggest_events(
     request,
-    year: int,
-    month: int | None = None,
-    day: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     locality: str | None = None,
     limit: int = 10,
     exclude: List[AgendaEventResponse] | None = None,
@@ -166,12 +165,19 @@ def suggest_events(
         exclude: Optional list of events to omit from the suggestions.
     """
 
-    if month is None:
-        timeframe = f"in {year}"
-    elif day is None:
-        timeframe = f"in {year}-{month:02d}"
+    if start_date and end_date:
+        if start_date == end_date:
+            timeframe = f"on {start_date:%Y-%m-%d}"
+        else:
+            timeframe = (
+                f"between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}"
+            )
+    elif start_date:
+        timeframe = f"on {start_date:%Y-%m-%d}"
+    elif end_date:
+        timeframe = f"until {end_date:%Y-%m-%d}"
     else:
-        timeframe = f"on {year}-{month:02d}-{day:02d}"
+        timeframe = "recently"
 
     if locality:
         timeframe += f" in {locality}"
