@@ -24,7 +24,9 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{% trans "Related events" %}</h2>
-                <button id="suggestEventsBtn" data-event-title="{{ event.title }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add events' %}">[+]</button>
+                <button id="suggestEventsBtn" data-event-title="{{ event.title }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add events' %}">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
             </div>
 
             {% for sim_event in similar_events %}
