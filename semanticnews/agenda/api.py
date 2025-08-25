@@ -150,7 +150,13 @@ class AgendaEventResponse(Schema):
     date: date
 
 
-@api.get("/suggest", response=List[AgendaEventResponse])
+class AgendaEventList(Schema):
+    """Schema for suggested agenda events."""
+
+    event_list: List[AgendaEventResponse] = []
+
+
+@api.get("/suggest", response=AgendaEventList)
 def suggest_events(
     request,
     start_date: date | None = None,
@@ -158,7 +164,7 @@ def suggest_events(
     locality: str | None = None,
     categories: str | None = None,
     limit: int = 10,
-    exclude: List[AgendaEventResponse] | None = None,
+    exclude: AgendaEventList | None = None,
 ):
     """Return suggested important events for a given period.
 
@@ -186,26 +192,14 @@ def suggest_events(
     if categories:
         timeframe += f" about {categories}"
 
-    parsed_exclude: List[AgendaEventResponse] = []
-    if exclude:
-        if isinstance(exclude, str):
-            try:
-                parsed_exclude = [
-                    AgendaEventResponse(**item) for item in json.loads(exclude)
-                ]
-            except Exception:
-                parsed_exclude = []
-        else:
-            parsed_exclude = exclude
-
     prompt = (
         f"List the top {limit} most significant events {timeframe}. "
         "Return a JSON array where each item has 'title' and 'date' in ISO format (YYYY-MM-DD)."
     )
 
-    if parsed_exclude:
+    if exclude:
         excluded_events = "\n".join(
-            f"- {e.title} on {e.date.isoformat()}" for e in parsed_exclude
+            f"- {e.title} on {e.date.isoformat()}" for e in exclude
         )
         prompt += "\nExclude the following already known events:\n" + excluded_events
 
@@ -214,7 +208,7 @@ def suggest_events(
             model="gpt-5",
             tools=[{"type": "web_search_preview"}],
             input=prompt,
-            text_format=AgendaEventResponse,
+            text_format=AgendaEventList,
         )
 
     return response.output_parsed

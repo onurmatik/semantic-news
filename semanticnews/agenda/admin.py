@@ -159,7 +159,7 @@ class EventAdmin(admin.ModelAdmin):
             )
 
             created = 0
-            for item in suggestions:
+            for item in suggestions.event_list:
                 event = Event.objects.create(
                     title=item.title,
                     date=item.date,
