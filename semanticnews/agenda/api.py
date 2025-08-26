@@ -4,7 +4,7 @@ import json
 
 from django.db.models import F, Value
 from ninja import NinjaAPI, Schema
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 from pgvector.django import CosineDistance
 
 from .models import Event

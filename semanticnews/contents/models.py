@@ -1,6 +1,6 @@
 import uuid
 
-from openai import OpenAI, AsyncOpenAI
+from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 from django.db import models
 from django.core.validators import URLValidator, MinValueValidator, MaxValueValidator

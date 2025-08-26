@@ -1,5 +1,5 @@
 from django.db import models
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 from pgvector.django import VectorField, HnswIndex
 from django.contrib.auth.models import AbstractUser
 

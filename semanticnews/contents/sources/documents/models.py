@@ -1,4 +1,4 @@
-from openai import AsyncOpenAI, OpenAI
+from semanticnews.openai import AsyncOpenAI, OpenAI
 from django.db import models
 
 

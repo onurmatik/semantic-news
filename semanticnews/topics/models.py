@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _, get_language
 from django.conf import settings
 from slugify import slugify
-from openai import OpenAI, AsyncOpenAI
+from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 from ..utils import translate, get_relevance
 

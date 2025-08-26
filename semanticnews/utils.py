@@ -1,6 +1,6 @@
 import json
 import numpy as np
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 from functools import wraps
 from django.views.decorators.cache import cache_page
 from django.utils.translation import get_language

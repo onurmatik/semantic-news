@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.conf import settings
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 from pgvector.django import VectorField, HnswIndex
 from slugify import slugify
 

@@ -2,7 +2,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from django.core.files.base import ContentFile
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 
 from .models import TopicImage
 
