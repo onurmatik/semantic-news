@@ -64,13 +64,13 @@ document.addEventListener('DOMContentLoaded', function () {
           list.appendChild(wrapper);
         });
         createBtn.disabled = false;
+        form.classList.add('d-none');
       } else {
         list.innerHTML = '<p>No suggestions found.</p>';
       }
     } catch (err) {
       list.innerHTML = '<p>Error loading suggestions.</p>';
     }
-    form.classList.add('d-none');
   });
 
   createBtn.addEventListener('click', async () => {

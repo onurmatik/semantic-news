@@ -22,8 +22,7 @@ class EntryCheckRequest(Schema):
     Attributes:
         title (str): Title of the agenda entry to check.
         date (date): Date of the agenda entry.
-        threshold (float): Minimum similarity score required to include an
-            entry. Defaults to ``0.8``.
+        threshold (float): Minimum similarity score required to include an entry.
     """
 
     title: str
@@ -38,9 +37,9 @@ class SimilarEntryResponse(Schema):
         uuid (str): Unique identifier of the existing event.
         title (str): Title of the similar event.
         slug (str): Slug of the event.
-        date (date): Date of the similar event.
+        date (date): Date of the similar event in ISO format (YYYY-MM-DD).
         url (str): Absolute URL for the event.
-        similarity (float): Cosine similarity score between 0 and ``1``.
+        similarity (float): Cosine similarity score between 0 and 1.
     """
 
     uuid: str
@@ -59,6 +58,13 @@ def get_similar(request, payload: EntryCheckRequest):
     (title + month + year) and compares it against existing agenda entries
     using cosine similarity. Entries with a similarity greater than the
     defined threshold are returned, ordered by similarity.
+
+    Args:
+        request: The HTTP request instance.
+        payload: Data including the entry title, date and similarity threshold.
+
+    Returns:
+        A list of entries similar to the provided payload ordered by similarity.
     """
 
     embedding_input = f"{payload.title} {payload.date:%B} {payload.date:%Y}"
@@ -107,8 +113,7 @@ class EventValidationResponse(Schema):
     the given date.
 
     Attributes:
-        confidence (float): Confidence between ``0`` and ``1`` that the event
-            occurred on the specified date.
+        confidence (float): Confidence between 0 and 1 that the event occurred on the specified date.
     """
 
     confidence: float
@@ -117,6 +122,7 @@ class EventValidationResponse(Schema):
 @api.post("/validate", response=EventValidationResponse)
 def validate_event(request, payload: EventValidationRequest):
     """Validate that the topic describes an event that occurred on the given date."""
+
     prompt = (
         f"Does the following describe an event or incident that occurred on {payload.date:%Y-%m-%d}?\n"
         f"Title: {payload.title}\n"
@@ -170,7 +176,15 @@ class EventCreateResponse(Schema):
 
 @api.post("/create", response=EventCreateResponse)
 def create_event(request, payload: EventCreateRequest):
-    """Create a new agenda event."""
+    """Create a new agenda event.
+
+    Args:
+        request: The HTTP request instance.
+        payload: Event data including title, date and optional confidence.
+
+    Returns:
+        Data for the newly created event.
+    """
 
     status = (
         "published"
@@ -199,9 +213,9 @@ class AgendaEventResponse(Schema):
     """Schema for suggested agenda events.
 
     Attributes:
-        title (str): Title of the suggested event.
-        date (date): Date of the suggested event.
-        categories (List[str]): Categories describing the event.
+        title (str): Title of the event. Avoid newspaper heading style and state the core fact directly and neutrally.
+        date (date): Date of the event in ISO format (YYYY-MM-DD).
+        categories (List[str]): 1-3 high-level categories describing the event.
     """
 
     title: str
@@ -262,7 +276,7 @@ def suggest_events(
                 f"between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}"
             )
     elif start_date:
-        timeframe = f"on {start_date:%Y-%m-%d}"
+        timeframe = f"since {start_date:%Y-%m-%d}"
     elif end_date:
         timeframe = f"until {end_date:%Y-%m-%d}"
     else:
@@ -275,14 +289,16 @@ def suggest_events(
 
     descriptor_parts = []
     if related_event:
-        descriptor_parts.append(f"related to {related_event}")
+        descriptor_parts.append(f'related to "{related_event}"')
     descriptor_parts.append(timeframe)
     descriptor = " ".join(descriptor_parts)
 
-    prompt = (
-        f"List the top {limit} most significant events {descriptor}. "
-        "Return a JSON array where each item has 'title', 'date' in ISO format (YYYY-MM-DD), "
-        "and 'categories' as an array of 1-3 high-level categories."
+    prompt = f"List the top {limit} most significant events {descriptor}."
+
+    # Style guide
+    prompt += (
+        "Generate event titles as concise factual statements. "
+        "State the core fact directly and neutrally avoid newspaper-style headlines. "
     )
 
     if exclude:
@@ -299,20 +315,7 @@ def suggest_events(
             text_format=AgendaEventList,
         )
 
-    result = response.output_parsed
-
-    if isinstance(result, AgendaEventList):
-        result = result.event_list
-
-    if exclude:
-        excluded_set = {(e.title, e.date.isoformat()) for e in exclude}
-        result = [
-            event
-            for event in result
-            if (event["title"], event["date"]) not in excluded_set
-        ]
-
-    return result
+    return response.output_parsed.event_list
 
 
 @api.get("/suggest", response=List[AgendaEventResponse])
@@ -326,7 +329,21 @@ def suggest_events_get(
     limit: int = 10,
     exclude: List[AgendaEventResponse] | None = None,
 ):
-    """Return suggested important events for a given period via GET."""
+    """Return suggested important events for a given period via GET.
+
+    Args:
+        request: The HTTP request instance.
+        start_date: Start of the period to search.
+        end_date: End of the period to search.
+        locality: Geographic area to consider.
+        categories: Categories to filter events.
+        related_event: Event the suggestions should be related to.
+        limit: Maximum number of events to return.
+        exclude: Events to exclude from the results.
+
+    Returns:
+        A list of suggested events for the specified timeframe.
+    """
 
     return suggest_events(
         start_date=start_date,
@@ -341,7 +358,15 @@ def suggest_events_get(
 
 @api.post("/suggest", response=List[AgendaEventResponse])
 def suggest_events_post(request, payload: SuggestEventsRequest):
-    """Return suggested important events for a given period via POST."""
+    """Return suggested important events for a given period via POST.
+
+    Args:
+        request: The HTTP request instance.
+        payload: Parameters defining the event search.
+
+    Returns:
+        A list of suggested events for the specified timeframe.
+    """
 
     return suggest_events(
         start_date=payload.start_date,
