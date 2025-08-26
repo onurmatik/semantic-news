@@ -230,3 +230,23 @@ class EventDetailTopicTests(TestCase):
 
         self.assertContains(response, "Topic One")
         self.assertContains(response, "Topic Two")
+
+
+class EventDetailLocalityTests(TestCase):
+    def test_locality_select_lists_localities(self):
+        from datetime import date
+        from .models import Locality, Event
+
+        event = Event.objects.create(
+            title="My Event",
+            date=date(2024, 1, 1),
+            embedding=[0.0] * 1536,
+        )
+        default_loc = Locality.objects.create(name="USA", is_default=True)
+        other_loc = Locality.objects.create(name="France")
+
+        response = self.client.get(event.get_absolute_url())
+
+        self.assertContains(response, '<option value="">Global</option>', html=True)
+        content = response.content.decode()
+        self.assertLess(content.index(default_loc.name), content.index(other_loc.name))

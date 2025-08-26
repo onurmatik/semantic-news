@@ -9,7 +9,11 @@ from .models import Locality, Category
 class EventSuggestForm(forms.Form):
     start_date = forms.DateField()
     end_date = forms.DateField()
-    locality = forms.ModelChoiceField(queryset=Locality.objects.all(), required=False)
+    locality = forms.ModelChoiceField(
+        queryset=Locality.objects.all().order_by("-is_default", "name"),
+        required=False,
+        empty_label="Global",
+    )
     categories = forms.ModelMultipleChoiceField(queryset=Category.objects.all(), required=False)
 
     def __init__(self, *args, **kwargs):

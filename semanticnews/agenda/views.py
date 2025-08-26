@@ -5,7 +5,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
 from pgvector.django import L2Distance
 
-from .models import Event
+from .models import Event, Locality
 
 
 def event_detail(request, year, month, day, slug):
@@ -31,6 +31,8 @@ def event_detail(request, year, month, day, slug):
         similar_events = Event.objects.none()
         exclude_events = []
 
+    localities = Locality.objects.all().order_by("-is_default", "name")
+
     return render(
         request,
         "agenda/event_detail.html",
@@ -38,6 +40,7 @@ def event_detail(request, year, month, day, slug):
             "event": obj,
             "similar_events": similar_events,
             "exclude_events": exclude_events,
+            "localities": localities,
         },
     )
 
