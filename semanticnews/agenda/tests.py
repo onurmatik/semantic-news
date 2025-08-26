@@ -48,8 +48,8 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
-            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy", "Business"]},
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"], "sources": ["http://example.com/a"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy", "Business"], "sources": ["http://example.com/b"]},
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
@@ -77,8 +77,8 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
-            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]},
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"], "sources": ["http://example.com/a"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"], "sources": ["http://example.com/b"]},
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
@@ -86,7 +86,7 @@ class SuggestEventsTests(SimpleTestCase):
         mock_client.responses.parse.return_value = mock_response
 
         exclude = json.dumps([
-            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]}
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"], "sources": ["http://example.com/a"]}
         ])
 
         response = self.client.get(
@@ -102,7 +102,7 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]}],
+            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"], "sources": ["http://example.com/b"]}],
         )
         mock_client.responses.parse.assert_called_once()
         _, kwargs = mock_client.responses.parse.call_args
@@ -116,8 +116,8 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
-            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]},
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"], "sources": ["http://example.com/a"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"], "sources": ["http://example.com/b"]},
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
@@ -142,7 +142,7 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]}],
+            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"], "sources": ["http://example.com/b"]}],
         )
         mock_client.responses.parse.assert_called_once()
         _, kwargs = mock_client.responses.parse.call_args
@@ -156,7 +156,7 @@ class SuggestEventsTests(SimpleTestCase):
         mock_response = MagicMock()
         mock_content = MagicMock()
         mock_events = [
-            {"title": "Related Event", "date": "2024-07-01", "categories": ["Sports"]}
+            {"title": "Related Event", "date": "2024-07-01", "categories": ["Sports"], "sources": ["http://example.com/related"]}
         ]
         mock_content.json = mock_events
         mock_response.output = [MagicMock(content=[mock_content])]
@@ -177,7 +177,12 @@ class SuggestEventsTests(SimpleTestCase):
 
 class CreateEventTests(TestCase):
     def test_create_event_endpoint_creates_event(self):
-        payload = {"title": "My Event", "date": "2024-01-02", "confidence": 0.85}
+        payload = {
+            "title": "My Event",
+            "date": "2024-01-02",
+            "confidence": 0.85,
+            "sources": ["http://example.com/source"],
+        }
         response = self.client.post(
             "/api/agenda/create", payload, content_type="application/json"
         )
@@ -187,13 +192,15 @@ class CreateEventTests(TestCase):
         self.assertEqual(data["date"], "2024-01-02")
         self.assertEqual(data["confidence"], 0.85)
 
-        from .models import Event
+        from .models import Event, Source
 
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
         self.assertEqual(data["url"], event.get_absolute_url())
         self.assertEqual(event.confidence, 0.85)
         self.assertEqual(event.status, "published")
+        self.assertEqual(event.sources.count(), 1)
+        self.assertEqual(event.sources.first().url, "http://example.com/source")
 
     def test_low_confidence_creates_draft_event(self):
         payload = {"title": "Low Confidence", "date": "2024-01-03", "confidence": 0.5}
