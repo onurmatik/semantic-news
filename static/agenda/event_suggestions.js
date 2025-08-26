@@ -6,16 +6,43 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!btn || !modalEl) return;
 
   const modal = new bootstrap.Modal(modalEl);
+  const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
   const createBtn = document.getElementById('createSelectedEventsBtn');
+  const existingEventsEl = document.getElementById('exclude-events');
+  const existingEvents = existingEventsEl ? JSON.parse(existingEventsEl.textContent) : [];
 
-  btn.addEventListener('click', async () => {
-    list.innerHTML = '<p>Loading suggestions...</p>';
+  btn.addEventListener('click', () => {
+    form.reset();
+    form.classList.remove('d-none');
+    list.innerHTML = '';
+    list.classList.add('d-none');
     createBtn.disabled = true;
     modal.show();
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    list.innerHTML = '<p>Loading suggestions...</p>';
+    list.classList.remove('d-none');
+    createBtn.disabled = true;
     try {
       const title = btn.dataset.eventTitle;
-      const res = await fetch(`/api/agenda/suggest?related_event=${encodeURIComponent(title)}`);
+      const params = new URLSearchParams();
+      if (title) params.append('related_event', title);
+      const locality = document.getElementById('suggestLocality').value;
+      const startDate = document.getElementById('suggestStartDate').value;
+      const endDate = document.getElementById('suggestEndDate').value;
+      if (locality) params.append('locality', locality);
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      const exclude = existingEvents.filter(ev => {
+        if (startDate && ev.date < startDate) return false;
+        if (endDate && ev.date > endDate) return false;
+        return true;
+      });
+      if (exclude.length) params.append('exclude', JSON.stringify(exclude));
+      const res = await fetch(`/api/agenda/suggest?${params.toString()}`);
       const data = await res.json();
       if (Array.isArray(data) && data.length) {
         list.innerHTML = '';
@@ -43,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (err) {
       list.innerHTML = '<p>Error loading suggestions.</p>';
     }
+    form.classList.add('d-none');
   });
 
   createBtn.addEventListener('click', async () => {
