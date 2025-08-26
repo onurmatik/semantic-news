@@ -31,11 +31,8 @@ class Event(models.Model):
         ('published', 'Published'),
     ), default='draft')
 
-    source = models.CharField(
-        max_length=10,
-        choices=[('user','User'), ('agent','Agent'), ('rule','Rule')],
-        default='user'
-    )
+    sources = models.ManyToManyField('agenda.Source', blank=True)
+
     confidence = models.FloatField(blank=True, null=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
@@ -141,3 +138,10 @@ class Category(models.Model):
 
     class Meta:
         verbose_name_plural = 'categories'
+
+
+class Source(models.Model):
+    url = models.URLField(max_length=200)
+
+    def __str__(self):
+        return self.url
