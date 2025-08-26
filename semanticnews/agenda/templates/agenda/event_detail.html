@@ -54,8 +54,25 @@
                 <h5 class="modal-title">{% trans "Add related events" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
-            <div class="modal-body" id="suggestedEventsList">
-                <p>{% trans "Loading suggestions..." %}</p>
+            <div class="modal-body">
+                <form id="suggestEventsForm" class="mb-3">
+                    <div class="mb-3">
+                        <label for="suggestLocality" class="form-label">{% trans "Locality" %}</label>
+                        <input type="text" class="form-control" id="suggestLocality">
+                    </div>
+                    <div class="mb-3">
+                        <label for="suggestStartDate" class="form-label">{% trans "Start date" %}</label>
+                        <input type="date" class="form-control" id="suggestStartDate">
+                    </div>
+                    <div class="mb-3">
+                        <label for="suggestEndDate" class="form-label">{% trans "End date" %}</label>
+                        <input type="date" class="form-control" id="suggestEndDate">
+                    </div>
+                    <button type="submit" class="btn btn-primary">{% trans "Fetch suggestions" %}</button>
+                </form>
+                <div id="suggestedEventsList" class="d-none">
+                    <p>{% trans "Loading suggestions..." %}</p>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="createSelectedEventsBtn">{% trans "Create selected" %}</button>
