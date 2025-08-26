@@ -5,7 +5,7 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
-from .models import Event, Locality, Category
+from .models import Event, Locality, Category, Source
 from .forms import EventSuggestForm
 from .api import suggest_events, AgendaEventResponse
 
@@ -140,7 +140,6 @@ class EventAdmin(admin.ModelAdmin):
             exclude = [AgendaEventResponse(title=e["title"], date=e["date"]) for e in existing]
 
             suggestions = suggest_events(
-                request,
                 start_date=start,
                 end_date=end,
                 locality=locality.name if locality else None,
@@ -156,9 +155,11 @@ class EventAdmin(admin.ModelAdmin):
                     title=item.title,
                     date=item.date,
                     locality=locality,
-                    source="agent",
                     created_by=request.user if request.user.is_authenticated else None,
                 )
+                for url in item.sources:
+                    source_obj, _ = Source.objects.get_or_create(url=url)
+                    event.sources.add(source_obj)
                 for cat_name in item.categories:
                     category, _ = Category.objects.get_or_create(name=cat_name)
                     event.categories.add(category)

@@ -7,7 +7,7 @@ from ninja import NinjaAPI, Schema
 from semanticnews.openai import OpenAI
 from pgvector.django import CosineDistance
 
-from .models import Event
+from .models import Event, Source
 
 
 CONFIDENCE_THRESHOLD = 0.85
@@ -149,11 +149,13 @@ class EventCreateRequest(Schema):
         date (date): Date when the event occurred.
         confidence (float | None): Confidence score associated with the
             event.
+        sources (List[str] | None): Source URLs supporting the event.
     """
 
     title: str
     date: date
     confidence: float | None = None
+    sources: List[str] | None = None
 
 
 class EventCreateResponse(Schema):
@@ -200,6 +202,11 @@ def create_event(request, payload: EventCreateRequest):
         created_by=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
     )
 
+    if payload.sources:
+        for url in payload.sources:
+            source_obj, _ = Source.objects.get_or_create(url=url)
+            event.sources.add(source_obj)
+
     return EventCreateResponse(
         uuid=str(event.uuid),
         title=event.title,
@@ -216,11 +223,13 @@ class AgendaEventResponse(Schema):
         title (str): Title of the event. Avoid newspaper heading style and state the core fact directly and neutrally.
         date (date): Date of the event in ISO format (YYYY-MM-DD).
         categories (List[str]): 1-3 high-level categories describing the event.
+        sources (List[str]): Source URLs supporting the event.
     """
 
     title: str
     date: date
     categories: List[str] = []
+    sources: List[str] = []
 
 
 class AgendaEventList(Schema):
@@ -299,6 +308,7 @@ def suggest_events(
     prompt += (
         "Generate event titles as concise factual statements. "
         "State the core fact directly and neutrally avoid newspaper-style headlines. "
+        "For each event, include 1-2 source URLs as citations. "
     )
 
     if exclude:
