@@ -98,6 +98,9 @@ class Event(models.Model):
         )
 
     def get_embedding(self):
+        if self.pk is None:
+            return None
+
         if self.embedding is None or len(self.embedding) == 0:
             client = OpenAI()
             text = (
