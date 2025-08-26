@@ -167,24 +167,28 @@ class AgendaEventList(Schema):
     event_list: List[AgendaEventResponse] = []
 
 
-@api.get("/suggest", response=AgendaEventList)
+class SuggestEventsRequest(Schema):
+    """Request body for suggesting agenda events."""
+
+    start_date: date | None = None
+    end_date: date | None = None
+    locality: str | None = None
+    categories: str | None = None
+    related_event: str | None = None
+    limit: int = 10
+    exclude: List[AgendaEventResponse] | None = None
+
+
 def suggest_events(
-    request,
     start_date: date | None = None,
     end_date: date | None = None,
     locality: str | None = None,
     categories: str | None = None,
     related_event: str | None = None,
     limit: int = 10,
-    exclude: AgendaEventList | None = None,
+    exclude: List[AgendaEventResponse] | None = None,
 ):
-    """Return suggested important events for a given period.
-
-    Args:
-        exclude: Optional list of events to omit from the suggestions.
-        categories: Optional comma-separated list of categories to focus on.
-        related_event: Optional event title to find related events for.
-    """
+    """Core logic for returning suggested important events."""
 
     if start_date and end_date:
         if start_date == end_date:
@@ -221,7 +225,7 @@ def suggest_events(
         excluded_events = "\n".join(
             f"- {e.title} on {e.date.isoformat()}" for e in exclude
         )
-        prompt += "\nExclude the following already known events:\n" + excluded_events
+        prompt += "\nDo not include the following events:\n" + excluded_events
 
     with OpenAI() as client:
         response = client.responses.parse(
@@ -231,4 +235,56 @@ def suggest_events(
             text_format=AgendaEventList,
         )
 
-    return response.output_parsed
+    result = response.output_parsed
+
+    if isinstance(result, AgendaEventList):
+        result = result.event_list
+
+    if exclude:
+        excluded_set = {(e.title, e.date.isoformat()) for e in exclude}
+        result = [
+            event
+            for event in result
+            if (event["title"], event["date"]) not in excluded_set
+        ]
+
+    return result
+
+
+@api.get("/suggest", response=List[AgendaEventResponse])
+def suggest_events_get(
+    request,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    locality: str | None = None,
+    categories: str | None = None,
+    related_event: str | None = None,
+    limit: int = 10,
+    exclude: List[AgendaEventResponse] | None = None,
+):
+    """Return suggested important events for a given period via GET."""
+
+    return suggest_events(
+        start_date=start_date,
+        end_date=end_date,
+        locality=locality,
+        categories=categories,
+        related_event=related_event,
+        limit=limit,
+        exclude=exclude,
+    )
+
+
+@api.post("/suggest", response=List[AgendaEventResponse])
+def suggest_events_post(request, payload: SuggestEventsRequest):
+    """Return suggested important events for a given period via POST."""
+
+    return suggest_events(
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        locality=payload.locality,
+        categories=payload.categories,
+        related_event=payload.related_event,
+        limit=payload.limit,
+        exclude=payload.exclude,
+    )
