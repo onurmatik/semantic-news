@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
   const createBtn = document.getElementById('createSelectedEventsBtn');
+  const existingEventsEl = document.getElementById('exclude-events');
+  const existingEvents = existingEventsEl ? JSON.parse(existingEventsEl.textContent) : [];
 
   btn.addEventListener('click', () => {
     form.reset();
@@ -34,6 +36,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (locality) params.append('locality', locality);
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
+      const exclude = existingEvents.filter(ev => {
+        if (startDate && ev.date < startDate) return false;
+        if (endDate && ev.date > endDate) return false;
+        return true;
+      });
+      if (exclude.length) params.append('exclude', JSON.stringify(exclude));
       const res = await fetch(`/api/agenda/suggest?${params.toString()}`);
       const data = await res.json();
       if (Array.isArray(data) && data.length) {

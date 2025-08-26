@@ -86,5 +86,6 @@
 
 {% block extra_js %}
     {{ block.super }}
+    {{ exclude_events|json_script:"exclude-events" }}
     <script src="{% static 'agenda/event_suggestions.js' %}"></script>
 {% endblock %}

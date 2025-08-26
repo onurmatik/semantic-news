@@ -18,13 +18,18 @@ def event_detail(request, year, month, day, slug):
     )
 
     if obj.embedding is not None:
-        similar_events = (
+        similar_qs = (
             Event.objects.exclude(id=obj.id)
             .exclude(embedding__isnull=True)
             .order_by(L2Distance("embedding", obj.embedding))[:5]
         )
+        similar_events = list(similar_qs)
+        exclude_events = [
+            {"title": ev.title, "date": ev.date.isoformat()} for ev in similar_events
+        ]
     else:
         similar_events = Event.objects.none()
+        exclude_events = []
 
     return render(
         request,
@@ -32,6 +37,7 @@ def event_detail(request, year, month, day, slug):
         {
             "event": obj,
             "similar_events": similar_events,
+            "exclude_events": exclude_events,
         },
     )
 
