@@ -10,7 +10,11 @@ from .models import Event
 
 def event_detail(request, year, month, day, slug):
     obj = get_object_or_404(
-        Event, slug=slug, date__year=year, date__month=month, date__day=day
+        Event.objects.prefetch_related("topics"),
+        slug=slug,
+        date__year=year,
+        date__month=month,
+        date__day=day,
     )
 
     if obj.embedding is not None:

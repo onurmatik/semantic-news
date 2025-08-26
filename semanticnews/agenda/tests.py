@@ -209,3 +209,24 @@ class SuggestViewAdminTests(TestCase):
             set(event.categories.values_list("name", flat=True)),
             {"Politics", "Economy"},
         )
+
+
+class EventDetailTopicTests(TestCase):
+    def test_event_detail_shows_topics(self):
+        from datetime import date
+        from semanticnews.topics.models import Topic, TopicEvent
+
+        event = Event.objects.create(
+            title="My Event",
+            date=date(2024, 1, 1),
+            embedding=[0.0] * 1536,
+        )
+        topic1 = Topic.objects.create(title="Topic One", embedding=[0.0] * 1536)
+        topic2 = Topic.objects.create(title="Topic Two", embedding=[0.0] * 1536)
+        TopicEvent.objects.create(topic=topic1, event=event)
+        TopicEvent.objects.create(topic=topic2, event=event)
+
+        response = self.client.get(event.get_absolute_url())
+
+        self.assertContains(response, "Topic One")
+        self.assertContains(response, "Topic Two")

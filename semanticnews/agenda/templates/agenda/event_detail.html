@@ -18,6 +18,14 @@
 
     <div class="row">
         <div class="col-12 col-md-8">
+            <h2 class="fs-5">{% trans "Topics" %}</h2>
+            <ul class="list-unstyled">
+                {% for topic in event.topics.all %}
+                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
+                {% empty %}
+                    <li class="text-muted">{% trans "No topics" %}</li>
+                {% endfor %}
+            </ul>
         </div>
 
         <div class="col-12 col-md-4">
