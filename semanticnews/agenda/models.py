@@ -18,6 +18,14 @@ class Event(models.Model):
 
     locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
     categories = models.ManyToManyField('agenda.Category', blank=True)
+    significance = models.PositiveSmallIntegerField(choices=(
+        (1, 'Very low'),
+        (2, 'Low'),
+        (3, 'Normal'),
+        (4, 'High'),
+        (5, 'Very high'),
+    ), default=4)
+
     status = models.CharField(max_length=20, choices=(
         ('draft', 'Draft'),
         ('published', 'Published'),
@@ -113,6 +121,7 @@ class Event(models.Model):
 
 class Locality(models.Model):
     name = models.CharField(max_length=100)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
