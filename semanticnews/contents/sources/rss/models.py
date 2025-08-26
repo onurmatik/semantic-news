@@ -3,7 +3,7 @@ from datetime import datetime
 
 import requests
 import feedparser
-from openai import OpenAI, AsyncOpenAI
+from semanticnews.openai import OpenAI, AsyncOpenAI
 
 from django.utils.html import strip_tags
 from django.db import models

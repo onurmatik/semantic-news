@@ -8,7 +8,7 @@ from django.conf import settings
 from googleapiclient.discovery import build
 from pgvector.django import VectorField
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
-from openai import OpenAI
+from semanticnews.openai import OpenAI
 
 from ..youtube.utils import list_youtube_transcripts
 
