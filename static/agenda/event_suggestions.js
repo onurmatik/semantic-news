@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
   const createBtn = document.getElementById('createSelectedEventsBtn');
+  const fetchBtn = form.querySelector('button[type="submit"]');
+  const titleField = document.getElementById('suggestRelatedEvent');
   const existingEventsEl = document.getElementById('exclude-events');
   const existingEvents = existingEventsEl ? JSON.parse(existingEventsEl.textContent) : [];
 
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     list.innerHTML = '';
     list.classList.add('d-none');
     createBtn.disabled = true;
+    if (fetchBtn) fetchBtn.disabled = false;
     modal.show();
   });
 
@@ -26,8 +29,9 @@ document.addEventListener('DOMContentLoaded', function () {
     list.innerHTML = '<p>Loading suggestions...</p>';
     list.classList.remove('d-none');
     createBtn.disabled = true;
+    if (fetchBtn) fetchBtn.disabled = true;
     try {
-      const title = btn.dataset.eventTitle;
+      const title = titleField ? titleField.value : btn.dataset.eventTitle;
       const params = new URLSearchParams();
       if (title) params.append('related_event', title);
       const locality = document.getElementById('suggestLocality').value;
@@ -70,6 +74,8 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     } catch (err) {
       list.innerHTML = '<p>Error loading suggestions.</p>';
+    } finally {
+      if (fetchBtn) fetchBtn.disabled = false;
     }
   });
 
