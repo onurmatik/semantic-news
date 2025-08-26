@@ -110,6 +110,46 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertIn("Event A on 2024-06-01", kwargs["input"])
 
     @patch("semanticnews.agenda.api.OpenAI")
+    def test_suggest_events_post_accepts_exclude_list(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_content = MagicMock()
+        mock_events = [
+            {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]},
+            {"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]},
+        ]
+        mock_content.json = mock_events
+        mock_response.output = [MagicMock(content=[mock_content])]
+        mock_response.output_parsed = mock_events
+        mock_client.responses.parse.return_value = mock_response
+
+        payload = {
+            "start_date": "2024-06-01",
+            "end_date": "2024-06-30",
+            "limit": 2,
+            "exclude": [
+                {"title": "Event A", "date": "2024-06-01", "categories": ["Politics"]}
+            ],
+        }
+
+        response = self.client.post(
+            "/api/agenda/suggest",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            [{"title": "Event B", "date": "2024-06-15", "categories": ["Economy"]}],
+        )
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn("Do not include the following events", kwargs["input"])
+        self.assertIn("Event A on 2024-06-01", kwargs["input"])
+
+    @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_with_related_event(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
