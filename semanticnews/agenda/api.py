@@ -17,7 +17,14 @@ api = NinjaAPI(title="Agenda API")
 
 
 class EntryCheckRequest(Schema):
-    """Request body for agenda entry checks."""
+    """Request body for agenda entry checks.
+
+    Attributes:
+        title (str): Title of the agenda entry to check.
+        date (date): Date of the agenda entry.
+        threshold (float): Minimum similarity score required to include an
+            entry. Defaults to ``0.8``.
+    """
 
     title: str
     date: date
@@ -25,7 +32,16 @@ class EntryCheckRequest(Schema):
 
 
 class SimilarEntryResponse(Schema):
-    """Similar entry data returned by the API."""
+    """Similar entry data returned by the API.
+
+    Attributes:
+        uuid (str): Unique identifier of the existing event.
+        title (str): Title of the similar event.
+        slug (str): Slug of the event.
+        date (date): Date of the similar event.
+        url (str): Absolute URL for the event.
+        similarity (float): Cosine similarity score between 0 and ``1``.
+    """
 
     uuid: str
     title: str
@@ -75,14 +91,25 @@ def get_similar(request, payload: EntryCheckRequest):
 
 
 class EventValidationRequest(Schema):
-    """Request body for agenda event validation."""
+    """Request body for agenda event validation.
+
+    Attributes:
+        title (str): Title describing the event.
+        date (date): Date the event is claimed to have occurred.
+    """
 
     title: str
     date: date
 
 
 class EventValidationResponse(Schema):
-    """Response containing the confidence score that the event happened at the given date."""
+    """Response containing the confidence score that the event happened at
+    the given date.
+
+    Attributes:
+        confidence (float): Confidence between ``0`` and ``1`` that the event
+            occurred on the specified date.
+    """
 
     confidence: float
 
@@ -109,7 +136,14 @@ def validate_event(request, payload: EventValidationRequest):
 
 
 class EventCreateRequest(Schema):
-    """Request body for creating a new event."""
+    """Request body for creating a new event.
+
+    Attributes:
+        title (str): Title of the event.
+        date (date): Date when the event occurred.
+        confidence (float | None): Confidence score associated with the
+            event.
+    """
 
     title: str
     date: date
@@ -117,7 +151,15 @@ class EventCreateRequest(Schema):
 
 
 class EventCreateResponse(Schema):
-    """Response returned after creating an event."""
+    """Response returned after creating an event.
+
+    Attributes:
+        uuid (str): Unique identifier of the created event.
+        title (str): Title of the event.
+        date (date): Date when the event occurred.
+        url (str): Absolute URL of the event.
+        confidence (float | None): Confidence score of the event.
+    """
 
     uuid: str
     title: str
@@ -154,7 +196,13 @@ def create_event(request, payload: EventCreateRequest):
 
 
 class AgendaEventResponse(Schema):
-    """Schema for suggested agenda events."""
+    """Schema for suggested agenda events.
+
+    Attributes:
+        title (str): Title of the suggested event.
+        date (date): Date of the suggested event.
+        categories (List[str]): Categories describing the event.
+    """
 
     title: str
     date: date
@@ -162,13 +210,29 @@ class AgendaEventResponse(Schema):
 
 
 class AgendaEventList(Schema):
-    """Schema for suggested agenda events."""
+    """Schema for a list of suggested agenda events.
+
+    Attributes:
+        event_list (List[AgendaEventResponse]): Suggested agenda events.
+    """
 
     event_list: List[AgendaEventResponse] = []
 
 
 class SuggestEventsRequest(Schema):
-    """Request body for suggesting agenda events."""
+    """Request body for suggesting agenda events.
+
+    Attributes:
+        start_date (date | None): Earliest date to consider.
+        end_date (date | None): Latest date to consider.
+        locality (str | None): Geographic context for events.
+        categories (str | None): Categories to filter events.
+        related_event (str | None): Event to which suggestions should be
+            related.
+        limit (int): Maximum number of events to return. Defaults to ``10``.
+        exclude (List[AgendaEventResponse] | None): Events to omit from
+            suggestions.
+    """
 
     start_date: date | None = None
     end_date: date | None = None
