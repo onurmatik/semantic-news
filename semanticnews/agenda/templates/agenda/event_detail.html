@@ -58,7 +58,12 @@
                 <form id="suggestEventsForm" class="mb-3">
                     <div class="mb-3">
                         <label for="suggestLocality" class="form-label">{% trans "Locality" %}</label>
-                        <input type="text" class="form-control" id="suggestLocality">
+                        <select class="form-select" id="suggestLocality">
+                            <option value="">{% trans "Global" %}</option>
+                            {% for locality in localities %}
+                                <option value="{{ locality.name }}">{{ locality.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="suggestStartDate" class="form-label">{% trans "Start date" %}</label>
