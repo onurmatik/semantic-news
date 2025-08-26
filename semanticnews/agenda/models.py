@@ -121,6 +121,7 @@ class Event(models.Model):
 
 class Locality(models.Model):
     name = models.CharField(max_length=100)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
