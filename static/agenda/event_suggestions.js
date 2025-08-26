@@ -32,21 +32,25 @@ document.addEventListener('DOMContentLoaded', function () {
     if (fetchBtn) fetchBtn.disabled = true;
     try {
       const title = titleField ? titleField.value : btn.dataset.eventTitle;
-      const params = new URLSearchParams();
-      if (title) params.append('related_event', title);
+      const payload = {};
+      if (title) payload.related_event = title;
       const locality = document.getElementById('suggestLocality').value;
       const startDate = document.getElementById('suggestStartDate').value;
       const endDate = document.getElementById('suggestEndDate').value;
-      if (locality) params.append('locality', locality);
-      if (startDate) params.append('start_date', startDate);
-      if (endDate) params.append('end_date', endDate);
+      if (locality) payload.locality = locality;
+      if (startDate) payload.start_date = startDate;
+      if (endDate) payload.end_date = endDate;
       const exclude = existingEvents.filter(ev => {
         if (startDate && ev.date < startDate) return false;
         if (endDate && ev.date > endDate) return false;
         return true;
       });
-      if (exclude.length) params.append('exclude', JSON.stringify(exclude));
-      const res = await fetch(`/api/agenda/suggest?${params.toString()}`);
+      if (exclude.length) payload.exclude = exclude;
+      const res = await fetch('/api/agenda/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       const data = await res.json();
       if (Array.isArray(data) && data.length) {
         list.innerHTML = '';
