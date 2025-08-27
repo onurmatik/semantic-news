@@ -3,13 +3,12 @@
 document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('suggestEventsBtn');
   const modalEl = document.getElementById('suggestEventsModal');
-  const publishBtn = document.getElementById('publishSelectedEventsBtn');
-  if (!btn || !modalEl || !publishBtn) return;
+  const publishSelectedBtn = document.getElementById('publishSelectedEventsBtn');
+  if (!btn || !modalEl || !publishSelectedBtn) return;
 
   const modal = new bootstrap.Modal(modalEl);
   const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
-  const publishBtn = document.getElementById('publishSelectedEventsBtn');
   const fetchBtn = form.querySelector('button[type="submit"]');
   const titleField = document.getElementById('suggestRelatedEvent');
   const existingEventsEl = document.getElementById('exclude-events');
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.classList.remove('d-none');
     list.innerHTML = '';
     list.classList.add('d-none');
-    publishBtn.disabled = true;
+    publishSelectedBtn.disabled = true;
     if (fetchBtn) fetchBtn.disabled = false;
     modal.show();
   });
@@ -29,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
     list.innerHTML = '<p>Loading suggestions...</p>';
     list.classList.remove('d-none');
-    publishBtn.disabled = true;
+    publishSelectedBtn.disabled = true;
     if (fetchBtn) fetchBtn.disabled = true;
     try {
       const title = titleField ? titleField.value : btn.dataset.eventTitle;
@@ -88,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
           wrapper.appendChild(label);
           list.appendChild(wrapper);
         });
-        publishBtn.disabled = false;
+        publishSelectedBtn.disabled = false;
         form.classList.add('d-none');
       } else {
         list.innerHTML = '<p>No suggestions found.</p>';
@@ -100,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  publishBtn.addEventListener('click', async () => {
+  publishSelectedBtn.addEventListener('click', async () => {
     const checked = list.querySelectorAll('input[type="checkbox"]:checked');
     const uuids = Array.from(checked).map(cb => cb.value);
     if (uuids.length) {
