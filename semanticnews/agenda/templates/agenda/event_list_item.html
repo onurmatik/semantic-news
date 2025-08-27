@@ -1,9 +1,19 @@
 
 <div class="mb-3">
-    <p class="text-muted small mb-0">{{ event.date|date:"M d, Y" }}</p>
-    <h2 class="fs-6"><a href="{{ event.get_absolute_url }}">{{ event.title }}</a></h2>
-    {% for source in event.sources.all %}
-        <a class="small text-secondary d-block" href="{{ source }}">{{ source }}</a>
-    {%  endfor %}
+    <p class="text-secondary small mb-0">
+        {{ event.date|date:"M d, Y" }}
+        {% for category in event.categories.all %}
+            &middot; {{ category }}
+        {% endfor %}
+    </p>
+    <h2 class="fs-6">
+        <a href="{{ event.get_absolute_url }}">{{ event.title }}</a>
+    </h2>
+    <p>
+        {% for source in event.sources.all %}
+            <a class="small text-secondary" target="_blank" href="{{ source }}">{{ source.get_domain }}</a>
+            {% if not forloop.last %}&middot;{% endif %}
+        {%  endfor %}
+    </p>
 </div>
 

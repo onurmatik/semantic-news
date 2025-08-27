@@ -191,5 +191,5 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ['url']
+    list_display = ['url', 'get_domain']
     search_fields = ['url']

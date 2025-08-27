@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import urlparse
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -144,3 +145,10 @@ class Source(models.Model):
 
     def __str__(self):
         return self.url
+
+    def get_domain(self):
+        parsed_url = urlparse(self.url)
+        domain = parsed_url.netloc
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return domain

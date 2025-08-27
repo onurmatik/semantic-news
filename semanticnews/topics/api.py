@@ -6,7 +6,7 @@ from semanticnews.agenda.models import Event
 
 from .models import Topic, TopicEvent
 
-api = NinjaAPI(title="Topics API")
+api = NinjaAPI(title="Topics API", urls_namespace="topics")
 
 
 class TopicCreateRequest(Schema):

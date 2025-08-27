@@ -13,7 +13,7 @@ from .models import Event, Source, Category
 CONFIDENCE_THRESHOLD = 0.85
 
 
-api = NinjaAPI(title="Agenda API")
+api = NinjaAPI(title="Agenda API", urls_namespace="agenda")
 
 
 class SimilarEntryRequest(Schema):
