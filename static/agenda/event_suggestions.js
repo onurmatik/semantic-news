@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const modal = new bootstrap.Modal(modalEl);
   const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
+  const publishBtn = document.getElementById('publishSelectedEventsBtn');
   const fetchBtn = form.querySelector('button[type="submit"]');
   const titleField = document.getElementById('suggestRelatedEvent');
   const existingEventsEl = document.getElementById('exclude-events');
