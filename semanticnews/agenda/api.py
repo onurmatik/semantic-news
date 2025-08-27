@@ -7,7 +7,7 @@ from ninja import NinjaAPI, Schema
 from semanticnews.openai import OpenAI
 from pgvector.django import CosineDistance
 
-from .models import Event, Source
+from .models import Event, Source, Category
 
 
 CONFIDENCE_THRESHOLD = 0.85
@@ -150,12 +150,14 @@ class EventCreateRequest(Schema):
         confidence (float | None): Confidence score associated with the
             event.
         sources (List[str] | None): Source URLs supporting the event.
+        categories (List[str] | None): Category names describing the event.
     """
 
     title: str
     date: date
     confidence: float | None = None
     sources: List[str] | None = None
+    categories: List[str] | None = None
 
 
 class EventCreateResponse(Schema):
@@ -207,6 +209,16 @@ def create_event(request, payload: EventCreateRequest):
             source_obj, _ = Source.objects.get_or_create(url=url)
             event.sources.add(source_obj)
 
+    if payload.categories:
+        for name in payload.categories:
+            category, _ = Category.objects.get_or_create(name=name)
+            event.categories.add(category)
+
+    # Recompute embedding now that categories and sources are set
+    event.embedding = event.get_embedding()
+    if event.embedding is not None:
+        event.save(update_fields=["embedding"])
+
     return EventCreateResponse(
         uuid=str(event.uuid),
         title=event.title,
@@ -214,6 +226,27 @@ def create_event(request, payload: EventCreateRequest):
         url=event.get_absolute_url(),
         confidence=event.confidence,
     )
+
+
+class PublishEventsRequest(Schema):
+    """Request body for publishing draft events."""
+
+    uuids: List[str]
+
+
+class PublishEventsResponse(Schema):
+    """Response containing the number of events published."""
+
+    updated: int
+
+
+@api.post("/publish", response=PublishEventsResponse)
+def publish_events(request, payload: PublishEventsRequest):
+    """Set the status of the given events to published."""
+
+    events = Event.objects.filter(uuid__in=payload.uuids)
+    updated = events.update(status="published")
+    return PublishEventsResponse(updated=updated)
 
 
 class AgendaEventResponse(Schema):

@@ -176,12 +176,14 @@ class SuggestEventsTests(SimpleTestCase):
 
 
 class CreateEventTests(TestCase):
-    def test_create_event_endpoint_creates_event(self):
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_create_event_endpoint_creates_event(self, mock_get_embedding):
         payload = {
             "title": "My Event",
             "date": "2024-01-02",
             "confidence": 0.85,
             "sources": ["http://example.com/source"],
+            "categories": ["Politics"],
         }
         response = self.client.post(
             "/api/agenda/create", payload, content_type="application/json"
@@ -192,7 +194,7 @@ class CreateEventTests(TestCase):
         self.assertEqual(data["date"], "2024-01-02")
         self.assertEqual(data["confidence"], 0.85)
 
-        from .models import Event, Source
+        from .models import Event, Source, Category
 
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
@@ -201,8 +203,12 @@ class CreateEventTests(TestCase):
         self.assertEqual(event.status, "published")
         self.assertEqual(event.sources.count(), 1)
         self.assertEqual(event.sources.first().url, "http://example.com/source")
+        self.assertEqual(event.categories.count(), 1)
+        self.assertEqual(event.categories.first().name, "Politics")
+        self.assertIsNotNone(event.embedding)
 
-    def test_low_confidence_creates_draft_event(self):
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_low_confidence_creates_draft_event(self, mock_get_embedding):
         payload = {"title": "Low Confidence", "date": "2024-01-03", "confidence": 0.5}
         response = self.client.post(
             "/api/agenda/create", payload, content_type="application/json"
@@ -214,6 +220,28 @@ class CreateEventTests(TestCase):
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
         self.assertEqual(event.status, "draft")
+
+
+class PublishEventTests(TestCase):
+    def test_publish_endpoint_sets_status(self):
+        from datetime import date
+        from .models import Event
+
+        event = Event.objects.create(
+            title="Draft Event",
+            date=date(2024, 1, 1),
+            status="draft",
+            embedding=[0.0] * 1536,
+        )
+
+        payload = {"uuids": [str(event.uuid)]}
+        response = self.client.post(
+            "/api/agenda/publish", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event.refresh_from_db()
+        self.assertEqual(event.status, "published")
 
 
 class SuggestViewAdminTests(TestCase):
