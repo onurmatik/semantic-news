@@ -8,27 +8,18 @@
 {% block content %}
 
 <div class="container">
+
     <div class="row">
 
         <p class="text-muted small mb-0">{{ event.date|date:"M d, Y" }}</p>
         <h1 class="fs-3">{{ event.title }}</h1>
-        {% if event.description %}
-            <p>{{ event.description }}</p>
-        {% endif %}
+
+    </div>
+
 
     <div class="row">
-        <div class="col-12 col-md-8">
-            <h2 class="fs-5">{% trans "Topics" %}</h2>
-            <ul class="list-unstyled">
-                {% for topic in event.topics.all %}
-                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
-                {% empty %}
-                    <li class="text-muted">{% trans "No topics" %}</li>
-                {% endfor %}
-            </ul>
-        </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-8">
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{% trans "Related events" %}</h2>
@@ -44,6 +35,19 @@
             {% endfor %}
 
         </div>
+
+        <div class="col-12 col-md-4">
+
+            <h2 class="fs-5">{% trans "Topics" %}</h2>
+            <ul class="list-unstyled">
+                {% for topic in event.topics.all %}
+                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
+                {% empty %}
+                    <li class="text-muted">{% trans "No topics" %}</li>
+                {% endfor %}
+            </ul>
+
+        </div>
     </div>
 </div>
 
@@ -51,7 +55,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">{% trans "Add related events" %}</h5>
+                <h5 class="modal-title">{% trans "Fetch more related events" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
             <div class="modal-body">
