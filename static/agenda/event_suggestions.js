@@ -1,4 +1,4 @@
-// Handles fetching and creating suggested related events
+// Handles fetching, drafting, and publishing suggested related events
 
 document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('suggestEventsBtn');
@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const modal = new bootstrap.Modal(modalEl);
   const form = document.getElementById('suggestEventsForm');
   const list = document.getElementById('suggestedEventsList');
-  const createBtn = document.getElementById('createSelectedEventsBtn');
+  const publishBtn = document.getElementById('publishSelectedEventsBtn');
   const fetchBtn = form.querySelector('button[type="submit"]');
   const titleField = document.getElementById('suggestRelatedEvent');
   const existingEventsEl = document.getElementById('exclude-events');
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.classList.remove('d-none');
     list.innerHTML = '';
     list.classList.add('d-none');
-    createBtn.disabled = true;
+    publishBtn.disabled = true;
     if (fetchBtn) fetchBtn.disabled = false;
     modal.show();
   });
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
     list.innerHTML = '<p>Loading suggestions...</p>';
     list.classList.remove('d-none');
-    createBtn.disabled = true;
+    publishBtn.disabled = true;
     if (fetchBtn) fetchBtn.disabled = true;
     try {
       const title = titleField ? titleField.value : btn.dataset.eventTitle;
@@ -53,15 +53,31 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       const data = await res.json();
       if (Array.isArray(data) && data.length) {
+        const created = [];
+        for (const ev of data) {
+          const createRes = await fetch('/api/agenda/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: ev.title,
+              date: ev.date,
+              categories: ev.categories,
+              sources: ev.sources,
+            }),
+          });
+          const createdEvent = await createRes.json();
+          ev.uuid = createdEvent.uuid;
+          created.push(ev);
+        }
         list.innerHTML = '';
-        data.forEach((ev, idx) => {
+        created.forEach((ev, idx) => {
           const wrapper = document.createElement('div');
           wrapper.className = 'form-check';
           const cb = document.createElement('input');
           cb.type = 'checkbox';
           cb.className = 'form-check-input';
           cb.id = `suggest${idx}`;
-          cb.value = JSON.stringify(ev);
+          cb.value = ev.uuid;
           const label = document.createElement('label');
           label.className = 'form-check-label';
           label.htmlFor = cb.id;
@@ -71,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
           wrapper.appendChild(label);
           list.appendChild(wrapper);
         });
-        createBtn.disabled = false;
+        publishBtn.disabled = false;
         form.classList.add('d-none');
       } else {
         list.innerHTML = '<p>No suggestions found.</p>';
@@ -83,14 +99,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  createBtn.addEventListener('click', async () => {
+  publishBtn.addEventListener('click', async () => {
     const checked = list.querySelectorAll('input[type="checkbox"]:checked');
-    for (const cb of checked) {
-      const ev = JSON.parse(cb.value);
-      await fetch('/api/agenda/create', {
+    const uuids = Array.from(checked).map(cb => cb.value);
+    if (uuids.length) {
+      await fetch('/api/agenda/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: ev.title, date: ev.date })
+        body: JSON.stringify({ uuids })
       });
     }
     modal.hide();
