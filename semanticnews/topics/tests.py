@@ -3,6 +3,8 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
+from semanticnews.agenda.models import Event
+
 from .models import Topic
 
 
@@ -39,4 +41,45 @@ class CreateTopicAPITests(TestCase):
         topic = Topic.objects.first()
         self.assertEqual(topic.created_by, user)
         self.assertEqual(str(topic.uuid), data["uuid"])
+        
+
+class AddEventToTopicAPITests(TestCase):
+    """Tests for the endpoint that relates events to topics."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_requires_authentication(self, mock_event_embedding, mock_topic_embedding):
+        """Unauthenticated requests should be rejected."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+
+        payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
+        response = self.client.post(
+            "/api/topics/add-event", payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 401)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_adds_event_to_topic(self, mock_event_embedding, mock_topic_embedding):
+        """Authenticated users can add events to their topics."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+
+        payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
+        response = self.client.post(
+            "/api/topics/add-event", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(topic.events.count(), 1)
+        self.assertEqual(topic.events.first(), event)
 
