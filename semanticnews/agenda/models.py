@@ -13,10 +13,8 @@ class Event(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
     date = models.DateField(db_index=True)
 
-    locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
     categories = models.ManyToManyField('agenda.Category', blank=True)
     significance = models.PositiveSmallIntegerField(choices=(
         (1, 'Very low'),
@@ -25,6 +23,7 @@ class Event(models.Model):
         (4, 'High'),
         (5, 'Very high'),
     ), default=4)
+    locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
 
     status = models.CharField(max_length=20, choices=(
         ('draft', 'Draft'),
