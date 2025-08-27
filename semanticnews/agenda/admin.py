@@ -57,6 +57,7 @@ class EventAdmin(admin.ModelAdmin):
     list_filter = (
         HasContentsFilter,
         HasEmbeddingFilter,
+        "status",
         "created_by",
         ("date", admin.DateFieldListFilter),
         ("created_at", admin.DateFieldListFilter),
@@ -186,3 +187,9 @@ class LocalityAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name']
     search_fields = ['name']
+
+
+@admin.register(Source)
+class SourceAdmin(admin.ModelAdmin):
+    list_display = ['url']
+    search_fields = ['url']

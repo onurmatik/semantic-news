@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 import json
 
 from django.db.models import F, Value
@@ -16,7 +16,7 @@ CONFIDENCE_THRESHOLD = 0.85
 api = NinjaAPI(title="Agenda API")
 
 
-class EntryCheckRequest(Schema):
+class SimilarEntryRequest(Schema):
     """Request body for agenda entry checks.
 
     Attributes:
@@ -51,8 +51,8 @@ class SimilarEntryResponse(Schema):
 
 
 @api.post("/get-similar", response=List[SimilarEntryResponse])
-def get_similar(request, payload: EntryCheckRequest):
-    """Check whether an agenda entry already exists.
+def get_similar(request, payload: SimilarEntryRequest):
+    """Get a list of already existing events in the DB, similar to the given event.
 
     The endpoint creates an embedding based on the entry's title and date
     (title + month + year) and compares it against existing agenda entries
@@ -70,10 +70,14 @@ def get_similar(request, payload: EntryCheckRequest):
     embedding_input = f"{payload.title} {payload.date:%B} {payload.date:%Y}"
 
     with OpenAI() as client:
-        embedding = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=embedding_input,
-        ).data[0].embedding
+        embedding = (
+            client.embeddings.create(
+                model="text-embedding-3-small",
+                input=embedding_input,
+            )
+            .data[0]
+            .embedding
+        )
 
     queryset = (
         Event.objects.exclude(embedding__isnull=True)
@@ -96,6 +100,70 @@ def get_similar(request, payload: EntryCheckRequest):
     ]
 
 
+class ExistingEntryRequest(Schema):
+    """Request body for checking if an identical event exists.
+
+    Attributes:
+        title (str): Title of the agenda entry to check.
+        date (date): Date of the agenda entry.
+    """
+
+    title: str
+    date: date
+
+
+class ExistingEntryResponse(Schema):
+    """Existing entry data returned by the API."""
+
+    uuid: str
+    title: str
+    slug: str
+    date: date
+    url: str
+
+
+SIMILARITY_DUPLICATE_THRESHOLD = 0.95
+
+
+@api.post("/get-existing", response={200: ExistingEntryResponse, 204: None})
+def get_existing(request, payload: ExistingEntryRequest):
+    """Return an existing event matching by semantic similarity.
+
+    The endpoint embeds the requested title with the month and year and
+    compares it against existing events. The most similar event above the
+    ``SIMILARITY_DUPLICATE_THRESHOLD`` is returned, allowing detection of
+    duplicates even when titles are not identical.
+    """
+
+    embedding_input = f"{payload.title} {payload.date:%B} {payload.date:%Y}"
+
+    with OpenAI() as client:
+        embedding = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=embedding_input,
+        ).data[0].embedding
+
+    event = (
+        Event.objects.exclude(embedding__isnull=True)
+        .annotate(distance=CosineDistance("embedding", embedding))
+        .annotate(similarity=Value(1.0) - F("distance"))
+        .filter(similarity__gte=SIMILARITY_DUPLICATE_THRESHOLD)
+        .order_by("-similarity")
+        .first()
+    )
+
+    if not event:
+        return api.create_response(request, None, status=204)
+
+    return ExistingEntryResponse(
+        uuid=str(event.uuid),
+        title=event.title,
+        slug=event.slug,
+        date=event.date,
+        url=event.get_absolute_url(),
+    )
+
+
 class EventValidationRequest(Schema):
     """Request body for agenda event validation.
 
@@ -109,14 +177,24 @@ class EventValidationRequest(Schema):
 
 
 class EventValidationResponse(Schema):
-    """Response containing the confidence score that the event happened at
-    the given date.
+    """Response containing details for creating an agenda event.
 
     Attributes:
         confidence (float): Confidence between 0 and 1 that the event occurred on the specified date.
+        sources (List[str]): A few source URLs supporting the event.
+        categories (List[str]): 1-3 high-level categories describing the event.
+        title (str): Event title as a neutral, concise factual statement.
+        date (date): Event date; might be corrected, if slightly different from the provided date.
     """
+    "Generate event titles as concise factual statements. "
+    "State the core fact directly and neutrally avoid newspaper-style headlines. "
+    "For each event, include 1-2 source URLs as citations. "
 
     confidence: float
+    sources: List[str] = []
+    categories: List[str] = []
+    title: str
+    date: date
 
 
 @api.post("/validate", response=EventValidationResponse)
@@ -126,8 +204,6 @@ def validate_event(request, payload: EventValidationRequest):
     prompt = (
         f"Does the following describe an event or incident that occurred on {payload.date:%Y-%m-%d}?\n"
         f"Title: {payload.title}\n"
-        "Return a JSON object with a single field 'confidence' between 0 and 1 representing how confident you are that the"
-        " event happened on that date."
     )
 
     with OpenAI() as client:
@@ -201,7 +277,11 @@ def create_event(request, payload: EventCreateRequest):
         date=payload.date,
         confidence=payload.confidence,
         status=status,
-        created_by=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+        created_by=(
+            request.user
+            if getattr(request, "user", None) and request.user.is_authenticated
+            else None
+        ),
     )
 
     if payload.sources:
@@ -314,9 +394,7 @@ def suggest_events(
         if start_date == end_date:
             timeframe = f"on {start_date:%Y-%m-%d}"
         else:
-            timeframe = (
-                f"between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}"
-            )
+            timeframe = f"between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}"
     elif start_date:
         timeframe = f"since {start_date:%Y-%m-%d}"
     elif end_date:
@@ -341,7 +419,7 @@ def suggest_events(
     prompt += (
         "Generate event titles as concise factual statements. "
         "State the core fact directly and neutrally avoid newspaper-style headlines. "
-        "For each event, include 1-2 source URLs as citations. "
+        "For each event, include a few source URLs as citations. "
     )
 
     if exclude:
