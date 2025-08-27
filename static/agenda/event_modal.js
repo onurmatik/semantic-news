@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const data = await res.json();
+    console.log(data);
     if (data.existing) {
       similarContainer.innerHTML = '<p>This event already exists.</p>';
     } else {

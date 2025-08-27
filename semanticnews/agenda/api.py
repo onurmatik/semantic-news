@@ -118,7 +118,7 @@ class ExistingEntryResponse(Schema):
     existing: str | None
 
 
-SIMILARITY_DUPLICATE_THRESHOLD = 0.95
+SIMILARITY_DUPLICATE_THRESHOLD = 0.85
 
 
 @api.post("/get-existing", response=ExistingEntryResponse)
