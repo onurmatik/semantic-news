@@ -8,6 +8,9 @@ from pgvector.django import L2Distance
 from .models import Event, Locality
 
 
+DISTANCE_THRESHOLD = 1
+
+
 def event_detail(request, year, month, day, slug):
     obj = get_object_or_404(
         Event.objects.prefetch_related("topics"),
@@ -21,7 +24,9 @@ def event_detail(request, year, month, day, slug):
         similar_qs = (
             Event.objects.exclude(id=obj.id)
             .exclude(embedding__isnull=True)
-            .order_by(L2Distance("embedding", obj.embedding))[:5]
+            .annotate(distance=L2Distance("embedding", obj.embedding))
+            .filter(distance__lt=DISTANCE_THRESHOLD)
+            .order_by("distance")[:50]
         )
         similar_events = list(similar_qs)
         exclude_events = [
