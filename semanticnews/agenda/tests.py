@@ -247,6 +247,51 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertIn("related to 2024 Olympics", kwargs["input"])
 
 
+class GetExistingTests(TestCase):
+    @patch("semanticnews.agenda.api.OpenAI")
+    def test_returns_existing_uuid(self, mock_openai):
+        from datetime import date
+        from .models import Event
+
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_client.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=[0.1] * 1536)]
+        )
+
+        event = Event.objects.create(
+            title="Existing Event",
+            date=date(2024, 1, 1),
+            embedding=[0.1] * 1536,
+        )
+
+        response = self.client.post(
+            "/api/agenda/get-existing",
+            {"title": "Existing Event", "date": "2024-01-01"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"existing": str(event.uuid)})
+
+    @patch("semanticnews.agenda.api.OpenAI")
+    def test_returns_null_when_missing(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_client.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=[0.1] * 1536)]
+        )
+
+        response = self.client.post(
+            "/api/agenda/get-existing",
+            {"title": "Unknown", "date": "2024-01-01"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"existing": None})
+
+
 class CreateEventTests(TestCase):
     @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
     def test_create_event_endpoint_creates_event(self, mock_get_embedding):
