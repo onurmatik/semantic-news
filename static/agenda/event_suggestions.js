@@ -3,7 +3,8 @@
 document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('suggestEventsBtn');
   const modalEl = document.getElementById('suggestEventsModal');
-  if (!btn || !modalEl) return;
+  const publishBtn = document.getElementById('publishSelectedEventsBtn');
+  if (!btn || !modalEl || !publishBtn) return;
 
   const modal = new bootstrap.Modal(modalEl);
   const form = document.getElementById('suggestEventsForm');
