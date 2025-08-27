@@ -25,18 +25,10 @@ document.addEventListener('DOMContentLoaded', function () {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, date })
     });
-    console.log(res);
-    if (res.status === 200) {
-      const ev = await res.json();
+
+    const data = await res.json();
+    if (data.existing) {
       similarContainer.innerHTML = '<p>This event already exists.</p>';
-      const list = document.createElement('div');
-      list.className = 'list-group mb-3';
-      const a = document.createElement('a');
-      a.className = 'list-group-item list-group-item-action';
-      a.href = ev.url;
-      a.textContent = `${ev.title} (${ev.date})`;
-      list.appendChild(a);
-      similarContainer.appendChild(list);
     } else {
       await validateAndCreate(title, date);
     }

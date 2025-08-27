@@ -113,19 +113,15 @@ class ExistingEntryRequest(Schema):
 
 
 class ExistingEntryResponse(Schema):
-    """Existing entry data returned by the API."""
+    """Response indicating whether an identical event exists."""
 
-    uuid: str
-    title: str
-    slug: str
-    date: date
-    url: str
+    existing: str | None
 
 
 SIMILARITY_DUPLICATE_THRESHOLD = 0.95
 
 
-@api.post("/get-existing", response={200: ExistingEntryResponse, 204: None})
+@api.post("/get-existing", response=ExistingEntryResponse)
 def get_existing(request, payload: ExistingEntryRequest):
     """Return an existing event matching by semantic similarity.
 
@@ -152,16 +148,7 @@ def get_existing(request, payload: ExistingEntryRequest):
         .first()
     )
 
-    if not event:
-        return api.create_response(request, None, status=204)
-
-    return ExistingEntryResponse(
-        uuid=str(event.uuid),
-        title=event.title,
-        slug=event.slug,
-        date=event.date,
-        url=event.get_absolute_url(),
-    )
+    return ExistingEntryResponse(existing=str(event.uuid) if event else None)
 
 
 class EventValidationRequest(Schema):
