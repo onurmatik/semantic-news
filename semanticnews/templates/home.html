@@ -13,7 +13,7 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{%  trans "Topics" %}</h2>
-                <button id="addTopicBtn" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add event' %}">
+                <button id="addTopicBtn" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add topic' %}">
                     <i class="bi bi-plus-lg"></i>
                 </button>
             </div>
@@ -43,6 +43,8 @@
     </div>
 
 </div>
+
+{% include "topics/create_topic_modal.html" %}
 
 <div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -78,4 +80,5 @@
 {% block extra_js %}
     {{ block.super }}
     <script src="{% static 'agenda/event_modal.js' %}"></script>
+    {% include "topics/create_topic_js.html" %}
 {% endblock %}
