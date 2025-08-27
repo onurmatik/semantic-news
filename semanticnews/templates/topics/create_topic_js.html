@@ -1,0 +1,5 @@
+{% load static %}
+<script>
+  const CURRENT_USERNAME = "{{ request.user.username|escapejs }}";
+</script>
+<script src="{% static 'topics/create_topic_modal.js' %}"></script>
