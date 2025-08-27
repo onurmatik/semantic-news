@@ -6,6 +6,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from . import views as core_views
 from .profiles import views as profiles_views
 from .topics import views as topics_views
+from .topics.api import api as topics_api
 from .agenda import views as agenda_views
 from .agenda.api import api as agenda_api
 
@@ -16,6 +17,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('api/agenda/', agenda_api.urls),
+    path('api/topics/', topics_api.urls),
 ]
 
 
