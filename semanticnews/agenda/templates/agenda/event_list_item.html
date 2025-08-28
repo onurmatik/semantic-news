@@ -23,5 +23,11 @@
             <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Add" %}</button>
         </form>
     {% endif %}
+    {% if show_remove %}
+        <form method="post" class="mt-2" action="{% url 'topics_remove_event' username=topic.created_by.username slug=topic.slug event_uuid=event.uuid %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Remove" %}</button>
+        </form>
+    {% endif %}
 </div>
 

@@ -133,3 +133,27 @@ class TopicAddEventViewTests(TestCase):
         self.assertRedirects(response, topic.get_absolute_url())
         self.assertIn(event, topic.events.all())
 
+
+class TopicRemoveEventViewTests(TestCase):
+    """Tests for removing related events from a topic via the view."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_user_can_remove_related_event(self, mock_event_embedding, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="Related", date="2024-01-01")
+        topic.events.add(event, through_defaults={"relevance": 0.5})
+
+        url = reverse(
+            "topics_remove_event",
+            kwargs={"username": user.username, "slug": topic.slug, "event_uuid": event.uuid},
+        )
+        response = self.client.post(url)
+
+        self.assertRedirects(response, topic.get_absolute_url())
+        self.assertNotIn(event, topic.events.all())
+
