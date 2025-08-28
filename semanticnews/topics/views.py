@@ -51,3 +51,15 @@ def topic_add_event(request, slug, username, event_uuid):
     )
 
     return redirect("topics_detail", slug=topic.slug, username=username)
+
+
+@login_required
+def topic_remove_event(request, slug, username, event_uuid):
+    topic = get_object_or_404(Topic, slug=slug, created_by__username=username)
+    if request.user != topic.created_by:
+        return HttpResponseForbidden()
+
+    event = get_object_or_404(Event, uuid=event_uuid)
+    TopicEvent.objects.filter(topic=topic, event=event).delete()
+
+    return redirect("topics_detail", slug=topic.slug, username=username)

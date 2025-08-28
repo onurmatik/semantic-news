@@ -99,7 +99,7 @@
                 </h6>
             </div>
             {% for event in related_events %}
-                {% include "agenda/event_list_item.html" with event=event %}
+                {% include "agenda/event_list_item.html" with event=event show_remove=True topic=topic %}
             {% empty %}
                 <p class="text-secondary small mb-0">{% trans "No related events" %}</p>
             {% endfor %}
