@@ -92,7 +92,7 @@
     <div class="col-12 col-lg-4">
 
         <div class="card mt-3">
-          <div class="card-body">
+          <div class="card-body" id="relatedEventsContainer" data-empty-message="{% trans 'No related events' %}">
             <div class="card-title d-flex justify-content-between">
                 <h6 class="fs-5">
                     {% trans "Related events" %}
@@ -101,13 +101,13 @@
             {% for event in related_events %}
                 {% include "agenda/event_list_item.html" with event=event show_remove=True topic=topic %}
             {% empty %}
-                <p class="text-secondary small mb-0">{% trans "No related events" %}</p>
+                <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
             {% endfor %}
           </div>
         </div>
 
         <div class="card mt-3">
-          <div class="card-body">
+          <div class="card-body" id="suggestedEventsContainer" data-empty-message="{% trans 'No suggestions' %}">
             <div class="card-title d-flex justify-content-between">
                 <h6 class="fs-5">
                     {% trans "Suggested events" %}
@@ -116,7 +116,7 @@
             {% for event in suggested_events %}
                 {% include "agenda/event_list_item.html" with event=event show_add=True topic=topic %}
             {% empty %}
-                <p class="text-secondary small mb-0">{% trans "No suggestions" %}</p>
+                <p class="text-secondary small mb-0 empty-msg">{% trans "No suggestions" %}</p>
             {% endfor %}
           </div>
         </div>
@@ -174,5 +174,10 @@
 </div>
 
 
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script src="{% static 'topics/topic_events.js' %}"></script>
 {% endblock %}
 
