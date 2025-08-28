@@ -38,11 +38,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (addBtn) {
       e.preventDefault();
-      const eventUuid = addBtn.dataset.eventUuid;
+      const wrapper = addBtn.closest('[data-event-uuid]');
+      if (!wrapper) return;
+      const eventUuid = wrapper.dataset.eventUuid;
       try {
         await postJSON('/api/topics/add-event', { topic_uuid: topicUuid, event_uuid: eventUuid });
-        const wrapper = addBtn.closest('[data-event-uuid]');
-        if (!wrapper) return;
         addBtn.classList.remove('btn-outline-primary', 'add-event-btn');
         addBtn.classList.add('btn-outline-danger', 'remove-event-btn');
         addBtn.textContent = addBtn.dataset.removeLabel || 'Remove';
@@ -54,11 +54,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     } else if (removeBtn) {
       e.preventDefault();
-      const eventUuid = removeBtn.dataset.eventUuid;
+      const wrapper = removeBtn.closest('[data-event-uuid]');
+      if (!wrapper) return;
+      const eventUuid = wrapper.dataset.eventUuid;
       try {
         await postJSON('/api/topics/remove-event', { topic_uuid: topicUuid, event_uuid: eventUuid });
-        const wrapper = removeBtn.closest('[data-event-uuid]');
-        if (!wrapper) return;
         removeBtn.classList.remove('btn-outline-danger', 'remove-event-btn');
         removeBtn.classList.add('btn-outline-primary', 'add-event-btn');
         removeBtn.textContent = removeBtn.dataset.addLabel || 'Add';
