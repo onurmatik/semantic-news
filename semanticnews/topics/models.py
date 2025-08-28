@@ -16,7 +16,7 @@ from ..utils import translate, get_relevance
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
+    slug = models.SlugField(max_length=200, blank=True, null=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
     status = models.CharField(max_length=20, db_index=True, choices=(
         ('removed', 'Removed'),
@@ -42,6 +42,9 @@ class Topic(models.Model):
         return f"{self.title}"
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['slug', 'created_by'], name='unique_topic_title_user')
+        ]
         indexes = [
             HnswIndex(
                 name='topic_embedding_hnsw',
