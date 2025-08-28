@@ -152,6 +152,46 @@ class TopicDetailViewTests(TestCase):
         self.assertIn(suggested, response.context["suggested_events"])
         self.assertNotIn(related, response.context["suggested_events"])
 
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_event_buttons_visible_only_to_owner(self, mock_event_embedding, mock_topic_embedding):
+        """Add/remove buttons are shown only for events created by the requesting user."""
+
+        User = get_user_model()
+        owner = User.objects.create_user("owner", "owner@example.com", "password")
+        other = User.objects.create_user("other", "other@example.com", "password")
+        self.client.force_login(owner)
+
+        topic = Topic.objects.create(title="My Topic", created_by=owner)
+
+        related_owned = Event.objects.create(title="Rel Owned", date="2024-01-01", created_by=owner)
+        related_other = Event.objects.create(title="Rel Other", date="2024-01-02", created_by=other)
+        topic.events.add(related_owned, through_defaults={"relevance": 0.5})
+        topic.events.add(related_other, through_defaults={"relevance": 0.5})
+
+        suggested_owned = Event.objects.create(title="Sug Owned", date="2024-02-01", created_by=owner)
+        suggested_other = Event.objects.create(title="Sug Other", date="2024-02-02", created_by=other)
+
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertRegex(
+            content,
+            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related_owned.uuid}"',
+        )
+        self.assertNotRegex(
+            content,
+            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related_other.uuid}"',
+        )
+        self.assertRegex(
+            content,
+            rf'(?s)<button[^>]*class="[^"]*add-event-btn[^"]*"[^>]*data-event-uuid="{suggested_owned.uuid}"',
+        )
+        self.assertNotRegex(
+            content,
+            rf'(?s)<button[^>]*class="[^"]*add-event-btn[^"]*"[^>]*data-event-uuid="{suggested_other.uuid}"',
+        )
+
 
 class TopicAddEventViewTests(TestCase):
     """Tests for adding suggested events to a topic via the view."""
