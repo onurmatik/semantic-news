@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from semanticnews.agenda.models import Event
 
@@ -108,4 +109,27 @@ class TopicDetailViewTests(TestCase):
         self.assertIn(related, response.context["related_events"])
         self.assertIn(suggested, response.context["suggested_events"])
         self.assertNotIn(related, response.context["suggested_events"])
+
+
+class TopicAddEventViewTests(TestCase):
+    """Tests for adding suggested events to a topic via the view."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_user_can_add_suggested_event(self, mock_event_embedding, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="Suggested", date="2024-01-01")
+
+        url = reverse(
+            "topics_add_event",
+            kwargs={"username": user.username, "slug": topic.slug, "event_uuid": event.uuid},
+        )
+        response = self.client.post(url)
+
+        self.assertRedirects(response, topic.get_absolute_url())
+        self.assertIn(event, topic.events.all())
 

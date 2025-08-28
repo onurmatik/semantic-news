@@ -1,4 +1,6 @@
 
+{% load i18n %}
+
 <div class="mb-3">
     <p class="text-secondary small mb-0">
         {{ event.date|date:"M d, Y" }}
@@ -15,5 +17,11 @@
             {% if not forloop.last %}&middot;{% endif %}
         {%  endfor %}
     </p>
+    {% if show_add %}
+        <form method="post" class="mt-2" action="{% url 'topics_add_event' username=topic.created_by.username slug=topic.slug event_uuid=event.uuid %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Add" %}</button>
+        </form>
+    {% endif %}
 </div>
 
