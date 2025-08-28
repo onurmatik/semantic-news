@@ -1,7 +1,7 @@
 
 {% load i18n %}
 
-<div class="mb-3">
+<div class="mb-3" data-event-uuid="{{ event.uuid }}">
     <p class="text-secondary small mb-0">
         {{ event.date|date:"M d, Y" }}
         {% for category in event.categories.all %}
@@ -18,16 +18,20 @@
         {%  endfor %}
     </p>
     {% if show_add %}
-        <form method="post" class="mt-2" action="{% url 'topics_add_event' username=topic.created_by.username slug=topic.slug event_uuid=event.uuid %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Add" %}</button>
-        </form>
+        <button type="button"
+                class="btn btn-sm btn-outline-primary mt-2 add-event-btn"
+                data-add-label="{% trans 'Add' %}"
+                data-remove-label="{% trans 'Remove' %}">
+            {% trans "Add" %}
+        </button>
     {% endif %}
     {% if show_remove %}
-        <form method="post" class="mt-2" action="{% url 'topics_remove_event' username=topic.created_by.username slug=topic.slug event_uuid=event.uuid %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Remove" %}</button>
-        </form>
+        <button type="button"
+                class="btn btn-sm btn-outline-danger mt-2 remove-event-btn"
+                data-add-label="{% trans 'Add' %}"
+                data-remove-label="{% trans 'Remove' %}">
+            {% trans "Remove" %}
+        </button>
     {% endif %}
 </div>
 
