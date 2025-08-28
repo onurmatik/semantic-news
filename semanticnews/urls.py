@@ -46,6 +46,7 @@ urlpatterns += i18n_patterns(
         name='event_list_year',
     ),
 
+    path('@<slug:username>/<slug:slug>/add-event/<uuid:event_uuid>/', topics_views.topic_add_event, name='topics_add_event'),
     path('@<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
 
     path('@<slug:username>', profiles_views.user_profile, name='user_profile'),
