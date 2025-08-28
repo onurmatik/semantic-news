@@ -83,3 +83,29 @@ class AddEventToTopicAPITests(TestCase):
         self.assertEqual(topic.events.count(), 1)
         self.assertEqual(topic.events.first(), event)
 
+
+class TopicDetailViewTests(TestCase):
+    """Tests for the topic detail view."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_shows_related_and_suggested_events(self, mock_event_embedding, mock_topic_embedding):
+        """The view lists related and suggested agenda events."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        related = Event.objects.create(title="Related", date="2024-01-01")
+        topic.events.add(related, through_defaults={"relevance": 0.5})
+
+        suggested = Event.objects.create(title="Suggested", date="2024-01-02")
+
+        response = self.client.get(topic.get_absolute_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(related, response.context["related_events"])
+        self.assertIn(suggested, response.context["suggested_events"])
+        self.assertNotIn(related, response.context["suggested_events"])
+

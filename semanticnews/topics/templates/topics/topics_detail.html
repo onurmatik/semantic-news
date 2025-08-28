@@ -91,6 +91,36 @@
 
     <div class="col-12 col-lg-4">
 
+        <div class="card mt-3">
+          <div class="card-body">
+            <div class="card-title d-flex justify-content-between">
+                <h6 class="fs-5">
+                    {% trans "Related events" %}
+                </h6>
+            </div>
+            {% for event in related_events %}
+                {% include "agenda/event_list_item.html" with event=event %}
+            {% empty %}
+                <p class="text-secondary small mb-0">{% trans "No related events" %}</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-body">
+            <div class="card-title d-flex justify-content-between">
+                <h6 class="fs-5">
+                    {% trans "Suggested events" %}
+                </h6>
+            </div>
+            {% for event in suggested_events %}
+                {% include "agenda/event_list_item.html" with event=event %}
+            {% empty %}
+                <p class="text-secondary small mb-0">{% trans "No suggestions" %}</p>
+            {% endfor %}
+          </div>
+        </div>
+
         {% if timeline %}
 
             <div class="card mt-3">
