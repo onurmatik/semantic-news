@@ -122,3 +122,63 @@ def add_event_to_topic(request, payload: TopicEventAddRequest):
         event_uuid=str(event.uuid),
         role=topic_event.role,
     )
+
+
+class TopicEventRemoveRequest(Schema):
+    """Request body for removing an agenda event from a topic.
+
+    Attributes:
+        topic_uuid (str): UUID of the topic.
+        event_uuid (str): UUID of the agenda event.
+    """
+
+    topic_uuid: str
+    event_uuid: str
+
+
+class TopicEventRemoveResponse(Schema):
+    """Response returned after removing an event from a topic.
+
+    Attributes:
+        topic_uuid (str): UUID of the topic.
+        event_uuid (str): UUID of the agenda event.
+    """
+
+    topic_uuid: str
+    event_uuid: str
+
+
+@api.post("/remove-event", response=TopicEventRemoveResponse)
+def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
+    """Remove an agenda event from a topic for the authenticated user.
+
+    Args:
+        request: The HTTP request instance.
+        payload: Data including the topic and event UUIDs.
+
+    Returns:
+        Data confirming the removal of the relation between topic and event.
+    """
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    try:
+        event = Event.objects.get(uuid=payload.event_uuid)
+    except Event.DoesNotExist:
+        raise HttpError(404, "Event not found")
+
+    deleted, _ = TopicEvent.objects.filter(topic=topic, event=event).delete()
+    if deleted == 0:
+        raise HttpError(404, "Event not linked to topic")
+
+    return TopicEventRemoveResponse(
+        topic_uuid=str(topic.uuid),
+        event_uuid=str(event.uuid),
+    )
