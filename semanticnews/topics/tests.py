@@ -85,6 +85,48 @@ class AddEventToTopicAPITests(TestCase):
         self.assertEqual(topic.events.first(), event)
 
 
+class RemoveEventFromTopicAPITests(TestCase):
+    """Tests for the endpoint that removes events from topics."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_requires_authentication(self, mock_event_embedding, mock_topic_embedding):
+        """Unauthenticated requests should be rejected."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+        topic.events.add(event, through_defaults={"created_by": user})
+
+        payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
+        response = self.client.post(
+            "/api/topics/remove-event", payload, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_removes_event_from_topic(self, mock_event_embedding, mock_topic_embedding):
+        """Authenticated users can remove events from their topics."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+        topic.events.add(event, through_defaults={"created_by": user})
+
+        payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
+        response = self.client.post(
+            "/api/topics/remove-event", payload, content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(topic.events.count(), 0)
+
+
 class TopicDetailViewTests(TestCase):
     """Tests for the topic detail view."""
 
