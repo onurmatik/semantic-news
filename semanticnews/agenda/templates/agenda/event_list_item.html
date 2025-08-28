@@ -20,6 +20,7 @@
     {% if show_add %}
         <button type="button"
                 class="btn btn-sm btn-outline-primary mt-2 add-event-btn"
+                data-event-uuid="{{ event.uuid }}"
                 data-add-label="{% trans 'Add' %}"
                 data-remove-label="{% trans 'Remove' %}">
             {% trans "Add" %}
@@ -28,6 +29,7 @@
     {% if show_remove %}
         <button type="button"
                 class="btn btn-sm btn-outline-danger mt-2 remove-event-btn"
+                data-event-uuid="{{ event.uuid }}"
                 data-add-label="{% trans 'Add' %}"
                 data-remove-label="{% trans 'Remove' %}">
             {% trans "Remove" %}
