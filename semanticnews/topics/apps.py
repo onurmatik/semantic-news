@@ -12,3 +12,4 @@ class TopicsConfig(AppConfig):
         from .utils.arguments import models  # noqa: F401
         from .utils.contributors import models  # noqa: F401
         from .utils.keywords import models  # noqa: F401
+        from . import signals  # noqa: F401

@@ -1,10 +1,13 @@
 from unittest.mock import patch
+from datetime import timedelta
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 
 from semanticnews.agenda.models import Event
+from semanticnews.contents.models import Content
 
 from .models import Topic
 
@@ -238,4 +241,51 @@ class TopicRemoveEventViewTests(TestCase):
 
         self.assertRedirects(response, topic.get_absolute_url())
         self.assertNotIn(event, topic.events.all())
+
+
+class TopicUpdatedAtTests(TestCase):
+    """Tests that topic.updated_at changes when related items change."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_updated_at_changes_when_event_added(self, mock_event_embedding, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        start = timezone.now()
+        later = start + timedelta(days=1)
+
+        with patch("django.utils.timezone.now") as mock_now:
+            mock_now.return_value = start
+            topic = Topic.objects.create(title="My Topic", created_by=user)
+            initial = topic.updated_at
+
+            event = Event.objects.create(title="An Event", date="2024-01-01")
+            mock_now.return_value = later
+            topic.events.add(event, through_defaults={"created_by": user})
+
+            topic.refresh_from_db()
+            self.assertNotEqual(initial, topic.updated_at)
+            self.assertEqual(topic.updated_at, later)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_updated_at_changes_when_content_added(self, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        start = timezone.now()
+        later = start + timedelta(days=1)
+
+        with patch("django.utils.timezone.now") as mock_now:
+            mock_now.return_value = start
+            topic = Topic.objects.create(title="My Topic", created_by=user)
+            initial = topic.updated_at
+
+            content = Content.objects.create(url="https://example.com/a", content_type="article")
+            mock_now.return_value = later
+            topic.contents.add(content, through_defaults={"created_by": user})
+
+            topic.refresh_from_db()
+            self.assertNotEqual(initial, topic.updated_at)
+            self.assertEqual(topic.updated_at, later)
 
