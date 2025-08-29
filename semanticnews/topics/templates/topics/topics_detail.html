@@ -88,7 +88,12 @@
 
         <div class="card my-3" id="topicRecapContainer"{% if not latest_recap %} style="display: none;"{% endif %}>
             <div class="card-body">
-                <h6 class="fs-5">{% trans "Recap" %}</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fs-5 mb-0">{% trans "Recap" %}</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#recapModal">
+                        {% trans "Update" %}
+                    </button>
+                </div>
                 <div id="topicRecapText">{% if latest_recap %}{{ latest_recap.recap|markdownify }}{% endif %}</div>
             </div>
         </div>
@@ -180,6 +185,52 @@
 
 </div>
 
+
+<div class="modal fade" id="recapModal" tabindex="-1" aria-labelledby="recapModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="recapForm">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="recapModalLabel">{% trans "Update recap" %}</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="websearch" id="recapWebsearch">
+                        <label class="form-check-label" for="recapWebsearch">{% trans "Use web search" %}</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="recapLength" class="form-label">{% trans "Length" %}</label>
+                        <select class="form-select" name="length" id="recapLength">
+                            <option value="short">{% trans "Short" %}</option>
+                            <option value="medium" selected>{% trans "Medium" %}</option>
+                            <option value="long">{% trans "Long" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="recapTone" class="form-label">{% trans "Tone" %}</label>
+                        <select class="form-select" name="tone" id="recapTone">
+                            <option value="neutral" selected>{% trans "Neutral" %}</option>
+                            <option value="journalistic">{% trans "Journalistic" %}</option>
+                            <option value="academic">{% trans "Academic" %}</option>
+                            <option value="friendly">{% trans "Friendly" %}</option>
+                            <option value="sarcastic">{% trans "Sarcastic" %}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="recapInstructions" class="form-label">{% trans "Instructions" %}</label>
+                        <textarea class="form-control" name="instructions" id="recapInstructions" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Update" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
