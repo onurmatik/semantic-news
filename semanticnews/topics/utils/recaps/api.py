@@ -2,13 +2,25 @@ from typing import Literal, Optional
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
-from asgiref.sync import async_to_sync
 
 from ...models import Topic
 from .models import TopicRecap
-from ...agents import TopicRecapAgent
+from ....openai import OpenAI
 
 router = Router()
+
+
+class TopicRecapResult(Schema):
+    """Generate a topic recap in Turkish and English.
+
+    Provide a 1 paragraph concise, coherent recap in Markdown summarizing the
+    essential narrative and main points. Keep it brief, engaging and easy to
+    scan, maintain a neutral tone and highlight key entities by making them
+    **bold**.
+    """
+
+    recap_tr: str
+    recap_en: str
 
 
 class TopicRecapCreateRequest(Schema):
@@ -55,14 +67,27 @@ def create_recap(request, payload: TopicRecapCreateRequest):
             text = c.markdown or ""
             content_md += f"### {title}\n{text}\n\n"
 
-    agent = TopicRecapAgent()
-    response = async_to_sync(agent.run)(
-        content_md,
-        websearch=payload.websearch,
-        length=payload.length,
-        instructions=payload.instructions,
-    )
-    recap_text = response.recap_en
+    extra_instructions = []
+    if payload.length:
+        extra_instructions.append(f"Write a {payload.length} recap.")
+    if payload.instructions:
+        extra_instructions.append(payload.instructions)
+    if extra_instructions:
+        content_md += "\n" + "\n".join(extra_instructions)
+
+    kwargs = {}
+    if payload.websearch:
+        kwargs["tools"] = [{"type": "web_search_preview"}]
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model="gpt-5",
+            input=content_md,
+            text_format=TopicRecapResult,
+            **kwargs,
+        )
+
+    recap_text = response.output_parsed["recap_en"]
 
     TopicRecap.objects.create(topic=topic, recap=recap_text)
 

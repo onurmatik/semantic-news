@@ -1,4 +1,4 @@
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -135,18 +135,20 @@ class RemoveEventFromTopicAPITests(TestCase):
 class CreateRecapAPITests(TestCase):
     """Tests for the recap creation API endpoint."""
 
-    @patch(
-        "semanticnews.topics.utils.recaps.api.TopicRecapAgent.run",
-        new_callable=AsyncMock,
-        return_value=SimpleNamespace(recap_en="Recap"),
-    )
+    @patch("semanticnews.topics.utils.recaps.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
     )
     def test_accepts_optional_length_and_instructions(
-        self, mock_topic_embedding, mock_run
+        self, mock_topic_embedding, mock_openai
     ):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {"recap_en": "Recap"}
+        mock_client.responses.parse.return_value = mock_response
+
         User = get_user_model()
         user = User.objects.create_user("user", "user@example.com", "password")
         self.client.force_login(user)
@@ -165,11 +167,11 @@ class CreateRecapAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"recap": "Recap"})
-        mock_run.assert_awaited_once()
-        _, kwargs = mock_run.call_args
-        self.assertTrue(kwargs["websearch"])
-        self.assertEqual(kwargs["length"], "short")
-        self.assertEqual(kwargs["instructions"], "Extra details")
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertEqual(kwargs["tools"], [{"type": "web_search_preview"}])
+        self.assertIn("Write a short recap.", kwargs["input"])
+        self.assertIn("Extra details", kwargs["input"])
 
 
 class TopicDetailViewTests(TestCase):
