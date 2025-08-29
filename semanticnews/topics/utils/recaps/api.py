@@ -68,8 +68,7 @@ def create_recap(request, payload: TopicRecapCreateRequest):
         f"Maintain a {payload.tone} tone. Keep it engaging and easy to scan. "
         f"Do not add evaluative phrases; no commentary or interpretation. "
         f"Respond in Markdown and highlight key entities by making them **bold**. "
-        f"Give paragraph breaks where appropriate. "
-        f"Do not use any other formatting such as lists, titles, etc. "
+        f"Give paragraph breaks where appropriate. Do not use any other formatting such as lists, titles, etc. "
     )
 
     if payload.instructions:
