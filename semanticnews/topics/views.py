@@ -9,12 +9,13 @@ from .models import Topic, TopicEvent
 
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related("events"),
+        Topic.objects.prefetch_related("events", "recaps"),
         slug=slug,
         created_by__username=username,
     )
 
     related_events = topic.events.all()
+    latest_recap = topic.recaps.order_by("-created_at").first()
 
     if topic.embedding is not None:
         suggested_events = (
@@ -33,6 +34,7 @@ def topics_detail(request, slug, username):
             "topic": topic,
             "related_events": related_events,
             "suggested_events": suggested_events,
+            "latest_recap": latest_recap,
         },
     )
 

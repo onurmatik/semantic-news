@@ -10,6 +10,7 @@ from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 
 from .models import Topic
+from .utils.recaps.models import TopicRecap
 
 
 class CreateTopicAPITests(TestCase):
@@ -194,6 +195,25 @@ class TopicDetailViewTests(TestCase):
             content,
             rf'(?s)<button[^>]*class="[^"]*add-event-btn[^"]*"[^>]*data-event-uuid="{suggested_other.uuid}"',
         )
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_latest_recap_displayed(self, mock_event_embedding, mock_topic_embedding):
+        """The most recent recap is shown on the detail page."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        TopicRecap.objects.create(topic=topic, recap="Old recap")
+        latest = TopicRecap.objects.create(topic=topic, recap="New recap")
+
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertEqual(response.context["latest_recap"], latest)
+        self.assertIn("New recap", content)
+        self.assertNotIn("Old recap", content)
 
 
 class TopicAddEventViewTests(TestCase):
