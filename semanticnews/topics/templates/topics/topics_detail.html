@@ -86,6 +86,13 @@
 
         {% endif %}
 
+        <div class="card my-3" id="topicRecapContainer"{% if not latest_recap %} style="display: none;"{% endif %}>
+            <div class="card-body">
+                <h6 class="fs-5">{% trans "Recap" %}</h6>
+                <div id="topicRecapText" style="white-space: pre-line;">{% if latest_recap %}{{ latest_recap.recap }}{% endif %}</div>
+            </div>
+        </div>
+
     </div>
 
 

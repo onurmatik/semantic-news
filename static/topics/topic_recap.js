@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!btn) return;
 
   const topicUuid = btn.dataset.topicUuid;
+  const recapContainer = document.getElementById('topicRecapContainer');
+  const recapText = document.getElementById('topicRecapText');
 
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -15,7 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
-      alert(data.recap);
+      if (recapText) {
+        recapText.textContent = data.recap;
+      }
+      if (recapContainer) {
+        recapContainer.style.display = '';
+      }
     } catch (err) {
       console.error(err);
     } finally {
