@@ -45,7 +45,7 @@
     </div>
 
     <div class="ms-auto mt-auto pb-2">
-        {% if topic.status == 'draft' %}
+        {% if topic.status == 'draft' and user == topic.created_by %}
         <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn">
             {% trans "Publish" %}
         </button>
@@ -237,5 +237,6 @@
     {{ block.super }}
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_recap.js' %}"></script>
+    <script src="{% static 'topics/topic_publish.js' %}"></script>
 {% endblock %}
 

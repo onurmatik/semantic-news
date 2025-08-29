@@ -56,6 +56,61 @@ def create_topic(request, payload: TopicCreateRequest):
     return TopicCreateResponse(uuid=str(topic.uuid), title=topic.title, slug=topic.slug)
 
 
+class TopicStatusUpdateRequest(Schema):
+    """Request body for updating a topic's status.
+
+    Attributes:
+        topic_uuid (str): UUID of the topic.
+        status (str): New status for the topic.
+    """
+
+    topic_uuid: str
+    status: str
+
+
+class TopicStatusUpdateResponse(Schema):
+    """Response returned after updating a topic's status.
+
+    Attributes:
+        topic_uuid (str): UUID of the topic.
+        status (str): The topic's updated status.
+    """
+
+    topic_uuid: str
+    status: str
+
+
+@api.post("/set-status", response=TopicStatusUpdateResponse)
+def set_topic_status(request, payload: TopicStatusUpdateRequest):
+    """Update the status of a topic owned by the authenticated user.
+
+    Args:
+        request: The HTTP request instance.
+        payload: Data including the topic UUID and desired status.
+
+    Returns:
+        Data for the topic with its new status.
+    """
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid, created_by=user)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    valid_statuses = {choice[0] for choice in Topic._meta.get_field("status").choices}
+    if payload.status not in valid_statuses:
+        raise HttpError(400, "Invalid status")
+
+    topic.status = payload.status
+    topic.save(update_fields=["status"])
+
+    return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
+
+
 class TopicEventAddRequest(Schema):
     """Request body for adding an agenda event to a topic.
 

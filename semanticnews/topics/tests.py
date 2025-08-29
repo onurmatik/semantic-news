@@ -134,6 +134,64 @@ class RemoveEventFromTopicAPITests(TestCase):
         self.assertEqual(topic.events.count(), 0)
 
 
+class SetTopicStatusAPITests(TestCase):
+    """Tests for the endpoint that updates a topic's status."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_requires_authentication(self, mock_topic_embedding):
+        """Unauthenticated requests should be rejected."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status", payload, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_creator_can_publish_topic(self, mock_topic_embedding):
+        """Topic creators can update the status of their topics."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status", payload, content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        topic.refresh_from_db()
+        self.assertEqual(topic.status, "published")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_non_creator_cannot_publish_topic(self, mock_topic_embedding):
+        """Only the creator can change the topic status."""
+
+        User = get_user_model()
+        creator = User.objects.create_user("creator", "creator@example.com", "password")
+        other = User.objects.create_user("other", "other@example.com", "password")
+
+        topic = Topic.objects.create(title="My Topic", created_by=creator)
+
+        self.client.force_login(other)
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status", payload, content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        topic.refresh_from_db()
+        self.assertEqual(topic.status, "draft")
+
+
 class CreateRecapAPITests(TestCase):
     """Tests for the recap creation API endpoint."""
 
