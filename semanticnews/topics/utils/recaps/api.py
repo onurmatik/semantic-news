@@ -10,25 +10,13 @@ from ....openai import OpenAI
 router = Router()
 
 
-class TopicRecapResult(Schema):
-    """Generate a topic recap in Turkish and English.
-
-    Provide a 1 paragraph concise, coherent recap in Markdown summarizing the
-    essential narrative and main points. Keep it brief, engaging and easy to
-    scan, maintain a neutral tone and highlight key entities by making them
-    **bold**.
-    """
-
-    recap_tr: str
-    recap_en: str
-
-
 class TopicRecapCreateRequest(Schema):
     """Request body for creating a recap for a topic."""
 
     topic_uuid: str
     websearch: bool = False
-    length: Optional[Literal["short", "medium", "long"]] = None
+    length: Optional[Literal["short", "medium", "long"]] = "medium"
+    tone: Optional[Literal["neutral", "journalistic", "academic", "friendly", "sarcastic"]] = "neutral"
     instructions: Optional[str] = None
 
 
@@ -67,13 +55,27 @@ def create_recap(request, payload: TopicRecapCreateRequest):
             text = c.markdown or ""
             content_md += f"### {title}\n{text}\n\n"
 
-    extra_instructions = []
-    if payload.length:
-        extra_instructions.append(f"Write a {payload.length} recap.")
+    if payload.length == "short":
+        length_translated = "brief, concise"
+    elif payload.length == "medium":
+        length_translated = "medium-length"
+    else:  # long
+        length_translated = "comprehensive"
+
+    instructions = (
+        f"Below is a list of events and contents related to {topic.title}."
+        f"Provide a {length_translated}, coherent recap summarizing the essential narrative and main points. "
+        f"Maintain a {payload.tone} tone. Keep it engaging and easy to scan. "
+        f"Do not add evaluative phrases; no commentary or interpretation. "
+        f"Respond in Markdown and highlight key entities by making them **bold**. "
+        f"Give paragraph breaks where appropriate. "
+        f"Do not use any other formatting such as lists, titles, etc. "
+    )
+
     if payload.instructions:
-        extra_instructions.append(payload.instructions)
-    if extra_instructions:
-        content_md += "\n" + "\n".join(extra_instructions)
+        instructions += f"\n\n{payload.instructions}"
+
+    instructions += f"\n\n{content_md}"
 
     kwargs = {}
     if payload.websearch:
@@ -82,12 +84,12 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     with OpenAI() as client:
         response = client.responses.parse(
             model="gpt-5",
-            input=content_md,
-            text_format=TopicRecapResult,
+            input=instructions,
+            text_format=TopicRecapCreateResponse,
             **kwargs,
         )
 
-    recap_text = response.output_parsed["recap_en"]
+    recap_text = response.output_parsed.recap
 
     TopicRecap.objects.create(topic=topic, recap=recap_text)
 
