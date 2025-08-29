@@ -1,6 +1,7 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
 from .models import Topic, TopicContent
+from .utils.recaps import admin as recaps_admin  # noqa: F401
 
 
 @admin.register(Topic)
