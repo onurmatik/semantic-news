@@ -289,12 +289,22 @@ class TopicRecapAgent:
         "Highlight the key entities by making them bold. "
     )
 
-    async def run(self, news):
-        agent = Agent(
+    async def run(self, news, websearch: bool = False):
+        kwargs = dict(
             name=self.name,
             instructions=self.instructions,
             output_type=TopicRecapSchema,
         )
+
+        if websearch:
+            kwargs["tools"] = [
+                WebSearchTool(
+                    user_location=UserLocation(country="TR", type="approximate"),
+                    search_context_size="low",
+                )
+            ]
+
+        agent = Agent(**kwargs)
 
         result = await Runner.run(agent, news)
 
