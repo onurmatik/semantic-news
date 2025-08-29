@@ -3,6 +3,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from .models import Topic, TopicEvent, TopicContent
+from .utils.recaps.models import TopicRecap
+from .utils.images.models import TopicImage
 
 
 def touch_topic(topic_id):
@@ -18,6 +20,17 @@ def update_topic_timestamp_from_event(sender, instance, **kwargs):
 @receiver([post_save, post_delete], sender=TopicContent)
 def update_topic_timestamp_from_content(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicRecap)
+def update_topic_timestamp_from_recap(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicImage)
+def update_topic_timestamp_from_image(sender, instance, **kwargs):
+    if instance.topic_id:
+        touch_topic(instance.topic_id)
 
 
 @receiver(m2m_changed, sender=Topic.events.through)
