@@ -215,6 +215,22 @@ class TopicDetailViewTests(TestCase):
         self.assertIn("New recap", content)
         self.assertNotIn("Old recap", content)
 
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_recap_rendered_as_markdown(self, mock_event_embedding, mock_topic_embedding):
+        """Recap text is rendered using the markdown filter."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        TopicRecap.objects.create(topic=topic, recap="**Bold** text")
+
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertIn("<strong>Bold</strong> text", content)
+
 
 class TopicAddEventViewTests(TestCase):
     """Tests for adding suggested events to a topic via the view."""
