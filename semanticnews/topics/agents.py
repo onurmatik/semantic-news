@@ -289,10 +289,20 @@ class TopicRecapAgent:
         "Highlight the key entities by making them bold. "
     )
 
-    async def run(self, news, websearch: bool = False):
+    async def run(
+        self,
+        news,
+        websearch: bool = False,
+        length: Optional[Literal["short", "medium", "long"]] = None,
+        instructions: Optional[str] = None,
+    ):
+        final_instructions = instructions or self.instructions
+        if length:
+            final_instructions += f"\nWrite a {length} recap."
+
         kwargs = dict(
             name=self.name,
-            instructions=self.instructions,
+            instructions=final_instructions,
             output_type=TopicRecapSchema,
         )
 

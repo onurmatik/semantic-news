@@ -1,3 +1,5 @@
+from typing import Literal, Optional
+
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from asgiref.sync import async_to_sync
@@ -14,6 +16,8 @@ class TopicRecapCreateRequest(Schema):
 
     topic_uuid: str
     websearch: bool = False
+    length: Optional[Literal["short", "medium", "long"]] = None
+    instructions: Optional[str] = None
 
 
 class TopicRecapCreateResponse(Schema):
@@ -52,7 +56,12 @@ def create_recap(request, payload: TopicRecapCreateRequest):
             content_md += f"### {title}\n{text}\n\n"
 
     agent = TopicRecapAgent()
-    response = async_to_sync(agent.run)(content_md, websearch=payload.websearch)
+    response = async_to_sync(agent.run)(
+        content_md,
+        websearch=payload.websearch,
+        length=payload.length,
+        instructions=payload.instructions,
+    )
     recap_text = response.recap_en
 
     TopicRecap.objects.create(topic=topic, recap=recap_text)
