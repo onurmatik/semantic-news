@@ -45,9 +45,11 @@
     </div>
 
     <div class="ms-auto mt-auto pb-2">
-        <button class="btn btn-outline-primary btn-sm" id="recapButton" data-topic-uuid="{{ topic.uuid }}">
-            {% trans "Recap" %}
+        {% if topic.status == 'draft' %}
+        <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn">
+            {% trans "Publish" %}
         </button>
+        {% endif %}
     </div>
 
 </div>
@@ -78,21 +80,18 @@
 
         </div>
 
-        {% if topic.status == 'draft' %}
 
-            <div class="alert alert-secondary my-3" role="alert">
-                {% trans "This topic is a draft. Please add content to improve." %}
-            </div>
+        <div class="btn-toolbar border-bottom border-top py-2" role="toolbar">
+            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#recapModal">
+                {% trans "Recap" %}
+            </button>
+        </div>
 
-        {% endif %}
 
         <div class="card my-3" id="topicRecapContainer"{% if not latest_recap %} style="display: none;"{% endif %}>
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="fs-5 mb-0">{% trans "Recap" %}</h6>
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#recapModal">
-                        {% trans "Update" %}
-                    </button>
                 </div>
                 <div id="topicRecapText">{% if latest_recap %}{{ latest_recap.recap|markdownify }}{% endif %}</div>
             </div>
