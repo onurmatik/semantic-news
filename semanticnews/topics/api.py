@@ -97,9 +97,12 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
         raise HttpError(401, "Unauthorized")
 
     try:
-        topic = Topic.objects.get(uuid=payload.topic_uuid, created_by=user)
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
+
+    if topic.created_by != user:
+        raise HttpError(403, "Forbidden")
 
     valid_statuses = {choice[0] for choice in Topic._meta.get_field("status").choices}
     if payload.status not in valid_statuses:

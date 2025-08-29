@@ -187,7 +187,7 @@ class SetTopicStatusAPITests(TestCase):
             "/api/topics/set-status", payload, content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 403)
         topic.refresh_from_db()
         self.assertEqual(topic.status, "draft")
 
