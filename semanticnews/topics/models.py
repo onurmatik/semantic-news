@@ -29,14 +29,18 @@ class Topic(models.Model):
         on_delete=models.SET_NULL, related_name='topics'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     events = models.ManyToManyField(
         'agenda.Event', through='TopicEvent',
-        related_name='topics', blank=True)
+        related_name='topics', blank=True
+    )
     contents = models.ManyToManyField(
         'contents.Content', through='TopicContent',
-        related_name='topics', blank=True)
+        related_name='topics', blank=True
+    )
+
+    # Updated when the events or contents change
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.title}"
