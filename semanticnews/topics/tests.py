@@ -1,5 +1,6 @@
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from datetime import timedelta
+from types import SimpleNamespace
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -129,6 +130,46 @@ class RemoveEventFromTopicAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(topic.events.count(), 0)
+
+
+class CreateRecapAPITests(TestCase):
+    """Tests for the recap creation API endpoint."""
+
+    @patch(
+        "semanticnews.topics.utils.recaps.api.TopicRecapAgent.run",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(recap_en="Recap"),
+    )
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_accepts_optional_length_and_instructions(
+        self, mock_topic_embedding, mock_run
+    ):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "websearch": True,
+            "length": "short",
+            "instructions": "Extra details",
+        }
+        response = self.client.post(
+            "/api/topics/recap/create", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"recap": "Recap"})
+        mock_run.assert_awaited_once()
+        _, kwargs = mock_run.call_args
+        self.assertTrue(kwargs["websearch"])
+        self.assertEqual(kwargs["length"], "short")
+        self.assertEqual(kwargs["instructions"], "Extra details")
 
 
 class TopicDetailViewTests(TestCase):
