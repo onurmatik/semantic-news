@@ -22,6 +22,7 @@ class Topic(models.Model):
         ('removed', 'Removed'),
         ('draft', 'Draft'),
         ('published', 'Published'),
+        ('archived', 'Archived'),
     ), default='draft')
 
     created_by = models.ForeignKey(
