@@ -81,6 +81,7 @@
             </div>
 
             <div class="gap-2">
+                <span class="small text-secondary mx-2">This topic is {{ topic.status }}</span>
                 {% if topic.status == 'draft' %}
                     <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
                         {% trans "Publish" %}
