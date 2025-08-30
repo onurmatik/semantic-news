@@ -52,13 +52,7 @@
 
                 {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
 
-                {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; updated {{ modified_ago }} ago.{% endblocktrans %}
-                {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
-                    <nobr>
-                        {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}{% if contributor_count > 0 %},
-                        {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
-                    </nobr>
-                {% endwith %}
+                {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago.{% endblocktrans %}
 
             </p>
 
@@ -81,7 +75,7 @@
             </div>
 
             <div class="gap-2">
-                <span class="small text-secondary mx-2">This topic is {{ topic.status }}</span>
+                <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
                 {% if topic.status == 'draft' %}
                     <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
                         {% trans "Publish" %}
