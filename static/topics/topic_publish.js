@@ -8,11 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
     btn.disabled = true;
+    const status = btn.dataset.status;
     try {
       const res = await fetch('/api/topics/set-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic_uuid: topicUuid, status: 'published' })
+        body: JSON.stringify({ topic_uuid: topicUuid, status })
       });
       if (!res.ok) throw new Error('Request failed');
       await res.json();

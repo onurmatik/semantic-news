@@ -75,19 +75,23 @@
         <div class="d-flex justify-content-between">
 
             <div class="gap-2">
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#recapModal">
+                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#recapModal"{% if topic.status == 'archived' %} disabled{% endif %}>
                     {% trans "Recap" %}
                 </button>
             </div>
 
             <div class="gap-2">
                 {% if topic.status == 'draft' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn">
+                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
                         {% trans "Publish" %}
                     </button>
                 {% elif topic.status == 'published' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn">
+                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="archived">
                         {% trans "Archive" %}
+                    </button>
+                {% elif topic.status == 'archived' %}
+                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
+                        {% trans "Unarchive" %}
                     </button>
                 {% endif %}
             </div>
@@ -124,7 +128,11 @@
                 </h6>
             </div>
             {% for event in related_events %}
-                {% include "agenda/event_list_item.html" with event=event show_remove=True topic=topic %}
+                {% if topic.status == 'archived' %}
+                    {% include "agenda/event_list_item.html" with event=event show_remove=True archived=True %}
+                {% else %}
+                    {% include "agenda/event_list_item.html" with event=event show_remove=True archived=False %}
+                {% endif %}
             {% empty %}
                 <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
             {% endfor %}
@@ -139,7 +147,11 @@
                 </h6>
             </div>
             {% for event in suggested_events %}
-                {% include "agenda/event_list_item.html" with event=event show_add=True topic=topic %}
+                {% if topic.status == 'archived' %}
+                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=True %}
+                {% else %}
+                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=False %}
+                {% endif %}
             {% empty %}
                 <p class="text-secondary small mb-0 empty-msg">{% trans "No suggestions" %}</p>
             {% endfor %}
