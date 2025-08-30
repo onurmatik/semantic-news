@@ -21,7 +21,8 @@
         <button type="button"
                 class="btn btn-sm btn-outline-primary mt-2 add-event-btn"
                 data-add-label="{% trans 'Add' %}"
-                data-remove-label="{% trans 'Remove' %}">
+                data-remove-label="{% trans 'Remove' %}"
+                {% if archived %}disabled{% endif %}>
             {% trans "Add" %}
         </button>
     {% endif %}
@@ -29,7 +30,8 @@
         <button type="button"
                 class="btn btn-sm btn-outline-danger mt-2 remove-event-btn"
                 data-add-label="{% trans 'Add' %}"
-                data-remove-label="{% trans 'Remove' %}">
+                data-remove-label="{% trans 'Remove' %}"
+                {% if archived %}disabled{% endif %}>
             {% trans "Remove" %}
         </button>
     {% endif %}
