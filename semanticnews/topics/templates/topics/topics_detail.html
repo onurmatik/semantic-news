@@ -128,7 +128,11 @@
                 </h6>
             </div>
             {% for event in related_events %}
-                {% include "agenda/event_list_item.html" with event=event show_remove=True topic=topic archived=topic.status == 'archived' %}
+                {% if topic.status == 'archived' %}
+                    {% include "agenda/event_list_item.html" with event=event show_remove=True archived=True %}
+                {% else %}
+                    {% include "agenda/event_list_item.html" with event=event show_remove=True archived=False %}
+                {% endif %}
             {% empty %}
                 <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
             {% endfor %}
@@ -143,7 +147,11 @@
                 </h6>
             </div>
             {% for event in suggested_events %}
-                {% include "agenda/event_list_item.html" with event=event show_add=True topic=topic archived=topic.status == 'archived' %}
+                {% if topic.status == 'archived' %}
+                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=True %}
+                {% else %}
+                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=False %}
+                {% endif %}
             {% empty %}
                 <p class="text-secondary small mb-0 empty-msg">{% trans "No suggestions" %}</p>
             {% endfor %}
