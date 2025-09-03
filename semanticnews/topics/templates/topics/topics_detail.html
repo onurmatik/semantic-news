@@ -69,7 +69,7 @@
         <div class="d-flex justify-content-between">
 
             <div class="gap-2">
-                {% include "topics/utils/recaps/recap_button.html" %}
+                {% include "topics/recaps/button.html" %}
             </div>
 
             <div class="gap-2">
@@ -99,7 +99,7 @@
 
     <div class="col-12 col-lg-8">
 
-        {% include "topics/utils/recaps/recap_card.html" %}
+        {% include "topics/recaps/card.html" %}
 
     </div>
 
@@ -197,7 +197,7 @@
 </div>
 
 
-{% include "topics/utils/recaps/recap_modal.html" %}
+{% include "topics/recaps/modal.html" %}
 
 {% endblock %}
 
@@ -205,6 +205,5 @@
     {{ block.super }}
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
-    {% include "topics/utils/recaps/recap_scripts.html" %}
+    {% include "topics/recaps/scripts.html" %}
 {% endblock %}
-
