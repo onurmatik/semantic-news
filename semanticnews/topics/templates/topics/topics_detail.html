@@ -59,8 +59,12 @@
                 {% endif %}
 
                 {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
-
-                {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago.{% endblocktrans %}
+                {% if topic.based_on %}
+                    {% url 'topics_detail' username=topic.based_on.created_by.username slug=topic.based_on.slug as based_on_url %}
+                    {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince based_on_user=topic.based_on.created_by %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago; based on <a class="text-info-emphasis" href="{{ based_on_url }}">@{{ based_on_user }}'s version</a>.{% endblocktrans %}
+                {% else %}
+                    {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago.{% endblocktrans %}
+                {% endif %}
 
             </p>
 

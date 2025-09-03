@@ -337,6 +337,25 @@ class TopicDetailViewTests(TestCase):
 
         self.assertIn("<strong>Bold</strong> text", content)
 
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_shows_based_on_reference(self, mock_topic_embedding):
+        """Detail view shows link to original when topic is based on another."""
+
+        User = get_user_model()
+        owner = User.objects.create_user("owner", "owner@example.com", "password")
+        cloner = User.objects.create_user("cloner", "cloner@example.com", "password")
+
+        original = Topic.objects.create(title="Original", created_by=owner)
+        derived = Topic.objects.create(title="Derived", created_by=cloner, based_on=original)
+
+        response = self.client.get(derived.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertIn(
+            f'based on <a class="text-info-emphasis" href="{original.get_absolute_url()}">@{owner.username}\'s version</a>',
+            content,
+        )
+
 
 class TopicAddEventViewTests(TestCase):
     """Tests for adding suggested events to a topic via the view."""
