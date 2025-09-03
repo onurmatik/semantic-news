@@ -25,6 +25,11 @@ class Topic(models.Model):
         ('archived', 'Archived'),
     ), default='draft')
 
+    based_on = models.ForeignKey(
+        'Topic', related_name='derivatives',
+        on_delete=models.SET_NULL, blank=True, null=True
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, blank=True, null=True,
         on_delete=models.SET_NULL, related_name='topics'
