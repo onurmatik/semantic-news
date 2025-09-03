@@ -4,7 +4,10 @@ from django.http import HttpResponseForbidden
 from pgvector.django import L2Distance
 
 from semanticnews.agenda.models import Event
-from .models import Topic, TopicEvent
+from .models import Topic, TopicEvent, TopicContent
+from .utils.recaps.models import TopicRecap
+from .utils.images.models import TopicImage
+from .utils.keywords.models import TopicKeyword
 
 
 def topics_detail(request, slug, username):
@@ -65,3 +68,76 @@ def topic_remove_event(request, slug, username, event_uuid):
     TopicEvent.objects.filter(topic=topic, event=event).delete()
 
     return redirect("topics_detail", slug=topic.slug, username=username)
+
+
+@login_required
+def topic_clone(request, slug, username):
+    original = get_object_or_404(
+        Topic.objects.prefetch_related(
+            "events",
+            "contents",
+            "recaps",
+            "images",
+            "keywords",
+        ),
+        slug=slug,
+        created_by__username=username,
+    )
+
+    if request.user == original.created_by:
+        return HttpResponseForbidden()
+
+    cloned = Topic.objects.create(
+        title=original.title,
+        slug=original.slug,
+        embedding=original.embedding,
+        based_on=original,
+        created_by=request.user,
+        status="draft",
+    )
+
+    for te in TopicEvent.objects.filter(topic=original):
+        TopicEvent.objects.create(
+            topic=cloned,
+            event=te.event,
+            role=te.role,
+            source=te.source,
+            relevance=te.relevance,
+            pinned=te.pinned,
+            rank=te.rank,
+            created_by=request.user,
+        )
+
+    for tc in TopicContent.objects.filter(topic=original):
+        TopicContent.objects.create(
+            topic=cloned,
+            content=tc.content,
+            role=tc.role,
+            source=tc.source,
+            relevance=tc.relevance,
+            pinned=tc.pinned,
+            rank=tc.rank,
+            created_by=request.user,
+        )
+
+    for recap in original.recaps.all():
+        TopicRecap.objects.create(topic=cloned, recap=recap.recap)
+
+    for image in original.images.all():
+        TopicImage.objects.create(
+            topic=cloned,
+            image=image.image,
+            thumbnail=image.thumbnail,
+        )
+
+    for tk in TopicKeyword.objects.filter(topic=original):
+        TopicKeyword.objects.create(
+            topic=cloned,
+            keyword=tk.keyword,
+            relevance=tk.relevance,
+            created_by=request.user,
+        )
+
+    return redirect(
+        "topics_detail", slug=cloned.slug, username=cloned.created_by.username
+    )
