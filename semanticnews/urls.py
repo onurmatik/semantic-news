@@ -48,6 +48,7 @@ urlpatterns += i18n_patterns(
 
     path('@<slug:username>/<slug:slug>/add-event/<uuid:event_uuid>/', topics_views.topic_add_event, name='topics_add_event'),
     path('@<slug:username>/<slug:slug>/remove-event/<uuid:event_uuid>/', topics_views.topic_remove_event, name='topics_remove_event'),
+    path('@<slug:username>/<slug:slug>/clone/', topics_views.topic_clone, name='topics_clone'),
     path('@<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
 
     path('@<slug:username>', profiles_views.user_profile, name='user_profile'),

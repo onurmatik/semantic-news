@@ -1,6 +1,8 @@
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import timedelta
 from types import SimpleNamespace
+import tempfile
+import shutil
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -11,9 +13,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 
-from .models import Topic
+from .models import Topic, TopicEvent, TopicContent
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
+from .utils.keywords.models import Keyword, TopicKeyword
 
 
 class CreateTopicAPITests(TestCase):
@@ -380,6 +383,73 @@ class TopicRemoveEventViewTests(TestCase):
 
         self.assertRedirects(response, topic.get_absolute_url())
         self.assertNotIn(event, topic.events.all())
+
+
+class TopicCloneTests(TestCase):
+    """Tests for cloning a topic and its related content."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir)
+        override = self.settings(MEDIA_ROOT=self.tmpdir)
+        override.enable()
+        self.addCleanup(override.disable)
+
+        User = get_user_model()
+        self.owner = User.objects.create_user("owner", "owner@example.com", "password")
+        self.cloner = User.objects.create_user("cloner", "cloner@example.com", "password")
+
+        self.topic = Topic.objects.create(title="Original", created_by=self.owner, embedding=[0.0] * 1536)
+
+        self.event = Event.objects.create(title="Event", date="2024-01-01", embedding=[0.0] * 1536)
+        TopicEvent.objects.create(topic=self.topic, event=self.event, created_by=self.owner)
+
+        self.content = Content.objects.create(content_type="text", embedding=[0.0] * 1536)
+        TopicContent.objects.create(topic=self.topic, content=self.content, created_by=self.owner)
+
+        TopicRecap.objects.create(topic=self.topic, recap="Recap")
+
+        image_data = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+            b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
+        )
+        image_file = SimpleUploadedFile("image.gif", image_data, content_type="image/gif")
+        TopicImage.objects.create(topic=self.topic, image=image_file)
+
+        keyword = Keyword.objects.create(name="Keyword")
+        TopicKeyword.objects.create(topic=self.topic, keyword=keyword, created_by=self.owner)
+
+    def test_clone_creates_copy_with_related_objects(self):
+        self.client.force_login(self.cloner)
+        url = reverse(
+            "topics_clone",
+            kwargs={"username": self.owner.username, "slug": self.topic.slug},
+        )
+        response = self.client.get(url)
+        self.assertRedirects(
+            response,
+            reverse(
+                "topics_detail",
+                kwargs={"username": self.cloner.username, "slug": self.topic.slug},
+            ),
+        )
+
+        cloned = Topic.objects.get(created_by=self.cloner)
+        self.assertEqual(cloned.based_on, self.topic)
+        self.assertEqual(cloned.events.count(), 1)
+        self.assertEqual(cloned.contents.count(), 1)
+        self.assertEqual(cloned.recaps.count(), 1)
+        self.assertEqual(cloned.images.count(), 1)
+        self.assertEqual(cloned.keywords.count(), 1)
+
+    def test_clone_button_visible_for_non_creator(self):
+        self.client.force_login(self.cloner)
+        response = self.client.get(self.topic.get_absolute_url())
+        clone_url = reverse(
+            "topics_clone",
+            kwargs={"username": self.owner.username, "slug": self.topic.slug},
+        )
+        self.assertContains(response, clone_url)
 
 
 class TopicUpdatedAtTests(TestCase):
