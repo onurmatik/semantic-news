@@ -8,6 +8,7 @@ from .models import Topic, TopicEvent, TopicContent
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.keywords.models import TopicKeyword
+from .utils.mcps.models import MCPServer
 
 
 def topics_detail(request, slug, username):
@@ -19,6 +20,7 @@ def topics_detail(request, slug, username):
 
     related_events = topic.events.all()
     latest_recap = topic.recaps.order_by("-created_at").first()
+    mcp_servers = MCPServer.objects.filter(active=True)
 
     if topic.embedding is not None:
         suggested_events = (
@@ -38,6 +40,7 @@ def topics_detail(request, slug, username):
             "related_events": related_events,
             "suggested_events": suggested_events,
             "latest_recap": latest_recap,
+            "mcp_servers": mcp_servers,
         },
     )
 

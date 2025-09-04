@@ -17,6 +17,7 @@ from .models import Topic, TopicEvent, TopicContent
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.keywords.models import Keyword, TopicKeyword
+from .utils.mcps.models import MCPServer
 
 
 class CreateTopicAPITests(TestCase):
@@ -336,6 +337,28 @@ class TopicDetailViewTests(TestCase):
         content = response.content.decode()
 
         self.assertIn("<strong>Bold</strong> text", content)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_mcp_servers_dropdown_lists_active_servers(
+        self, mock_event_embedding, mock_topic_embedding
+    ):
+        """Context dropdown lists only active MCP servers."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        MCPServer.objects.create(name="Active", url="http://a")
+        MCPServer.objects.create(name="Inactive", url="http://b", active=False)
+
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertIn("Context", content)
+        self.assertIn("Active", content)
+        self.assertNotIn("Inactive", content)
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_shows_based_on_reference(self, mock_topic_embedding):
