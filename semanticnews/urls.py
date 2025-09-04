@@ -56,3 +56,8 @@ urlpatterns += i18n_patterns(
 
     prefix_default_language=False
 )
+
+
+admin.site.index_title = 'Welcome to the Semantic News'
+admin.site.site_header = 'Semantic News Administration'
+admin.site.site_title = 'Semantic News Administration'
