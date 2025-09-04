@@ -8,9 +8,15 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
+    # The Keyword model was originally part of the ``topics`` app and was
+    # later extracted into its own ``keywords`` app. Older databases may have
+    # already applied this migration before the new app existed which caused
+    # Django to complain about an inconsistent migration history.  Removing the
+    # explicit dependency on ``keywords`` allows those installations to run
+    # ``makemigrations``/``migrate`` again without having to fake apply the
+    # initial keywords migration.
     dependencies = [
         ('topics', '0006_remove_topic_categories_and_more'),
-        ('keywords', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
