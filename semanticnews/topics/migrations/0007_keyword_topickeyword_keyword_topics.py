@@ -10,22 +10,11 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('topics', '0006_remove_topic_categories_and_more'),
+        ('keywords', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='Keyword',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('slug', models.CharField(blank=True, max_length=100, unique=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('variant_type', models.CharField(blank=True, choices=[('synonym', 'Synonym'), ('hypernym', 'Hypernym'), ('hyponym', 'Hyponym'), ('abbreviation', 'Abbreviation'), ('ignore', 'Ignore')], max_length=100, null=True)),
-                ('variant_of', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='topics.keyword')),
-            ],
-        ),
         migrations.CreateModel(
             name='TopicKeyword',
             fields=[
@@ -33,13 +22,13 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('relevance', models.FloatField(blank=True, null=True, validators=[django.core.validators.MinValueValidator(0.0), django.core.validators.MaxValueValidator(1.0)])),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('keyword', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='topics.keyword')),
+                ('keyword', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='keywords.keyword')),
                 ('topic', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='topics.topic')),
             ],
         ),
         migrations.AddField(
-            model_name='keyword',
-            name='topics',
-            field=models.ManyToManyField(blank=True, related_name='keywords', through='topics.TopicKeyword', to='topics.topic'),
+            model_name='topic',
+            name='keywords',
+            field=models.ManyToManyField(blank=True, related_name='topics', through='topics.TopicKeyword', to='keywords.keyword'),
         ),
     ]

@@ -1,8 +1,5 @@
 from slugify import slugify
-from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from semanticnews.topics.models import Topic
 
 
 class Keyword(models.Model):
@@ -11,8 +8,6 @@ class Keyword(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    topics = models.ManyToManyField(Topic, related_name='keywords', through='TopicKeyword', blank=True)
 
     # Variant of another more standard name
     variant_of = models.ForeignKey('self', blank=True, null=True, on_delete=models.CASCADE)

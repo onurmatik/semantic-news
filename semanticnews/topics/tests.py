@@ -13,10 +13,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 
-from .models import Topic, TopicEvent, TopicContent
+from .models import Topic, TopicEvent, TopicContent, TopicKeyword
+from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
-from .utils.keywords.models import Keyword, TopicKeyword
 from .utils.mcps.models import MCPServer
 
 
