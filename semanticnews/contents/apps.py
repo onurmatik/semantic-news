@@ -8,6 +8,5 @@ class ContentsConfig(AppConfig):
     def ready(self):
         # Ensure submodule models are imported so Django sees them for migrations.
         from .sources.rss import models  # noqa: F401
-        from .sources.mcp import models  # noqa: F401
         from .sources.youtube import models  # noqa: F401
         from .sources.websearch import models  # noqa: F401
