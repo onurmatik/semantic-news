@@ -1,6 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, TopicContent
+from .models import Topic, TopicContent, TopicKeyword, TopicEvent
 from .utils.recaps import admin as recaps_admin  # noqa: F401
 
 
@@ -34,3 +34,12 @@ class TopicContentAdmin(admin.ModelAdmin):
     list_display = ('topic', 'created_by', 'created_at', 'relevance')
     list_filter = ('created_by',)
     search_fields = ('topic__title', 'created_by__username')
+
+
+@admin.register(TopicKeyword)
+class TopicKeywordAdmin(admin.ModelAdmin):
+    list_display = ("topic", "keyword", "relevance", "created_by", "created_at")
+    search_fields = ("topic__title", "keyword__name")
+    list_filter = ("created_at",)
+    raw_id_fields = ("topic", "keyword", "created_by")
+    readonly_fields = ("created_at",)

@@ -31,17 +31,3 @@ class Keyword(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(**kwargs)
-
-
-class TopicKeyword(models.Model):
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    keyword = models.ForeignKey(Keyword, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
-    relevance = models.FloatField(
-        null=True, blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-    )
-
-    def __str__(self):
-        return f'{self.topic} - {self.keyword}'

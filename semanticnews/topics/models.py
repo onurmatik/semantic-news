@@ -4,13 +4,12 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 from django.urls import reverse
-from django.contrib.auth import get_user_model
-from django.utils.translation import gettext_lazy as _, get_language
 from django.conf import settings
 from slugify import slugify
 from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
-from ..utils import translate, get_relevance
+
+from ..utils import get_relevance
 
 
 class Topic(models.Model):
@@ -42,6 +41,10 @@ class Topic(models.Model):
     )
     contents = models.ManyToManyField(
         'contents.Content', through='TopicContent',
+        related_name='topics', blank=True
+    )
+    keywords = models.ManyToManyField(
+        'keywords.Keyword', through='TopicKeyword',
         related_name='topics', blank=True
     )
 
@@ -197,3 +200,17 @@ class TopicContent(models.Model):
         if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.content, 'embedding', None) is not None:
             self.relevance = get_relevance(self.topic.embedding, self.content.embedding)
         super().save(*args, **kwargs)
+
+
+class TopicKeyword(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    keyword = models.ForeignKey('keywords.Keyword', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
+    relevance = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
+
+    def __str__(self):
+        return f'{self.topic} - {self.keyword}'

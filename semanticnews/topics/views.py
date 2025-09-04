@@ -4,10 +4,9 @@ from django.http import HttpResponseForbidden
 from pgvector.django import L2Distance
 
 from semanticnews.agenda.models import Event
-from .models import Topic, TopicEvent, TopicContent
+from .models import Topic, TopicEvent, TopicContent, TopicKeyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
-from .utils.keywords.models import TopicKeyword
 from .utils.mcps.models import MCPServer
 
 
