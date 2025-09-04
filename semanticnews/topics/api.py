@@ -6,9 +6,11 @@ from semanticnews.agenda.models import Event
 
 from .models import Topic, TopicEvent
 from .utils.recaps.api import router as recaps_router
+from .utils.mcps.api import router as mcps_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
+api.add_router("/mcp", mcps_router)
 
 
 class TopicCreateRequest(Schema):
