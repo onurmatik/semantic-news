@@ -1,0 +1,19 @@
+{% load i18n %}
+<div class="modal fade" id="mcpModal" tabindex="-1" aria-labelledby="mcpModalLabel" aria-hidden="true" data-topic-uuid="{{ topic.uuid }}">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="mcpModalLabel">{% trans "Context" %}</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+      </div>
+      <div class="modal-body">
+        <p id="mcpDescription"></p>
+        <pre id="mcpContext" class="mt-3"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+        <button type="button" class="btn btn-primary" id="mcpFetchBtn">{% trans "Fetch" %}</button>
+      </div>
+    </div>
+  </div>
+</div>
