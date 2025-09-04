@@ -1,0 +1,22 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    initial = True
+
+    dependencies = []
+
+    operations = [
+        migrations.CreateModel(
+            name='Keyword',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=100)),
+                ('slug', models.CharField(blank=True, max_length=100, unique=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('variant_type', models.CharField(blank=True, choices=[('synonym', 'Synonym'), ('hypernym', 'Hypernym'), ('hyponym', 'Hyponym'), ('abbreviation', 'Abbreviation'), ('ignore', 'Ignore')], max_length=100, null=True)),
+                ('variant_of', models.ForeignKey(blank=True, null=True, on_delete=models.CASCADE, to='keywords.keyword')),
+            ],
+        ),
+    ]
