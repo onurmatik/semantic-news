@@ -6,5 +6,8 @@ class TopicRecap(models.Model):
     recap = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        app_label = 'topics'
+
     def __str__(self):
         return f"Recap for {self.topic}"

@@ -7,7 +7,7 @@ class TopicsConfig(AppConfig):
 
     def ready(self):
         # Ensure submodule models are imported so Django sees them for migrations.
-        from .utils.recaps import models  # noqa: F401
+        # from .utils.recaps import models  # noqa: F401
         from .utils.images import models  # noqa: F401
         from .utils.arguments import models  # noqa: F401
         from .utils.contributors import models  # noqa: F401

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'semanticnews.agenda',
     'semanticnews.contents',
     'semanticnews.topics',
+    'semanticnews.topics.utils.recaps'
 ]
 
 MIDDLEWARE = [
