@@ -2,7 +2,7 @@
 
 const CONFIDENCE_THRESHOLD = 0.85;
 
-document.addEventListener('DOMContentLoaded', () => {
+(() => {
   const modalEl = document.getElementById('eventModal');
   if (!modalEl) return;
   const modal = new bootstrap.Modal(modalEl);
@@ -195,4 +195,4 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.reload();
     });
   }
-});
+})();
