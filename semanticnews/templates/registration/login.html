@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+
+{% block content %}
+
+<div class="container">
+
+    {% if form.errors %}
+    <div class="alert alert-danger mt-5" role="alert">
+        {% trans "Your username and password didn't match. Please try again." %}
+    </div>
+    {% endif %}
+
+
+    <form method="post" class="mt-5 mb-5">
+
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_username">{% trans "Username" %}</label>
+            <input type="text" class="form-control" name="username" maxlength="150" autofocus="" required="required" id="id_username">
+        </div>
+
+        <div class="form-group">
+            <label for="id_password">{% trans "Password" %}</label>
+            <input type="password" class="form-control" name="password" maxlength="254" required="required" id="id_password">
+        </div>
+
+        <input type="submit" class="btn btn-primary">
+
+    </form>
+
+    <br>
+
+    <p>
+        <a href="{% url 'password_reset' %}">{% trans "Forgot password?" %}</a>
+    </p>
+
+    <p>
+        {% trans "Don't have an account?" %}
+        <a href="{% url 'django_registration_register' %}?next={{ request.GET.next }}">{% trans "Register here." %}</a>
+    </p>
+
+</div>
+
+{% endblock %}
