@@ -139,6 +139,7 @@
                     </a>
                 </li>
 
+                {% if request.user.is_authenticated %}
                 <li class="nav-item dropdown mx-2">
 
                     <a class="nav-link p-0 active" role="button" data-bs-toggle="dropdown" href="#">
@@ -147,30 +148,29 @@
 
                     <ul class="dropdown-menu dropdown-menu-end">
 
-                        <li class="authenticated-only d-none">
-                            {% if request.user.is_authenticated %}
-                                <a href="{% url 'user_profile' username=request.user.username %}" class="dropdown-item">
-                                    {% trans "Profile" %}
-                                </a>
-                                <a href="{% url 'profile_settings' %}" class="dropdown-item">
-                                    {% trans "Settings" %}
-                                </a>
-                            {% endif %}
+                        <li>
+                            <a href="{% url 'user_profile' username=request.user.username %}" class="dropdown-item">
+                                {% trans "Profile" %}
+                            </a>
+                            <a href="{% url 'profile_settings' %}" class="dropdown-item">
+                                {% trans "Settings" %}
+                            </a>
                         </li>
 
-                        <li class="authenticated-only d-none">
+                        <li>
                             <a href="{% url 'logout' %}" class="dropdown-item">
                                 {% trans "Logout" %}
                             </a>
                         </li>
 
-                        <li class="anonymous-only d-none">
-                            <a class="dropdown-item" href="{% url 'login' %}">{% trans "Login" %}</a>
-                        </li>
-
                     </ul>
 
                 </li>
+                {% else %}
+                <li class="nav-item mx-2">
+                    <a class="nav-link p-0 active" href="{% url 'login' %}">{% trans "Login" %}</a>
+                </li>
+                {% endif %}
 
             </ul>
 
