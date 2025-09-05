@@ -4,7 +4,7 @@ from django.db.models import Count, Q
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from .models import Source, Content
+from .models import Source, Content, ContentEvent
 
 
 # ---- Custom list filters -----------------------------------------------------
@@ -191,3 +191,10 @@ class ContentAdmin(admin.ModelAdmin):
         except Exception:
             first = "(unavailable)"
         return mark_safe(f"<code>[{first}{' …' if len(obj.embedding or []) > 16 else ''}]</code>")
+
+
+@admin.register(ContentEvent)
+class ContentEventAdmin(admin.ModelAdmin):
+    list_display = ('content', 'event', 'source', 'relevance', 'pinned')
+    list_filter = ('source', 'pinned')
+    search_fields = ('content__title', 'event__title')
