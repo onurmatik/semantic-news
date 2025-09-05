@@ -46,34 +46,7 @@
 
 {% include "topics/create_topic_modal.html" %}
 
-<div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="addEventForm">
-                <div class="modal-header">
-                    <h5 class="modal-title">{% trans "Add event" %}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="eventDate" class="form-label">{% trans "Date" %}</label>
-                        <input type="date" class="form-control" id="eventDate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="eventTitle" class="form-label">{% trans "Title" %}</label>
-                        <input type="text" class="form-control" id="eventTitle" required>
-                    </div>
-                    <div id="similarEvents"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">{% trans "Submit" %}</button>
-                    <button type="button" class="btn btn-success d-none" id="confirmCreateBtn">{% trans "Create event" %}</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+  {% include "agenda/event_modal.html" %}
 
 {% endblock %}
 
