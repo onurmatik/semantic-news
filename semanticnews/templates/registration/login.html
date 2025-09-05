@@ -37,11 +37,6 @@
         <a href="{% url 'password_reset' %}">{% trans "Forgot password?" %}</a>
     </p>
 
-    <p>
-        {% trans "Don't have an account?" %}
-        <a href="{% url 'django_registration_register' %}?next={{ request.GET.next }}">{% trans "Register here." %}</a>
-    </p>
-
 </div>
 
 {% endblock %}

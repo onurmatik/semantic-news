@@ -180,3 +180,7 @@ LOGGING = {
         "semanticnews.openai": {"handlers": ["console"], "level": "DEBUG"},
     },
 }
+
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
