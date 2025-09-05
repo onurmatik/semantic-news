@@ -95,10 +95,18 @@ def event_list(request, year, month=None, day=None):
     except EmptyPage:
         events = paginator.page(paginator.num_pages)
 
+    exclude_events = [
+        {"title": ev.title, "date": ev.date.isoformat()} for ev in qs
+    ]
+
+    localities = Locality.objects.all().order_by("-is_default", "name")
+
     context = {
         "events": events,
         "period": period,   # helpful for headings/breadcrumbs
         "start": start,
         "end": end,
+        "exclude_events": exclude_events,
+        "localities": localities,
     }
     return render(request, "agenda/event_list.html", context)
