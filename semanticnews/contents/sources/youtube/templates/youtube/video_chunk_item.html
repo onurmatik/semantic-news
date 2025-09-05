@@ -32,9 +32,10 @@
     </a>
 
     {# Anonymous user => login #}
-    <a href="{% url 'login_form' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
-       class="anonymous-only d-none small"
-    >{% trans "Add to topic" %}</a>
+    <a href="{% url 'login' %}" data-bs-toggle="tooltip" data-bs-title="{% trans "Login to add content" %}"
+       class="anonymous-only d-none small">
+        {% trans "Add to topic" %}
+    </a>
 
 </div>
 
