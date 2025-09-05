@@ -23,9 +23,11 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{% trans "Timeline" %}</h2>
+                {% if user.is_authenticated %}
                 <button id="suggestEventsBtn" data-event-title="{{ event.title }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add events' %}">
                     <i class="bi bi-plus-lg"></i>
                 </button>
+                {% endif %}
             </div>
 
             {% for sim_event in similar_events %}
@@ -51,12 +53,16 @@
     </div>
 </div>
 
+{% if user.is_authenticated %}
 {% include "agenda/event_modal.html" %}
+{% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
+    {% if user.is_authenticated %}
     {{ exclude_events|json_script:"exclude-events" }}
     <script src="{% static 'agenda/event_modal.js' %}"></script>
+    {% endif %}
 {% endblock %}

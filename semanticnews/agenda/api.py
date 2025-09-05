@@ -4,6 +4,7 @@ import json
 
 from django.db.models import F, Value
 from ninja import NinjaAPI, Schema
+from ninja.errors import HttpError
 from semanticnews.openai import OpenAI
 from pgvector.django import CosineDistance
 
@@ -253,6 +254,10 @@ def create_event(request, payload: EventCreateRequest):
         Data for the newly created event.
     """
 
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
     status = (
         "published"
         if payload.confidence is not None and payload.confidence >= CONFIDENCE_THRESHOLD
@@ -264,11 +269,7 @@ def create_event(request, payload: EventCreateRequest):
         date=payload.date,
         confidence=payload.confidence,
         status=status,
-        created_by=(
-            request.user
-            if getattr(request, "user", None) and request.user.is_authenticated
-            else None
-        ),
+        created_by=user,
     )
 
     if payload.sources:
@@ -310,6 +311,10 @@ class PublishEventsResponse(Schema):
 @api.post("/publish", response=PublishEventsResponse)
 def publish_events(request, payload: PublishEventsRequest):
     """Set the status of the given events to published."""
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
 
     events = Event.objects.filter(uuid__in=payload.uuids)
     updated = events.update(status="published")
