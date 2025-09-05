@@ -9,7 +9,9 @@
 
 <div class="container">
 
+    {% if user.is_authenticated %}
     <button id="addEventBtn" class="btn btn-primary mb-3">{% trans "Add event" %}</button>
+    {% endif %}
 
     <div class="row h-100">
 
@@ -32,12 +34,16 @@
 
 </div>
 
+{% if user.is_authenticated %}
 {% include "agenda/event_modal.html" %}
+{% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
+    {% if user.is_authenticated %}
     <script src="{% static 'agenda/event_modal.js' %}"></script>
+    {% endif %}
 {% endblock %}
 

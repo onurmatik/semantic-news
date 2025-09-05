@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 import json
 
 from django.test import SimpleTestCase, TestCase
+from django.contrib.auth import get_user_model
 
 from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
 
@@ -293,6 +294,11 @@ class GetExistingTests(TestCase):
 
 
 class CreateEventTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_login(self.user)
+
     @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
     def test_create_event_endpoint_creates_event(self, mock_get_embedding):
         payload = {
@@ -340,6 +346,11 @@ class CreateEventTests(TestCase):
 
 
 class PublishEventTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="publisher", password="pass")
+        self.client.force_login(self.user)
+
     def test_publish_endpoint_sets_status(self):
         from datetime import date
         from .models import Event
