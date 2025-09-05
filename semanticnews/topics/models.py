@@ -43,8 +43,8 @@ class Topic(models.Model):
         'contents.Content', through='TopicContent',
         related_name='topics', blank=True
     )
-    keywords = models.ManyToManyField(
-        'keywords.Keyword', through='TopicKeyword',
+    entities = models.ManyToManyField(
+        'entities.Entity', through='TopicEntity',
         related_name='topics', blank=True
     )
 
@@ -202,9 +202,9 @@ class TopicContent(models.Model):
         super().save(*args, **kwargs)
 
 
-class TopicKeyword(models.Model):
+class TopicEntity(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    keyword = models.ForeignKey('keywords.Keyword', on_delete=models.CASCADE)
+    entity = models.ForeignKey('entities.Entity', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
     relevance = models.FloatField(
@@ -213,4 +213,4 @@ class TopicKeyword(models.Model):
     )
 
     def __str__(self):
-        return f'{self.topic} - {self.keyword}'
+        return f'{self.topic} - {self.entity}'

@@ -4,7 +4,7 @@ from django.http import HttpResponseForbidden
 from pgvector.django import L2Distance
 
 from semanticnews.agenda.models import Event
-from .models import Topic, TopicEvent, TopicContent, TopicKeyword
+from .models import Topic, TopicEvent, TopicContent, TopicEntity
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
@@ -132,8 +132,8 @@ def topic_clone(request, slug, username):
             thumbnail=image.thumbnail,
         )
 
-    for tk in TopicKeyword.objects.filter(topic=original):
-        TopicKeyword.objects.create(
+    for tk in TopicEntity.objects.filter(topic=original):
+        TopicEntity.objects.create(
             topic=cloned,
             keyword=tk.keyword,
             relevance=tk.relevance,

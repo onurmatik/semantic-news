@@ -1,7 +1,6 @@
 import uuid
 from urllib.parse import urlparse
 
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.conf import settings
@@ -43,13 +42,6 @@ class Event(models.Model):
 
     embedding = VectorField(dimensions=1536, blank=True, null=True)
 
-    previous_version = models.OneToOneField(
-        'self',
-        on_delete=models.SET_NULL,
-        blank=True, null=True,
-        related_name='next_version'
-    )
-
     def __str__(self):
         return f"{self.title} - {self.date}"
 
@@ -75,12 +67,6 @@ class Event(models.Model):
             self.embedding = self.get_embedding()
 
         super().save(*args, **kwargs)
-
-    def clean(self):
-        super().clean()
-        # prevent self-loop
-        if self.previous_version and self.previous_version == self.id:
-            raise ValidationError({"update_of": "An entry cannot update itself."})
 
     def get_absolute_url(self) -> str:
         # Use zero-padded YYYY/MM/DD to match the requested format exactly
@@ -111,12 +97,24 @@ class Event(models.Model):
             return embedding
 
     @property
-    def latest(self):
-        node, version = self, 1
-        while getattr(node, 'previous_version', None):
-            node = node.previous_version
-            version += 1
-        return node, version
+    def description(self):
+        desc = self.descriptions.last()
+        if desc:
+            return desc.description
+
+
+class Description(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='descriptions')
+    description = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name='event_descriptions',
+        blank=True, null=True, on_delete=models.SET_NULL
+    )
+
+    def __str__(self):
+        return self.description
 
 
 class Locality(models.Model):
