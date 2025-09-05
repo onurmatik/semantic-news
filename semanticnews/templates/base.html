@@ -158,9 +158,12 @@
                         </li>
 
                         <li>
-                            <a href="{% url 'logout' %}" class="dropdown-item">
-                                {% trans "Logout" %}
-                            </a>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">
+                                    {% trans "Logout" %}
+                                </button>
+                            </form>
                         </li>
 
                     </ul>
