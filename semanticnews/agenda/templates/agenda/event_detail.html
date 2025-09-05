@@ -51,54 +51,12 @@
     </div>
 </div>
 
-<div class="modal fade" id="suggestEventsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{% trans "Fetch more related events" %}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
-            </div>
-            <div class="modal-body">
-                <form id="suggestEventsForm" class="mb-3">
-                    <div class="mb-3">
-                        <label for="suggestRelatedEvent" class="form-label">{% trans "Related event" %}</label>
-                        <input type="text" class="form-control" id="suggestRelatedEvent" value="{{ event.title }}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="suggestLocality" class="form-label">{% trans "Locality" %}</label>
-                        <select class="form-select" id="suggestLocality">
-                            <option value="">{% trans "Global" %}</option>
-                            {% for locality in localities %}
-                                <option value="{{ locality.name }}">{{ locality.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="suggestStartDate" class="form-label">{% trans "Start date" %}</label>
-                        <input type="date" class="form-control" id="suggestStartDate">
-                    </div>
-                    <div class="mb-3">
-                        <label for="suggestEndDate" class="form-label">{% trans "End date" %}</label>
-                        <input type="date" class="form-control" id="suggestEndDate">
-                    </div>
-                    <button type="submit" class="btn btn-primary">{% trans "Fetch suggestions" %}</button>
-                </form>
-                <div id="suggestedEventsList" class="d-none">
-                    <p>{% trans "Loading suggestions..." %}</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="publishSelectedEventsBtn">{% trans "Publish selected" %}</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include "agenda/event_modal.html" %}
 
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
     {{ exclude_events|json_script:"exclude-events" }}
-    <script src="{% static 'agenda/event_suggestions.js' %}"></script>
+    <script src="{% static 'agenda/event_modal.js' %}"></script>
 {% endblock %}
