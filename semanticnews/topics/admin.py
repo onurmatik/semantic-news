@@ -43,3 +43,10 @@ class TopicEntityAdmin(admin.ModelAdmin):
     list_filter = ("created_at",)
     raw_id_fields = ("topic", "entity", "created_by")
     readonly_fields = ("created_at",)
+
+
+@admin.register(TopicEvent)
+class TopicEventAdmin(admin.ModelAdmin):
+    list_display = ('topic', 'event', 'source', 'relevance', 'pinned')
+    list_filter = ('source', 'pinned')
+    search_fields = ('topic__title', 'event__title')

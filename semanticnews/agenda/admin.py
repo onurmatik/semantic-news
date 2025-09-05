@@ -5,7 +5,7 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
-from .models import Event, Locality, Category, Source
+from .models import Event, Locality, Category, Source, Description
 from .forms import EventSuggestForm
 from .api import suggest_events, AgendaEventResponse
 
@@ -193,3 +193,9 @@ class CategoryAdmin(admin.ModelAdmin):
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['url', 'get_domain']
     search_fields = ['url']
+
+
+@admin.register(Description)
+class DescriptionAdmin(admin.ModelAdmin):
+    list_display = ['event', 'created_by', 'created_at']
+    search_fields = ['event__title', 'description']
