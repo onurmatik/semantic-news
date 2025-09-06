@@ -1,6 +1,6 @@
 // Handles the create topic modal workflow
 
-document.addEventListener('DOMContentLoaded', function () {
+function initCreateTopicModal() {
   const modalElement = document.getElementById('createTopicModal');
   if (!modalElement) return;
   const modal = new bootstrap.Modal(modalElement);
@@ -96,4 +96,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCreateTopicModal);
+} else {
+  initCreateTopicModal();
+}
