@@ -4,9 +4,11 @@ import calendar
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.db.models import Prefetch
 from pgvector.django import L2Distance
 
 from .models import Event, Locality, Category
+from semanticnews.topics.models import Topic
 
 
 DISTANCE_THRESHOLD = 1
@@ -14,7 +16,9 @@ DISTANCE_THRESHOLD = 1
 
 def event_detail(request, year, month, day, slug):
     obj = get_object_or_404(
-        Event.objects.prefetch_related("topics"),
+        Event.objects.prefetch_related(
+            Prefetch("topics", queryset=Topic.objects.filter(status="published"))
+        ),
         slug=slug,
         date__year=year,
         date__month=month,
@@ -51,6 +55,7 @@ def event_detail(request, year, month, day, slug):
         "agenda/event_detail.html",
         {
             "event": obj,
+            "topics": obj.topics.all(),
             "similar_events": similar_events,
             "exclude_events": exclude_events,
             "localities": localities,
