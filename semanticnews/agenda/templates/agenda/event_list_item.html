@@ -1,7 +1,7 @@
 
 {% load i18n %}
 
-<div class="mb-3" data-event-uuid="{{ event.uuid }}">
+<div class="event-item mb-3" data-event-uuid="{{ event.uuid }}" data-categories="{% for category in event.categories.all %}{% if not forloop.first %} {% endif %}{{ category.name|slugify }}{% endfor %}">
     <p class="text-secondary small mb-0">
         {{ event.date|date:"M d, Y" }}
         {% for category in event.categories.all %}
