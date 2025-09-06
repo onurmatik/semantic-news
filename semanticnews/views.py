@@ -7,7 +7,7 @@ def home(request):
     recent_events = Event.objects.filter(status='published').order_by('-date')[:5]
     return render(request, 'home.html', {
         'events': recent_events,
-        'topics': Topic.objects.all(),
+        'topics': Topic.objects.filter(status='published'),
     })
 
 
@@ -27,7 +27,7 @@ def search_results(request):
 
     if search_term.embedding is not None:
         similar_topics = Topic.objects.filter(embedding__isnull=False) \
-                             .filter(status='p') \
+                             .filter(status='published') \
                              .order_by(L2Distance('embedding', search_term.embedding))
         recommended_keywords = (
             Keyword.objects
