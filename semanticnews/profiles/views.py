@@ -15,7 +15,7 @@ def user_profile(request, username):
     topics = (Topic.objects
               .filter(Q(created_by=user) |
                       Q(contents__created_by=user))
-              .exclude(status='r').distinct()).order_by('-updated_at')
+              .filter(status='published').distinct()).order_by('-updated_at')
 
     topic_content = TopicContent.objects.filter(created_by=user).select_related(
         'topicarticle__article',

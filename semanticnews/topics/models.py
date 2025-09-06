@@ -106,11 +106,11 @@ class Topic(models.Model):
 
     @cached_property
     def get_similar_topics(self, limit=5):
-        return Topic.objects\
-                   .exclude(id=self.id)\
-                   .exclude(embedding__isnull=True)\
-                   .exclude(status='r')\
-                   .order_by(L2Distance('embedding', self.embedding))[:limit]
+        return (Topic.objects
+                .exclude(id=self.id)
+                .exclude(embedding__isnull=True)
+                .filter(status='published')
+                .order_by(L2Distance('embedding', self.embedding))[:limit])
 
 
 class TopicEvent(models.Model):
