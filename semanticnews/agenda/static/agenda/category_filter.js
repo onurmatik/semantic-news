@@ -27,8 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
     link.addEventListener('click', e => {
       e.preventDefault();
       const category = link.dataset.category;
-      window.location.hash = category;
-      applyFilter(category);
+      const current = window.location.hash.substring(1);
+      if (current === category) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+        applyFilter('');
+      } else {
+        window.location.hash = category;
+        applyFilter(category);
+      }
     });
   });
 
