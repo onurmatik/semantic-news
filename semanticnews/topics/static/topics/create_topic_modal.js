@@ -74,7 +74,12 @@ function initCreateTopicModal() {
       suggestedList.classList.remove('d-none');
       try {
         const about = suggestField.value;
-        const res = await fetch(`/api/topics/suggest?about=${encodeURIComponent(about)}`);
+        const res = await fetch('/api/topics/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ about })
+        });
+        if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
         if (Array.isArray(data) && data.length) {
           suggestedList.innerHTML = '';
