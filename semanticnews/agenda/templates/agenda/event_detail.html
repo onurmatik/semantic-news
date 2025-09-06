@@ -48,7 +48,15 @@
 
         <div class="col-12 col-md-4">
 
-            <h2 class="fs-5">{% trans "Topics" %}</h2>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="fs-5 mb-0">{% trans "Topics" %}</h2>
+                {% if user.is_authenticated %}
+                <button id="addTopicBtn" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add topic' %}">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+                {% endif %}
+            </div>
+
             <ul class="list-unstyled">
                 {% for topic in event.topics.all %}
                     <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
@@ -61,6 +69,7 @@
     </div>
 </div>
 
+{% include "topics/create_topic_modal.html" %}
 {% if user.is_authenticated %}
 {% include "agenda/event_modal.html" %}
 {% endif %}
@@ -74,4 +83,5 @@
     <script src="{% static 'agenda/event_modal.js' %}"></script>
     {% endif %}
     <script src="{% static 'agenda/category_filter.js' %}"></script>
+    {% include "topics/create_topic_js.html" %}
 {% endblock %}
