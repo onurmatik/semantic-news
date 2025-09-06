@@ -2,22 +2,47 @@
 <div class="modal fade" id="createTopicModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form id="createTopicForm">
-                <div class="modal-header">
-                    <h5 class="modal-title">{% trans "Create new topic" %}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="topicTitle" class="form-label">{% trans "Title" %}</label>
-                        <input type="text" class="form-control" id="topicTitle" required>
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Create new topic" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="topicModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="topic-create-tab" data-bs-toggle="tab" data-bs-target="#topicCreatePane" type="button" role="tab">{% trans "Create manually" %}</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="topic-ai-tab" data-bs-toggle="tab" data-bs-target="#topicAIPane" type="button" role="tab">{% trans "AI suggestions" %}</button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="topicCreatePane" role="tabpanel">
+                        <form id="createTopicForm">
+                            <div class="mb-3">
+                                <label for="topicTitle" class="form-label">{% trans "Title" %}</label>
+                                <input type="text" class="form-control" id="topicTitle" required>
+                            </div>
+                            <div class="modal-footer px-0">
+                                <button type="submit" class="btn btn-primary">{% trans "Create topic" %}</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="topicAIPane" role="tabpanel">
+                        <form id="suggestTopicsForm">
+                            <div class="mb-3">
+                                <label for="suggestTopicsAbout" class="form-label">{% trans "Suggest topics about" %}</label>
+                                <input type="text" class="form-control" id="suggestTopicsAbout" value="{% trans 'Current agenda' %}">
+                            </div>
+                            <div class="modal-footer px-0">
+                                <button type="submit" class="btn btn-primary">{% trans "Create topic" %}</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">{% trans "Create topic" %}</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
+
