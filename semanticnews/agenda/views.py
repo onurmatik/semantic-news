@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, timedelta
 import calendar
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from pgvector.django import L2Distance
 
 from .models import Event, Locality, Category
@@ -76,15 +77,51 @@ def event_list(request, year, month=None, day=None):
     if day is not None:
         start = end = date(year, month, day)
         period = {"granularity": "day", "year": year, "month": month, "day": day}
+        prev_date = start - timedelta(days=1)
+        next_date = start + timedelta(days=1)
+        prev_url = reverse(
+            "event_list_day",
+            kwargs={
+                "year": f"{prev_date.year:04}",
+                "month": f"{prev_date.month:02}",
+                "day": f"{prev_date.day:02}",
+            },
+        )
+        next_url = reverse(
+            "event_list_day",
+            kwargs={
+                "year": f"{next_date.year:04}",
+                "month": f"{next_date.month:02}",
+                "day": f"{next_date.day:02}",
+            },
+        )
     elif month is not None:
         last_day = calendar.monthrange(year, month)[1]
         start = date(year, month, 1)
         end = date(year, month, last_day)
         period = {"granularity": "month", "year": year, "month": month}
+        if month == 1:
+            prev_year, prev_month = year - 1, 12
+        else:
+            prev_year, prev_month = year, month - 1
+        if month == 12:
+            next_year, next_month = year + 1, 1
+        else:
+            next_year, next_month = year, month + 1
+        prev_url = reverse(
+            "event_list_month",
+            kwargs={"year": f"{prev_year:04}", "month": f"{prev_month:02}"},
+        )
+        next_url = reverse(
+            "event_list_month",
+            kwargs={"year": f"{next_year:04}", "month": f"{next_month:02}"},
+        )
     else:
         start = date(year, 1, 1)
         end = date(year, 12, 31)
         period = {"granularity": "year", "year": year}
+        prev_url = reverse("event_list_year", kwargs={"year": f"{year - 1:04}"})
+        next_url = reverse("event_list_year", kwargs={"year": f"{year + 1:04}"})
 
     qs = (
         Event.objects.filter(date__range=(start, end))
@@ -123,5 +160,7 @@ def event_list(request, year, month=None, day=None):
         "exclude_events": exclude_events,
         "localities": localities,
         "categories": categories,
+        "prev_url": prev_url,
+        "next_url": next_url,
     }
     return render(request, "agenda/event_list.html", context)
