@@ -5,7 +5,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import get_object_or_404, render
 from pgvector.django import L2Distance
 
-from .models import Event, Locality
+from .models import Event, Locality, Category
 
 
 DISTANCE_THRESHOLD = 1
@@ -27,6 +27,7 @@ def event_detail(request, year, month, day, slug):
             .annotate(distance=L2Distance("embedding", obj.embedding))
             .filter(distance__lt=DISTANCE_THRESHOLD)
             .order_by("distance")[:50]
+            .prefetch_related("categories")
         )
         similar_events = list(similar_qs)
         exclude_events = [
@@ -35,6 +36,12 @@ def event_detail(request, year, month, day, slug):
     else:
         similar_events = Event.objects.none()
         exclude_events = []
+
+    categories = (
+        Category.objects.filter(event__in=similar_events)
+        .order_by("name")
+        .distinct()
+    )
 
     localities = Locality.objects.all().order_by("-is_default", "name")
 
@@ -46,6 +53,7 @@ def event_detail(request, year, month, day, slug):
             "similar_events": similar_events,
             "exclude_events": exclude_events,
             "localities": localities,
+            "categories": categories,
         },
     )
 
@@ -81,7 +89,7 @@ def event_list(request, year, month=None, day=None):
     qs = (
         Event.objects.filter(date__range=(start, end))
         .select_related("created_by")
-        .prefetch_related("contents")
+        .prefetch_related("contents", "categories")
         .order_by("date", "slug")  # stable order within the period
     )
 
@@ -99,6 +107,12 @@ def event_list(request, year, month=None, day=None):
         {"title": ev.title, "date": ev.date.isoformat()} for ev in qs
     ]
 
+    categories = (
+        Category.objects.filter(event__in=events.object_list)
+        .order_by("name")
+        .distinct()
+    )
+
     localities = Locality.objects.all().order_by("-is_default", "name")
 
     context = {
@@ -108,5 +122,6 @@ def event_list(request, year, month=None, day=None):
         "end": end,
         "exclude_events": exclude_events,
         "localities": localities,
+        "categories": categories,
     }
     return render(request, "agenda/event_list.html", context)

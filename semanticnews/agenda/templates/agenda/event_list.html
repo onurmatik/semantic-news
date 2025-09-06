@@ -34,6 +34,14 @@
         {% endif %}
     </div>
 
+    {% if categories %}
+    <div class="mb-3">
+        {% for category in categories %}
+            <a href="#" class="btn btn-sm btn-outline-secondary me-1 category-filter" data-category="{{ category.name|slugify }}">{{ category.name }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% for event in events %}
         {% include "agenda/event_list_item.html" %}
     {% empty %}
@@ -54,5 +62,6 @@
     {{ exclude_events|json_script:"exclude-events" }}
     <script src="{% static 'agenda/event_modal.js' %}"></script>
     {% endif %}
+    <script src="{% static 'agenda/category_filter.js' %}"></script>
 {% endblock %}
 
