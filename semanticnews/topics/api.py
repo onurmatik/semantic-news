@@ -1,8 +1,9 @@
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
-from typing import Optional
+from typing import Optional, List
 
 from semanticnews.agenda.models import Event
+from semanticnews.openai import OpenAI
 
 from .models import Topic, TopicEvent
 from .utils.recaps.api import router as recaps_router
@@ -244,5 +245,53 @@ def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
         topic_uuid=str(topic.uuid),
         event_uuid=str(event.uuid),
     )
+
+
+class TopicSuggestionList(Schema):
+    """Schema representing a list of suggested topic titles."""
+
+    topics: List[str] = []
+
+
+class SuggestTopicsRequest(Schema):
+    """Request body for suggesting topics based on a description.
+
+    Attributes:
+        about (str): Description of the subject to suggest topics about.
+        limit (int): Maximum number of topics to return. Defaults to ``5``.
+    """
+
+    about: str
+    limit: int = 5
+
+
+def suggest_topics(about: str, limit: int = 5) -> List[str]:
+    """Return a list of suggested topics for a given description."""
+
+    prompt = f"List the top {limit} news topics about {about}."
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model="gpt-5",
+            tools=[{"type": "web_search_preview"}],
+            input=prompt,
+            text_format=TopicSuggestionList,
+        )
+
+    return response.output_parsed.topics
+
+
+@api.get("/suggest", response=List[str])
+def suggest_topics_get(request, about: str, limit: int = 5):
+    """Return suggested topics for a description via GET."""
+
+    return suggest_topics(about=about, limit=limit)
+
+
+@api.post("/suggest", response=List[str])
+def suggest_topics_post(request, payload: SuggestTopicsRequest):
+    """Return suggested topics for a description via POST."""
+
+    return suggest_topics(about=payload.about, limit=payload.limit)
 
 
