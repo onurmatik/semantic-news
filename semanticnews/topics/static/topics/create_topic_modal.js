@@ -6,18 +6,15 @@ function initCreateTopicModal() {
   const modal = new bootstrap.Modal(modalElement);
   const form = document.getElementById('createTopicForm');
   const btn = document.getElementById('addTopicBtn');
-  const suggestForm = document.getElementById('suggestTopicsForm');
   const suggestField = document.getElementById('suggestTopicsAbout');
   const fetchBtn = document.getElementById('fetchTopicSuggestions');
   const suggestedList = document.getElementById('suggestedTopicsList');
-  const suggestedTitle = document.getElementById('suggestedTopicTitle');
-  const createTab = document.getElementById('topic-create-tab');
+  const titleInput = document.getElementById('topicTitle');
   const defaultSuggestion = suggestField ? suggestField.value : '';
 
   if (btn) {
     btn.addEventListener('click', () => {
       if (form) form.reset();
-      if (suggestForm) suggestForm.reset();
       if (suggestField) {
         const t = btn.getAttribute('data-event-title') || defaultSuggestion;
         suggestField.value = t;
@@ -25,10 +22,6 @@ function initCreateTopicModal() {
       if (suggestedList) {
         suggestedList.innerHTML = '';
         suggestedList.classList.add('d-none');
-      }
-      if (suggestedTitle) suggestedTitle.value = '';
-      if (createTab) {
-        new bootstrap.Tab(createTab).show();
       }
       modal.show();
     });
@@ -54,19 +47,9 @@ function initCreateTopicModal() {
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
-    const title = document.getElementById('topicTitle').value;
+    const title = titleInput ? titleInput.value : '';
     await createTopic(title);
   });
-
-  if (suggestForm) {
-    suggestForm.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      const title = suggestedTitle ? suggestedTitle.value : '';
-      if (title) {
-        await createTopic(title);
-      }
-    });
-  }
 
   if (fetchBtn && suggestField && suggestedList) {
     fetchBtn.addEventListener('click', async () => {
@@ -89,7 +72,7 @@ function initCreateTopicModal() {
             item.className = 'list-group-item list-group-item-action';
             item.textContent = title;
             item.addEventListener('click', () => {
-              if (suggestedTitle) suggestedTitle.value = title;
+              if (titleInput) titleInput.value = title;
             });
             suggestedList.appendChild(item);
           });
