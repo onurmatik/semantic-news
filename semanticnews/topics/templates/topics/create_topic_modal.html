@@ -15,9 +15,13 @@
                     </div>
                     <div id="suggestedTopicsList" class="list-group mb-3 d-none"></div>
                     <div class="modal-footer px-0">
-                        <button type="button" class="btn btn-secondary float-start me-auto" id="fetchTopicSuggestions">{% trans "Get suggestions" %}</button>
-                        <button type="submit" class="btn btn-primary">{% trans "Create topic" %}</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                        <button type="button" class="btn btn-outline-secondary float-start me-auto" id="fetchTopicSuggestions">
+                            <i class="bi bi-stars"></i>
+                            {% trans "Get suggestions" %}
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            {% trans "Create topic" %}
+                        </button>
                     </div>
                 </form>
             </div>
