@@ -265,20 +265,19 @@ class SuggestTopicsRequest(Schema):
     limit: int = 3
 
 
-def suggest_topics(about: str, limit: int = 5) -> List[str]:
+def suggest_topics(about: str, limit: int = 3) -> List[str]:
     """Return a list of suggested topics for a given description."""
 
     prompt = (
-        f"Suggest 3 topic ideas about {about}. "
+        f"Suggest {limit} topic ideas about {about}. "
         f"Each topic should be a short, broad phrase in nominalized passive form. "
         f"Avoid overly specific or literal restatements of the subject. "
-        f"Make the 3 suggestions vary in scope, but none too specific. "
+        f"Make the {limit} suggestions vary in scope, but none too specific. "
     )
 
     with OpenAI() as client:
         response = client.responses.parse(
             model="gpt-5",
-            #tools=[{"type": "web_search_preview"}],
             input=prompt,
             text_format=TopicSuggestionList,
         )
@@ -287,7 +286,7 @@ def suggest_topics(about: str, limit: int = 5) -> List[str]:
 
 
 @api.get("/suggest", response=List[str])
-def suggest_topics_get(request, about: str, limit: int = 5):
+def suggest_topics_get(request, about: str, limit: int = 3):
     """Return suggested topics for a description via GET."""
 
     return suggest_topics(about=about, limit=limit)
