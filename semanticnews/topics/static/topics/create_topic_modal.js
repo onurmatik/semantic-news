@@ -6,13 +6,23 @@ document.addEventListener('DOMContentLoaded', function () {
   const modal = new bootstrap.Modal(modalElement);
   const form = document.getElementById('createTopicForm');
   const btn = document.getElementById('addTopicBtn');
+  const suggestField = document.getElementById('suggestTopicsAbout');
+  const createTab = document.getElementById('topic-create-tab');
+  const defaultSuggestion = suggestField ? suggestField.value : '';
 
-  if (btn) {
-    btn.addEventListener('click', () => {
-      form.reset();
-      modal.show();
-    });
-  }
+    if (btn) {
+      btn.addEventListener('click', () => {
+        form.reset();
+        if (suggestField) {
+          const t = btn.dataset.eventTitle || defaultSuggestion;
+          suggestField.value = t;
+        }
+        if (createTab) {
+          new bootstrap.Tab(createTab).show();
+        }
+        modal.show();
+      });
+    }
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
