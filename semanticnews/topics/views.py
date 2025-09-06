@@ -105,8 +105,7 @@ def topic_clone(request, slug, username):
             role=te.role,
             source=te.source,
             relevance=te.relevance,
-            pinned=te.pinned,
-            rank=te.rank,
+            significance=te.significance,
             created_by=request.user,
         )
 
@@ -117,8 +116,6 @@ def topic_clone(request, slug, username):
             role=tc.role,
             source=tc.source,
             relevance=tc.relevance,
-            pinned=tc.pinned,
-            rank=tc.rank,
             created_by=request.user,
         )
 

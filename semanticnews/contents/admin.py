@@ -195,6 +195,6 @@ class ContentAdmin(admin.ModelAdmin):
 
 @admin.register(ContentEvent)
 class ContentEventAdmin(admin.ModelAdmin):
-    list_display = ('content', 'event', 'source', 'relevance', 'pinned')
-    list_filter = ('source', 'pinned')
+    list_display = ('content', 'event', 'source')
+    list_filter = ('source',)
     search_fields = ('content__title', 'event__title')

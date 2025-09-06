@@ -258,22 +258,27 @@ class SuggestTopicsRequest(Schema):
 
     Attributes:
         about (str): Description of the subject to suggest topics about.
-        limit (int): Maximum number of topics to return. Defaults to ``5``.
+        limit (int): Maximum number of topics to return. Defaults to ``3``.
     """
 
     about: str
-    limit: int = 5
+    limit: int = 3
 
 
 def suggest_topics(about: str, limit: int = 5) -> List[str]:
     """Return a list of suggested topics for a given description."""
 
-    prompt = f"List the top {limit} news topics about {about}."
+    prompt = (
+        f"Suggest 3 topic ideas about {about}. "
+        f"Each topic should be a short, broad phrase in nominalized passive form. "
+        f"Avoid overly specific or literal restatements of the subject. "
+        f"Make the 3 suggestions vary in scope, but none too specific. "
+    )
 
     with OpenAI() as client:
         response = client.responses.parse(
             model="gpt-5",
-            tools=[{"type": "web_search_preview"}],
+            #tools=[{"type": "web_search_preview"}],
             input=prompt,
             text_format=TopicSuggestionList,
         )

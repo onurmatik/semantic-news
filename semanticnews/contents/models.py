@@ -87,9 +87,6 @@ class ContentEvent(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
     )
 
-    pinned = models.BooleanField(default=False)
-    rank = models.IntegerField(null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -47,6 +47,6 @@ class TopicEntityAdmin(admin.ModelAdmin):
 
 @admin.register(TopicEvent)
 class TopicEventAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'event', 'source', 'relevance', 'pinned')
-    list_filter = ('source', 'pinned')
+    list_display = ('topic', 'event', 'source', 'relevance', 'significance')
+    list_filter = ('source', 'significance')
     search_fields = ('topic__title', 'event__title')

@@ -133,8 +133,11 @@ class TopicEvent(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
     )
 
-    pinned = models.BooleanField(default=False)
-    rank = models.IntegerField(null=True, blank=True)
+    significance = models.PositiveSmallIntegerField(choices=(
+        (1, 'Normal'),
+        (2, 'High'),
+        (3, 'Very high'),
+    ), default=1)
 
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -149,7 +152,7 @@ class TopicEvent(models.Model):
         indexes = [
             models.Index(fields=['topic']),
             models.Index(fields=['event']),
-            models.Index(fields=['topic', 'pinned', 'rank']),
+            models.Index(fields=['topic', 'significance']),
         ]
 
     def __str__(self):
@@ -180,9 +183,6 @@ class TopicContent(models.Model):
         null=True, blank=True,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
     )
-
-    pinned = models.BooleanField(default=False)
-    rank = models.IntegerField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
