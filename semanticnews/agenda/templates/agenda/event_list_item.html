@@ -22,19 +22,21 @@
             <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                     type="button" data-bs-toggle="dropdown" aria-expanded="false"
                     {% if archived %}disabled{% endif %}>
-                {% trans "Add" %}
+                {% trans "Add to" %}
             </button>
             <ul class="dropdown-menu">
                 {% if topic %}
-                <li><a class="dropdown-item add-to-topic" href="#" data-topic-uuid="{{ topic.uuid }}" data-event-uuid="{{ event.uuid }}">{% trans "Add to this topic" %}</a></li>
+                <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ topic.uuid }}" data-event-uuid="{{ event.uuid }}">{% trans "This topic" %}</a></li>
                 <li><hr class="dropdown-divider"></li>
                 {% endif %}
+                <li><h6 class="dropdown-header">{% trans "Your topics" %}</h6></li>
                 {% for t in user_topics %}
-                <li><a class="dropdown-item add-to-topic" href="#" data-topic-uuid="{{ t.uuid }}" data-event-uuid="{{ event.uuid }}">{{ t.title }}</a></li>
+                <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ t.uuid }}" data-event-uuid="{{ event.uuid }}">{{ t.title }}</a></li>
                 {% empty %}
+                    <li><em class="small">You haven't created any topics yet.</em></li>
                 {% endfor %}
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item add-topic-btn" href="#" data-event-title="{{ event.title }}">{% trans "Create new topic" %}</a></li>
+                <li><a class="dropdown-item small add-topic-btn" href="#" data-event-title="{{ event.title }}">{% trans "Create new topic" %}</a></li>
             </ul>
         </div>
     {% endif %}
