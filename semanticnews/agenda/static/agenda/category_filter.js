@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const categoryLinks = document.querySelectorAll('.category-filter');
+  const domainSelect = document.getElementById('domainFilter');
   if (!categoryLinks.length) {
     return;
   }
@@ -21,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
         link.classList.remove('active');
       }
     });
+    if (domainSelect && category) {
+      domainSelect.value = '';
+    }
   }
 
   categoryLinks.forEach(link => {
@@ -35,12 +39,25 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.hash = category;
         applyFilter(category);
       }
+      if (domainSelect) {
+        domainSelect.value = '';
+      }
     });
   });
 
   window.addEventListener('hashchange', () => {
-    applyFilter(window.location.hash.substring(1));
+    const hash = window.location.hash.substring(1);
+    if (hash.startsWith('domain:')) {
+      applyFilter('');
+    } else {
+      applyFilter(hash);
+    }
   });
 
-  applyFilter(window.location.hash.substring(1));
+  const initial = window.location.hash.substring(1);
+  if (!initial.startsWith('domain:')) {
+    applyFilter(initial);
+  } else {
+    applyFilter('');
+  }
 });

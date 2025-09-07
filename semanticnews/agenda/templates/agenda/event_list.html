@@ -52,6 +52,17 @@
     </div>
     {% endif %}
 
+    {% if domains %}
+    <div class="mb-3">
+        <select id="domainFilter" class="form-select form-select-sm w-auto">
+            <option value="">{% trans "All domains" %}</option>
+            {% for domain in domains %}
+                <option value="{{ domain }}">{{ domain }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     {% for event in events %}
         {% include "agenda/event_list_item.html" %}
     {% empty %}
@@ -75,5 +86,6 @@
     {% include "topics/create_topic_js.html" %}
     {% endif %}
     <script src="{% static 'agenda/category_filter.js' %}"></script>
+    <script src="{% static 'agenda/domain_filter.js' %}"></script>
 {% endblock %}
 

@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.db.models import Prefetch
 from pgvector.django import L2Distance
 
-from .models import Event, Locality, Category
+from .models import Event, Locality, Category, Source
 from semanticnews.topics.models import Topic
 
 
@@ -32,7 +32,7 @@ def event_detail(request, year, month, day, slug):
             .annotate(distance=L2Distance("embedding", obj.embedding))
             .filter(distance__lt=DISTANCE_THRESHOLD)
             .order_by("distance")[:50]
-            .prefetch_related("categories")
+            .prefetch_related("categories", "sources")
         )
         similar_events = list(similar_qs)
         exclude_events = [
@@ -48,6 +48,13 @@ def event_detail(request, year, month, day, slug):
         .distinct()
     )
 
+    domains = (
+        Source.objects.filter(event__in=similar_events)
+        .order_by("domain")
+        .values_list("domain", flat=True)
+        .distinct()
+    )
+
     localities = Locality.objects.all().order_by("-is_default", "name")
 
     context = {
@@ -57,6 +64,7 @@ def event_detail(request, year, month, day, slug):
         "exclude_events": exclude_events,
         "localities": localities,
         "categories": categories,
+        "domains": domains,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user)
@@ -134,7 +142,7 @@ def event_list(request, year, month=None, day=None):
     qs = (
         Event.objects.filter(date__range=(start, end))
         .select_related("created_by")
-        .prefetch_related("contents", "categories")
+        .prefetch_related("contents", "categories", "sources")
         .order_by("date", "slug")  # stable order within the period
     )
 
@@ -158,6 +166,13 @@ def event_list(request, year, month=None, day=None):
         .distinct()
     )
 
+    domains = (
+        Source.objects.filter(event__in=events.object_list)
+        .order_by("domain")
+        .values_list("domain", flat=True)
+        .distinct()
+    )
+
     localities = Locality.objects.all().order_by("-is_default", "name")
 
     context = {
@@ -168,6 +183,7 @@ def event_list(request, year, month=None, day=None):
         "exclude_events": exclude_events,
         "localities": localities,
         "categories": categories,
+        "domains": domains,
         "prev_url": prev_url,
         "next_url": next_url,
     }
