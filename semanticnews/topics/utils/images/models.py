@@ -1,5 +1,4 @@
 from django.db import models
-from pgvector.django import VectorField, HnswIndex
 
 
 class TopicImage(models.Model):
