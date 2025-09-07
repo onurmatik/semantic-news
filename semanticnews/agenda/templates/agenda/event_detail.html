@@ -53,6 +53,17 @@
             </div>
             {% endif %}
 
+            {% if domains %}
+            <div class="mb-3">
+                <select id="domainFilter" class="form-select form-select-sm w-auto">
+                    <option value="">{% trans "All domains" %}</option>
+                    {% for domain in domains %}
+                        <option value="{{ domain }}">{{ domain }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
             {% for sim_event in similar_events %}
                 {% include "agenda/event_list_item.html" with event=sim_event %}
             {% empty %}
