@@ -39,21 +39,7 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    content_md = f"# {topic.title}\n\n"
-
-    events = topic.events.all()
-    if events:
-        content_md += "## Events\n\n"
-        for event in events:
-            content_md += f"- {event.title} ({event.date})\n"
-
-    contents = topic.contents.all()
-    if contents:
-        content_md += "\n## Contents\n\n"
-        for c in contents:
-            title = c.title or ""
-            text = c.markdown or ""
-            content_md += f"### {title}\n{text}\n\n"
+    content_md = topic.build_context()
 
     if payload.length == "short":
         length_translated = "brief, concise"

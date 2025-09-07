@@ -97,6 +97,25 @@ class Topic(models.Model):
         if img:
             return img.thumbnail
 
+    def build_context(self):
+        content_md = f"# {self.title}\n\n"
+
+        events = self.events.all()
+        if events:
+            content_md += "## Events\n\n"
+            for event in events:
+                content_md += f"- {event.title} ({event.date})\n"
+
+        contents = self.contents.all()
+        if contents:
+            content_md += "\n## Contents\n\n"
+            for c in contents:
+                title = c.title or ""
+                text = c.markdown or ""
+                content_md += f"### {title}\n{text}\n\n"
+
+        return content_md
+
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0:
             client = OpenAI()
