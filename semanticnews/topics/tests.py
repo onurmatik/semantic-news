@@ -287,42 +287,49 @@ class TopicDetailViewTests(TestCase):
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
-    def test_event_buttons_visible_only_to_owner(self, mock_event_embedding, mock_topic_embedding):
-        """Add/remove buttons are shown only for events created by the requesting user."""
+    def test_related_event_buttons_depends_on_topic_owner(self, mock_event_embedding, mock_topic_embedding):
+        """Topic owners can remove related events; others can add them to their topics."""
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")
         other = User.objects.create_user("other", "other@example.com", "password")
-        self.client.force_login(owner)
 
         topic = Topic.objects.create(title="My Topic", created_by=owner)
+        other_topic = Topic.objects.create(title="Other Topic", created_by=other)
 
-        related_owned = Event.objects.create(title="Rel Owned", date="2024-01-01", created_by=owner)
-        related_other = Event.objects.create(title="Rel Other", date="2024-01-02", created_by=other)
-        topic.events.add(related_owned, through_defaults={"relevance": 0.5})
-        topic.events.add(related_other, through_defaults={"relevance": 0.5})
+        related = Event.objects.create(title="Rel Event", date="2024-01-01", created_by=other)
+        topic.events.add(related, through_defaults={"relevance": 0.5})
 
-        suggested_owned = Event.objects.create(title="Sug Owned", date="2024-02-01", created_by=owner)
-        suggested_other = Event.objects.create(title="Sug Other", date="2024-02-02", created_by=other)
+        suggested = Event.objects.create(title="Sug Event", date="2024-02-01", created_by=other)
 
+        # Owner view: should see remove button for related event and add button for suggested
+        self.client.force_login(owner)
         response = self.client.get(topic.get_absolute_url())
         content = response.content.decode()
-
         self.assertRegex(
             content,
-            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related_owned.uuid}"',
+            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related.uuid}"',
         )
         self.assertNotRegex(
             content,
-            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related_other.uuid}"',
+            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{related.uuid}"',
         )
         self.assertRegex(
             content,
-            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{suggested_owned.uuid}"',
+            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{suggested.uuid}"',
+        )
+
+        # Other user view: should see add button, not remove button, for related event
+        self.client.force_login(other)
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+        self.assertNotRegex(
+            content,
+            rf'(?s)<button[^>]*class="[^"]*remove-event-btn[^"]*"[^>]*data-event-uuid="{related.uuid}"',
         )
         self.assertRegex(
             content,
-            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{suggested_other.uuid}"',
+            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{related.uuid}"',
         )
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
