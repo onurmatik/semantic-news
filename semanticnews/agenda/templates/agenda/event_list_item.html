@@ -26,8 +26,10 @@
             </button>
             <ul class="dropdown-menu">
                 {% if topic %}
-                <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ topic.uuid }}" data-event-uuid="{{ event.uuid }}">{% trans "This topic" %}</a></li>
-                <li><hr class="dropdown-divider"></li>
+                    {% if event not in topic.events.all %}
+                        <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ topic.uuid }}" data-event-uuid="{{ event.uuid }}">{% trans "This topic" %}</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                    {% endif %}
                 {% endif %}
                 <li><h6 class="dropdown-header">{% trans "Your topics" %}</h6></li>
                 {% for t in user_topics %}
