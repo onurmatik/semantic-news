@@ -1,0 +1,4 @@
+{% load i18n %}
+<button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#imageModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+    {% trans "Image" %}
+</button>
