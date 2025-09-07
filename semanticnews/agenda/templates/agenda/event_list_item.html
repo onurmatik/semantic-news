@@ -17,7 +17,7 @@
             {% if not forloop.last %}&middot;{% endif %}
         {%  endfor %}
     </p>
-    {% if request.user.is_authenticated %}
+    {% if request.user.is_authenticated and show_add|default:True %}
         <div class="dropdown d-inline mt-2">
             <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                     type="button" data-bs-toggle="dropdown" aria-expanded="false"
@@ -40,7 +40,7 @@
             </ul>
         </div>
     {% endif %}
-    {% if show_remove and request.user == event.created_by %}
+    {% if show_remove and request.user.is_authenticated %}
         <button type="button"
                 class="btn btn-sm btn-outline-danger mt-2 remove-event-btn"
                 data-add-label="{% trans 'Add' %}"
