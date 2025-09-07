@@ -212,6 +212,7 @@
 
 {% include "topics/mcps/modal.html" %}
 {% include "topics/recaps/modal.html" %}
+{% include "topics/create_topic_modal.html" %}
 
 {% endblock %}
 
@@ -219,6 +220,7 @@
     {{ block.super }}
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
+    {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}
 {% endblock %}

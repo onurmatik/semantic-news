@@ -166,6 +166,9 @@ def add_event_to_topic(request, payload: TopicEventAddRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    if topic.created_by != user:
+        topic = topic.clone_for_user(user)
+
     try:
         event = Event.objects.get(uuid=payload.event_uuid)
     except Event.DoesNotExist:
