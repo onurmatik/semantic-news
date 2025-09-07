@@ -18,11 +18,11 @@
         {%  endfor %}
     </p>
     {% if request.user.is_authenticated and show_add|default:True %}
-        <div class="dropdown d-inline mt-2">
+        <div class="dropdown d-inline">
             <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                     type="button" data-bs-toggle="dropdown" aria-expanded="false"
                     {% if archived %}disabled{% endif %}>
-                {% trans "Add to" %}
+                {% trans "Add" %}
             </button>
             <ul class="dropdown-menu">
                 {% if topic %}
@@ -42,7 +42,7 @@
     {% endif %}
     {% if show_remove and request.user.is_authenticated %}
         <button type="button"
-                class="btn btn-sm btn-outline-danger mt-2 remove-event-btn"
+                class="btn btn-sm btn-outline-danger remove-event-btn"
                 data-add-label="{% trans 'Add' %}"
                 data-remove-label="{% trans 'Remove' %}"
                 {% if archived %}disabled{% endif %}>
