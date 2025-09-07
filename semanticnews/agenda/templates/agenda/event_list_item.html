@@ -18,6 +18,7 @@
         {%  endfor %}
     </p>
     {% if request.user.is_authenticated and show_add|default:True %}
+        {% if not topic or event not in topic.events.all %}
         <div class="dropdown d-inline">
             <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                     type="button" data-bs-toggle="dropdown" aria-expanded="false"
@@ -39,6 +40,7 @@
                 <li><a class="dropdown-item small add-topic-btn" href="#" data-event-title="{{ event.title }}">{% trans "Create new topic" %}</a></li>
             </ul>
         </div>
+        {% endif %}
     {% endif %}
     {% if show_remove and request.user.is_authenticated %}
         <button type="button"
