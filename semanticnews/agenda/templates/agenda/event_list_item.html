@@ -13,7 +13,7 @@
     </h2>
     <p>
         {% for source in event.sources.all %}
-            <a class="small text-secondary" target="_blank" href="{{ source }}">{{ source.get_domain }}</a>
+            <a class="small text-secondary" target="_blank" href="{{ source }}">{{ source.domain }}</a>
             {% if not forloop.last %}&middot;{% endif %}
         {%  endfor %}
     </p>

@@ -140,9 +140,15 @@ class Category(models.Model):
 
 class Source(models.Model):
     url = models.URLField(max_length=200)
+    domain = models.CharField(max_length=200, db_index=True)
 
     def __str__(self):
         return self.url
+
+    def save(self, *args, **kwargs):
+        if not self.domain:
+            self.domain = self.get_domain()
+        super().save(*args, **kwargs)
 
     def get_domain(self):
         parsed_url = urlparse(self.url)
