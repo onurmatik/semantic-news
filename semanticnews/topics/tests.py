@@ -408,6 +408,34 @@ class TopicDetailViewTests(TestCase):
             content,
         )
 
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_topic_image_displayed(self, mock_topic_embedding):
+        """The topic image is shown at the top of the content area when present."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmpdir)
+        override = self.settings(MEDIA_ROOT=tmpdir)
+        override.enable()
+        self.addCleanup(override.disable)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        image_bytes = (
+            b"\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
+            b"\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        TopicImage.objects.create(
+            topic=topic,
+            image=SimpleUploadedFile("image.gif", image_bytes, content_type="image/gif"),
+        )
+
+        response = self.client.get(topic.get_absolute_url())
+        content = response.content.decode()
+
+        self.assertIn(topic.images.first().image.url, content)
+
 
 class TopicAddEventViewTests(TestCase):
     """Tests for adding suggested events to a topic via the view."""
