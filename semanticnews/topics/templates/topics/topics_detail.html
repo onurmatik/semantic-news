@@ -138,6 +138,7 @@
           </div>
         </div>
 
+        {% if user == topic.created_by %}
         <div class="card mt-3">
           <div class="card-body" id="suggestedEventsContainer" data-empty-message="{% trans 'No suggestions' %}">
             <div class="card-title d-flex justify-content-between">
@@ -156,6 +157,7 @@
             {% endfor %}
           </div>
         </div>
+        {% endif %}
 
         {% if timeline %}
 
