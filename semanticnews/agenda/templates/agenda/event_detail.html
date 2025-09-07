@@ -30,11 +30,26 @@
                 {% endif %}
             </div>
 
-            {% if categories %}
-            <div class="mb-3">
-                {% for category in categories %}
+            {% if categories or domains %}
+            <div class="d-flex align-items-center mb-3">
+                {% if categories %}
+                <div class="me-2">
+                    {% for category in categories %}
                     <a href="#" class="btn btn-sm btn-outline-secondary me-1 category-filter" data-category="{{ category.name|slugify }}">{{ category.name }}</a>
-                {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if domains %}
+                <div class="dropdown ms-auto">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="domainDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-default-label="{% trans 'All domains' %}">{% trans "All domains" %}</button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="domainDropdown">
+                        <li><a class="dropdown-item domain-option active" href="#" data-domain="">{% trans "All domains" %}</a></li>
+                        {% for domain in domains %}
+                        <li><a class="dropdown-item domain-option" href="#" data-domain="{{ domain }}">{{ domain }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -83,5 +98,6 @@
     <script src="{% static 'agenda/event_modal.js' %}"></script>
     {% endif %}
     <script src="{% static 'agenda/category_filter.js' %}"></script>
+    <script src="{% static 'agenda/domain_filter.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
 {% endblock %}

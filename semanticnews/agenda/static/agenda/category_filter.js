@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const categoryLinks = document.querySelectorAll('.category-filter');
+  const domainButton = document.getElementById('domainDropdown');
+  const domainOptions = document.querySelectorAll('.domain-option');
+  const domainDefault = domainButton ? domainButton.dataset.defaultLabel || domainButton.textContent.trim() : '';
   if (!categoryLinks.length) {
     return;
   }
@@ -21,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
         link.classList.remove('active');
       }
     });
+    if (domainButton && category) {
+      domainButton.textContent = domainDefault;
+      domainOptions.forEach(opt => opt.classList.remove('active'));
+    }
   }
 
   categoryLinks.forEach(link => {
@@ -35,12 +42,26 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.hash = category;
         applyFilter(category);
       }
-    });
+      if (domainButton) {
+        domainButton.textContent = domainDefault;
+        domainOptions.forEach(opt => opt.classList.remove('active'));
+      }
+  });
   });
 
   window.addEventListener('hashchange', () => {
-    applyFilter(window.location.hash.substring(1));
+    const hash = window.location.hash.substring(1);
+    if (hash.startsWith('domain:')) {
+      applyFilter('');
+    } else {
+      applyFilter(hash);
+    }
   });
 
-  applyFilter(window.location.hash.substring(1));
+  const initial = window.location.hash.substring(1);
+  if (!initial.startsWith('domain:')) {
+    applyFilter(initial);
+  } else {
+    applyFilter('');
+  }
 });
