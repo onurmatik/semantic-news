@@ -5,14 +5,14 @@ function initCreateTopicModal() {
   if (!modalElement) return;
   const modal = new bootstrap.Modal(modalElement);
   const form = document.getElementById('createTopicForm');
-  const btn = document.getElementById('addTopicBtn');
+  const btns = document.querySelectorAll('.add-topic-btn');
   const suggestField = document.getElementById('suggestTopicsAbout');
   const fetchBtn = document.getElementById('fetchTopicSuggestions');
   const suggestedList = document.getElementById('suggestedTopicsList');
   const titleInput = document.getElementById('topicTitle');
   const defaultSuggestion = suggestField ? suggestField.value : '';
 
-  if (btn) {
+  btns.forEach((btn) => {
     btn.addEventListener('click', () => {
       if (form) form.reset();
       if (suggestField) {
@@ -25,7 +25,7 @@ function initCreateTopicModal() {
       }
       modal.show();
     });
-  }
+  });
 
   async function createTopic(title) {
     const res = await fetch('/api/topics/create', {

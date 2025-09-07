@@ -31,16 +31,19 @@ def topics_detail(request, slug, username):
     else:
         suggested_events = Event.objects.none()
 
+    context = {
+        "topic": topic,
+        "related_events": related_events,
+        "suggested_events": suggested_events,
+        "latest_recap": latest_recap,
+        "mcp_servers": mcp_servers,
+    }
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
     return render(
         request,
         "topics/topics_detail.html",
-        {
-            "topic": topic,
-            "related_events": related_events,
-            "suggested_events": suggested_events,
-            "latest_recap": latest_recap,
-            "mcp_servers": mcp_servers,
-        },
+        context,
     )
 
 
@@ -89,53 +92,7 @@ def topic_clone(request, slug, username):
     if request.user == original.created_by:
         return HttpResponseForbidden()
 
-    cloned = Topic.objects.create(
-        title=original.title,
-        slug=original.slug,
-        embedding=original.embedding,
-        based_on=original,
-        created_by=request.user,
-        status="draft",
-    )
-
-    for te in TopicEvent.objects.filter(topic=original):
-        TopicEvent.objects.create(
-            topic=cloned,
-            event=te.event,
-            role=te.role,
-            source=te.source,
-            relevance=te.relevance,
-            significance=te.significance,
-            created_by=request.user,
-        )
-
-    for tc in TopicContent.objects.filter(topic=original):
-        TopicContent.objects.create(
-            topic=cloned,
-            content=tc.content,
-            role=tc.role,
-            source=tc.source,
-            relevance=tc.relevance,
-            created_by=request.user,
-        )
-
-    for recap in original.recaps.all():
-        TopicRecap.objects.create(topic=cloned, recap=recap.recap)
-
-    for image in original.images.all():
-        TopicImage.objects.create(
-            topic=cloned,
-            image=image.image,
-            thumbnail=image.thumbnail,
-        )
-
-    for tk in TopicEntity.objects.filter(topic=original):
-        TopicEntity.objects.create(
-            topic=cloned,
-            keyword=tk.keyword,
-            relevance=tk.relevance,
-            created_by=request.user,
-        )
+    cloned = original.clone_for_user(request.user)
 
     return redirect(
         "topics_detail", slug=cloned.slug, username=cloned.created_by.username

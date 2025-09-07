@@ -95,6 +95,28 @@ class AddEventToTopicAPITests(TestCase):
         self.assertEqual(topic.events.count(), 1)
         self.assertEqual(topic.events.first(), event)
 
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_clones_topic_if_not_owner(self, mock_event_embedding, mock_topic_embedding):
+        """Adding to someone else's topic clones it for the user."""
+
+        User = get_user_model()
+        owner = User.objects.create_user("owner", "owner@example.com", "password")
+        other = User.objects.create_user("other", "other@example.com", "password")
+        topic = Topic.objects.create(title="Owner Topic", created_by=owner)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+        self.client.force_login(other)
+
+        payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
+        response = self.client.post(
+            "/api/topics/add-event", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        cloned = Topic.objects.get(created_by=other, based_on=topic)
+        self.assertEqual(cloned.events.count(), 1)
+        self.assertEqual(cloned.events.first(), event)
+
 
 class RemoveEventFromTopicAPITests(TestCase):
     """Tests for the endpoint that removes events from topics."""
@@ -296,11 +318,11 @@ class TopicDetailViewTests(TestCase):
         )
         self.assertRegex(
             content,
-            rf'(?s)<button[^>]*class="[^"]*add-event-btn[^"]*"[^>]*data-event-uuid="{suggested_owned.uuid}"',
+            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{suggested_owned.uuid}"',
         )
-        self.assertNotRegex(
+        self.assertRegex(
             content,
-            rf'(?s)<button[^>]*class="[^"]*add-event-btn[^"]*"[^>]*data-event-uuid="{suggested_other.uuid}"',
+            rf'(?s)<a[^>]*class="[^"]*add-to-topic[^"]*"[^>]*data-event-uuid="{suggested_other.uuid}"',
         )
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)

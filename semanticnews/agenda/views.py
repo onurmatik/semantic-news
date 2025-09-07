@@ -50,17 +50,20 @@ def event_detail(request, year, month, day, slug):
 
     localities = Locality.objects.all().order_by("-is_default", "name")
 
+    context = {
+        "event": obj,
+        "topics": obj.topics.all(),
+        "similar_events": similar_events,
+        "exclude_events": exclude_events,
+        "localities": localities,
+        "categories": categories,
+    }
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user)
     return render(
         request,
         "agenda/event_detail.html",
-        {
-            "event": obj,
-            "topics": obj.topics.all(),
-            "similar_events": similar_events,
-            "exclude_events": exclude_events,
-            "localities": localities,
-            "categories": categories,
-        },
+        context,
     )
 
 
@@ -168,4 +171,6 @@ def event_list(request, year, month=None, day=None):
         "prev_url": prev_url,
         "next_url": next_url,
     }
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user)
     return render(request, "agenda/event_list.html", context)

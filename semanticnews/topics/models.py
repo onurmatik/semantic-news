@@ -10,6 +10,8 @@ from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
 from ..utils import get_relevance
+from .utils.recaps.models import TopicRecap
+from .utils.images.models import TopicImage
 
 
 class Topic(models.Model):
@@ -111,6 +113,62 @@ class Topic(models.Model):
                 .exclude(embedding__isnull=True)
                 .filter(status='published')
                 .order_by(L2Distance('embedding', self.embedding))[:limit])
+
+    def clone_for_user(self, user):
+        """Create a draft copy of this topic for the given user.
+
+        The clone includes all related objects so that the user
+        can continue editing independently.
+        """
+        cloned = Topic.objects.create(
+            title=self.title,
+            slug=self.slug,
+            embedding=self.embedding,
+            based_on=self,
+            created_by=user,
+            status="draft",
+        )
+
+        for te in TopicEvent.objects.filter(topic=self):
+            TopicEvent.objects.create(
+                topic=cloned,
+                event=te.event,
+                role=te.role,
+                source=te.source,
+                relevance=te.relevance,
+                significance=te.significance,
+                created_by=user,
+            )
+
+        for tc in TopicContent.objects.filter(topic=self):
+            TopicContent.objects.create(
+                topic=cloned,
+                content=tc.content,
+                role=tc.role,
+                source=tc.source,
+                relevance=tc.relevance,
+                created_by=user,
+            )
+
+        for recap in self.recaps.all():
+            TopicRecap.objects.create(topic=cloned, recap=recap.recap)
+
+        for image in self.images.all():
+            TopicImage.objects.create(
+                topic=cloned,
+                image=image.image,
+                thumbnail=image.thumbnail,
+            )
+
+        for entity in TopicEntity.objects.filter(topic=self):
+            TopicEntity.objects.create(
+                topic=cloned,
+                entity=entity.entity,
+                relevance=entity.relevance,
+                created_by=user,
+            )
+
+        return cloned
 
 
 class TopicEvent(models.Model):
