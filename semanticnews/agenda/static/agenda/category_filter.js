@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const categoryLinks = document.querySelectorAll('.category-filter');
-  const domainSelect = document.getElementById('domainFilter');
+  const domainButton = document.getElementById('domainDropdown');
+  const domainOptions = document.querySelectorAll('.domain-option');
+  const domainDefault = domainButton ? domainButton.dataset.defaultLabel || domainButton.textContent.trim() : '';
   if (!categoryLinks.length) {
     return;
   }
@@ -22,8 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
         link.classList.remove('active');
       }
     });
-    if (domainSelect && category) {
-      domainSelect.value = '';
+    if (domainButton && category) {
+      domainButton.textContent = domainDefault;
+      domainOptions.forEach(opt => opt.classList.remove('active'));
     }
   }
 
@@ -39,10 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.hash = category;
         applyFilter(category);
       }
-      if (domainSelect) {
-        domainSelect.value = '';
+      if (domainButton) {
+        domainButton.textContent = domainDefault;
+        domainOptions.forEach(opt => opt.classList.remove('active'));
       }
-    });
+  });
   });
 
   window.addEventListener('hashchange', () => {
