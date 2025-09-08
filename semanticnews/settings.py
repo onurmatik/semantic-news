@@ -2,12 +2,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-
-load_dotenv()
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env for local development
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -22,6 +21,9 @@ DEBUG = os.getenv('DEBUG', True)
 HOST = os.getenv('HOST', 'localhost')
 
 ALLOWED_HOSTS = [HOST]
+
+SITE_TITLE = os.getenv('SITE_TITLE', 'Semantic News')
+SITE_LOGO = os.getenv('SITE_LOGO', '')
 
 
 # Application definition
