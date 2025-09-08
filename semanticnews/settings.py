@@ -22,8 +22,9 @@ HOST = os.getenv('HOST', 'localhost')
 
 ALLOWED_HOSTS = [HOST]
 
-SITE_TITLE = os.getenv('SITE_TITLE', 'Semantic News')
-SITE_LOGO = os.getenv('SITE_LOGO', '')
+# Site branding
+SITE_TITLE = os.getenv("SITE_TITLE", "Semantic.news")
+SITE_LOGO = os.getenv("SITE_LOGO", "logo.png")
 
 
 # Application definition
@@ -73,6 +74,7 @@ TEMPLATES = [
                 'django.template.context_processors.i18n',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'semanticnews.context_processors.branding',
             ],
         },
     },

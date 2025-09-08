@@ -10,9 +10,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="icon" type="image/x-icon" href="{% static 'logo.png' %}">
+    <link rel="icon" type="image/x-icon" href="{% static SITE_LOGO %}">
 
-    <title>{% block title %}Semantic.news{% endblock %}</title>
+    <title>{% block title %}{{ SITE_TITLE }}{% endblock %}</title>
 
     <!-- Bootstrap CSS -->
     <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -71,7 +71,7 @@
 
                 <li class="nav-item">
                     <a class="nav-link p-0 active" role="button" href="/">
-                        semantic.news
+                        {{ SITE_TITLE }}
                     </a>
                 </li>
 

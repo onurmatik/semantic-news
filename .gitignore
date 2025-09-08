@@ -1,5 +1,6 @@
-!.gitignore
 .*
+!.gitignore
+!.env.example
 *.pyc
 media/
 !.env.example
