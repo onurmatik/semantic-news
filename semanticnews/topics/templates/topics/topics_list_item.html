@@ -46,7 +46,7 @@
         <a href="{{ topic.get_absolute_url }}" class="stretched-link"></a>
 
         {% if topic.thumbnail %}
-            <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+            <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
         {% endif %}
 
         {% with topic.recaps.last as latest_recap %}
