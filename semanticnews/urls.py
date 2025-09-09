@@ -54,7 +54,7 @@ urlpatterns += i18n_patterns(
     path('@<slug:username>/<slug:slug>/clone/', topics_views.topic_clone, name='topics_clone'),
     path('@<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
 
-    path('@<slug:username>', profiles_views.user_profile, name='user_profile'),
+    path('@<slug:username>/', profiles_views.user_profile, name='user_profile'),
     path("profile/", profiles_views.profile_settings, name="profile_settings"),
 
     prefix_default_language=False

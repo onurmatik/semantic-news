@@ -10,13 +10,6 @@
 
         <small class="d-flex fs-5 ms-auto mt-1">
 
-            {% if user.is_authenticated and user == topic.created_by and topic.status == "d" %}
-                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Delete draft" %}"
-                   class="text-secondary-emphasis bi bi-trash3 delete-topic-btn me-1"
-                   data-url="{% url 'delete_topic' slug=topic.slug %}">
-                </a>
-            {% endif %}
-
             <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
                class="text-info-emphasis bi bi-bookmark"
             ></a>
@@ -31,10 +24,6 @@
 
     <p class="me-auto mb-3 text-secondary small">
 
-        {% if topic.status == "d" %}
-            <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
-        {% endif %}
-
         {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
 
         {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; updated {{ modified_ago }} ago.{% endblocktrans %}
@@ -43,10 +32,12 @@
                 {% if item_count > 0 %}
                     {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}
                 {% endif %}
-                {% if contributor_count > 0 %},
-                {% blocktrans count contributor_count=contributor_count %}{{ contributor_count }} contributor{% plural %}{{ contributor_count }} contributors{% endblocktrans %}{% endif %}.
             </nobr>
         {% endwith %}
+
+        {% if topic.status == "draft" %}
+            <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
+        {% endif %}
 
     </p>
 
