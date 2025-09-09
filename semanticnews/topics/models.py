@@ -120,7 +120,7 @@ class Topic(models.Model):
         if self.embedding is None or len(self.embedding) == 0:
             client = OpenAI()
             embedding = client.embeddings.create(
-                input=self.title,
+                input=self.build_context(),
                 model='text-embedding-3-small'
             ).data[0].embedding
             return embedding
