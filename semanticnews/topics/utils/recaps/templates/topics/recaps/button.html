@@ -1,4 +1,11 @@
 {% load i18n %}
-<button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#recapModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+<button
+    id="recapButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#recapModal"
+    data-recap-status="{% if current_recap %}{{ current_recap.status }}{% endif %}"
+    data-recap-created="{% if current_recap %}{{ current_recap.created_at|date:'c' }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
+    <span id="recapSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
     {% trans "Recap" %}
 </button>

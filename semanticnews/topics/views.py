@@ -18,7 +18,10 @@ def topics_detail(request, slug, username):
     )
 
     related_events = topic.events.all()
-    latest_recap = topic.recaps.order_by("-created_at").first()
+    current_recap = topic.recaps.order_by("-created_at").first()
+    latest_recap = (
+        topic.recaps.filter(status="finished").order_by("-created_at").first()
+    )
     mcp_servers = MCPServer.objects.filter(active=True)
 
     if topic.embedding is not None:
@@ -35,6 +38,7 @@ def topics_detail(request, slug, username):
         "topic": topic,
         "related_events": related_events,
         "suggested_events": suggested_events,
+        "current_recap": current_recap,
         "latest_recap": latest_recap,
         "mcp_servers": mcp_servers,
     }
