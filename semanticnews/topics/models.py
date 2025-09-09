@@ -11,6 +11,7 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 
 from ..utils import get_relevance
 from .utils.recaps.models import TopicRecap
+from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 
 
@@ -179,6 +180,10 @@ class Topic(models.Model):
         for recap in self.recaps.all():
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
+            )
+        for narrative in self.narratives.all():
+            TopicNarrative.objects.create(
+                topic=cloned, narrative=narrative.narrative, status="finished"
             )
         for image in self.images.all():
             TopicImage.objects.create(

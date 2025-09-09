@@ -7,11 +7,13 @@ from semanticnews.openai import OpenAI
 
 from .models import Topic, TopicEvent
 from .utils.recaps.api import router as recaps_router
+from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
 from .utils.images.api import router as images_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
+api.add_router("/narrative", narratives_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 
