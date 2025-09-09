@@ -82,6 +82,7 @@
 
             <div class="gap-2">
                 {% include "topics/recaps/button.html" %}
+                {% include "topics/narratives/button.html" %}
                 {% include "topics/images/button.html" %}
                 {% include "topics/mcps/button.html" %}
             </div>
@@ -227,6 +228,7 @@
 
 {% include "topics/mcps/modal.html" %}
 {% include "topics/recaps/modal.html" %}
+{% include "topics/narratives/modal.html" %}
 {% include "topics/images/modal.html" %}
 {% include "topics/create_topic_modal.html" %}
 
@@ -238,6 +240,7 @@
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
+    {% include "topics/narratives/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}
 {% endblock %}

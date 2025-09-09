@@ -1,0 +1,11 @@
+{% load i18n %}
+<button
+    id="narrativeButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#narrativeModal"
+    data-narrative-status="{% if current_narrative %}{{ current_narrative.status }}{% endif %}"
+    data-narrative-created="{% if current_narrative %}{{ current_narrative.created_at|date:'c' }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
+    <span id="narrativeSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+    {% trans "Narrative" %}
+</button>
