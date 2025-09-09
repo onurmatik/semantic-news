@@ -652,3 +652,34 @@ class TopicUpdatedAtTests(TestCase):
             self.assertNotEqual(initial, topic.updated_at)
             self.assertEqual(topic.updated_at, later)
 
+
+class TopicEmbeddingUpdateTests(TestCase):
+    """Ensure the topic embedding is refreshed when the topic changes."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", side_effect=[[0.0] * 1536, [1.0] * 1536])
+    @patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536)
+    def test_embedding_recomputed_when_event_added(self, mock_event_embedding, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        event = Event.objects.create(title="An Event", date="2024-01-01")
+
+        # Adding an event should trigger a recomputation of the embedding
+        topic.events.add(event, through_defaults={"created_by": user})
+
+        topic.refresh_from_db()
+        self.assertEqual(topic.embedding, [1.0] * 1536)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", side_effect=[[0.0] * 1536, [1.0] * 1536])
+    def test_embedding_recomputed_on_save(self, mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+
+        topic = Topic.objects.create(title="Old", created_by=user)
+
+        topic.title = "New"
+        topic.save()
+
+        self.assertEqual(topic.embedding, [1.0] * 1536)
+

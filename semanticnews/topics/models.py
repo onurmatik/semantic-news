@@ -71,11 +71,12 @@ class Topic(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if self.embedding is None or len(self.embedding) == 0:
-            self.embedding = self.get_embedding()
-
+        """Save the topic and refresh its embedding."""
         if not self.slug:
             self.slug = slugify(self.title)
+
+        # Always recompute the embedding so it reflects the latest topic data
+        self.embedding = self.get_embedding(force=True)
 
         super().save(*args, **kwargs)
 
@@ -116,8 +117,14 @@ class Topic(models.Model):
 
         return content_md
 
-    def get_embedding(self):
-        if self.embedding is None or len(self.embedding) == 0:
+    def get_embedding(self, force: bool = False):
+        """Return an embedding vector for the topic.
+
+        Args:
+            force: If ``True``, generate a new embedding even if one already
+                exists. Otherwise, reuse the current embedding when available.
+        """
+        if force or self.embedding is None or len(self.embedding) == 0:
             client = OpenAI()
             embedding = client.embeddings.create(
                 input=self.build_context(),
