@@ -170,8 +170,9 @@ class Topic(models.Model):
             )
 
         for recap in self.recaps.all():
-            TopicRecap.objects.create(topic=cloned, recap=recap.recap)
-
+            TopicRecap.objects.create(
+                topic=cloned, recap=recap.recap, status="finished"
+            )
         for image in self.images.all():
             TopicImage.objects.create(
                 topic=cloned,

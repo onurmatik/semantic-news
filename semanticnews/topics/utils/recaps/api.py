@@ -16,13 +16,20 @@ class TopicRecapCreateRequest(Schema):
     topic_uuid: str
     websearch: bool = False
     length: Optional[Literal["short", "medium", "long"]] = "medium"
-    tone: Optional[Literal["neutral", "journalistic", "academic", "friendly", "sarcastic"]] = "neutral"
+    tone: Optional[
+        Literal["neutral", "journalistic", "academic", "friendly", "sarcastic"]
+    ] = "neutral"
     instructions: Optional[str] = None
 
 
 class TopicRecapCreateResponse(Schema):
     """Response returned after creating a recap."""
 
+    recap: str
+    status: Literal["finished", "error"]
+
+
+class _TopicRecapResponse(Schema):
     recap: str
 
 
@@ -39,6 +46,8 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    recap_obj = TopicRecap.objects.create(topic=topic, recap="")
+
     content_md = topic.build_context()
 
     if payload.length == "short":
@@ -48,7 +57,7 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     else:  # long
         length_translated = "comprehensive"
 
-    instructions = (
+    prompt = (
         f"Below is a list of events and contents related to {topic.title}."
         f"Provide a {length_translated}, coherent recap summarizing the essential narrative and main points. "
         f"Maintain a {payload.tone} tone. Keep it engaging and easy to scan. "
@@ -58,24 +67,28 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     )
 
     if payload.instructions:
-        instructions += f"\n\n{payload.instructions}"
+        prompt += f"\n\n{payload.instructions}"
 
-    instructions += f"\n\n{content_md}"
+    prompt += f"\n\n{content_md}"
 
     kwargs = {}
     if payload.websearch:
         kwargs["tools"] = [{"type": "web_search_preview"}]
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model="gpt-5",
-            input=instructions,
-            text_format=TopicRecapCreateResponse,
-            **kwargs,
-        )
+    try:
+        with OpenAI() as client:
+            response = client.responses.parse(
+                model="gpt-5",
+                input=prompt,
+                text_format=_TopicRecapResponse,
+                **kwargs,
+            )
+        recap_obj.recap = response.output_parsed.recap
+        recap_obj.status = "finished"
+        recap_obj.save(update_fields=["recap", "status"])
+    except Exception:
+        recap_obj.status = "error"
+        recap_obj.save(update_fields=["status"])
+        raise
 
-    recap_text = response.output_parsed.recap
-
-    TopicRecap.objects.create(topic=topic, recap=recap_text)
-
-    return TopicRecapCreateResponse(recap=recap_text)
+    return TopicRecapCreateResponse(recap=recap_obj.recap, status=recap_obj.status)
