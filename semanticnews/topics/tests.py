@@ -226,13 +226,13 @@ class CreateRecapAPITests(TestCase):
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
     )
-    def test_accepts_optional_length_and_instructions(
+    def test_returns_ai_suggestion_without_saving(
         self, mock_topic_embedding, mock_openai
     ):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
         mock_response = MagicMock()
-        mock_response.output_parsed = {"recap_en": "Recap"}
+        mock_response.output_parsed = {"recap": "Recap"}
         mock_client.responses.parse.return_value = mock_response
 
         User = get_user_model()
@@ -241,23 +241,31 @@ class CreateRecapAPITests(TestCase):
 
         topic = Topic.objects.create(title="My Topic", created_by=user)
 
-        payload = {
-            "topic_uuid": str(topic.uuid),
-            "websearch": True,
-            "length": "short",
-            "instructions": "Extra details",
-        }
+        payload = {"topic_uuid": str(topic.uuid)}
         response = self.client.post(
             "/api/topics/recap/create", payload, content_type="application/json"
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"recap": "Recap"})
-        mock_client.responses.parse.assert_called_once()
-        _, kwargs = mock_client.responses.parse.call_args
-        self.assertEqual(kwargs["tools"], [{"type": "web_search_preview"}])
-        self.assertIn("Write a short recap.", kwargs["input"])
-        self.assertIn("Extra details", kwargs["input"])
+        self.assertEqual(TopicRecap.objects.count(), 0)
+
+    def test_creates_recap_with_provided_text(self):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "recap": "My recap"}
+        response = self.client.post(
+            "/api/topics/recap/create", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"recap": "My recap"})
+        self.assertEqual(TopicRecap.objects.count(), 1)
+        self.assertEqual(TopicRecap.objects.first().recap, "My recap")
 
 
 class TopicDetailViewTests(TestCase):
