@@ -8,8 +8,21 @@ from .utils.images.models import TopicImage
 
 
 def touch_topic(topic_id):
-    """Update the ``updated_at`` timestamp for the given Topic."""
-    Topic.objects.filter(pk=topic_id).update(updated_at=timezone.now())
+    """Update the timestamp and embedding for the given Topic.
+
+    When related objects change we want the topic's representation to stay in
+    sync. Recompute the embedding using the latest data and update the
+    ``updated_at`` field so the change is tracked.
+    """
+    topic = Topic.objects.filter(pk=topic_id).first()
+    if not topic:
+        return
+
+    embedding = topic.get_embedding(force=True)
+    Topic.objects.filter(pk=topic_id).update(
+        updated_at=timezone.now(),
+        embedding=embedding,
+    )
 
 
 @receiver([post_save, post_delete], sender=TopicEvent)
