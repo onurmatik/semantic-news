@@ -45,7 +45,15 @@
 
         <a href="{{ topic.get_absolute_url }}" class="stretched-link"></a>
 
-        {# Add topics recap, etc. here #}
+        {% if topic.thumbnail %}
+            <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+        {% endif %}
+
+        {% with topic.recaps.last as latest_recap %}
+            {% if latest_recap %}
+                <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
+            {% endif %}
+        {% endwith %}
 
     </div>
 
