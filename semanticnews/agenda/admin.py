@@ -82,7 +82,7 @@ class EventAdmin(admin.ModelAdmin):
     exclude = ("embedding",)
     prepopulated_fields = {"slug": ("title",)}
 
-    actions = ("update_embeddings",)
+    actions = ("update_embeddings", "publish_events")
     change_list_template = "admin/agenda/event/change_list.html"
 
     def get_queryset(self, request):
@@ -120,6 +120,11 @@ class EventAdmin(admin.ModelAdmin):
             event.save(update_fields=["embedding"])
             updated += 1
         self.message_user(request, f"Updated embeddings for {updated} event(s).", messages.SUCCESS)
+
+    @admin.action(description="Publish selected events")
+    def publish_events(self, request, queryset):
+        updated = queryset.exclude(status="published").update(status="published")
+        self.message_user(request, f"Published {updated} event(s).", messages.SUCCESS)
 
     # Custom URLs
     def get_urls(self):
