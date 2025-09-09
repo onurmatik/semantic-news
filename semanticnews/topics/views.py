@@ -6,18 +6,23 @@ from pgvector.django import L2Distance
 from semanticnews.agenda.models import Event
 from .models import Topic, TopicEvent, TopicContent, TopicEntity
 from .utils.recaps.models import TopicRecap
+from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
 
 
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related("events", "recaps", "images"),
+        Topic.objects.prefetch_related("events", "recaps", "narratives", "images"),
         slug=slug,
         created_by__username=username,
     )
 
     related_events = topic.events.all()
+    current_narrative = topic.narratives.order_by("-created_at").first()
+    latest_narrative = (
+        topic.narratives.filter(status="finished").order_by("-created_at").first()
+    )
     current_recap = topic.recaps.order_by("-created_at").first()
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
@@ -40,6 +45,8 @@ def topics_detail(request, slug, username):
         "suggested_events": suggested_events,
         "current_recap": current_recap,
         "latest_recap": latest_recap,
+        "current_narrative": current_narrative,
+        "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
     }
     if request.user.is_authenticated:

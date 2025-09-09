@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from .models import Topic, TopicEvent, TopicContent
 from .utils.recaps.models import TopicRecap
+from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 
 
@@ -37,6 +38,10 @@ def update_topic_timestamp_from_content(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=TopicRecap)
 def update_topic_timestamp_from_recap(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
+
+@receiver([post_save, post_delete], sender=TopicNarrative)
+def update_topic_timestamp_from_narrative(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
 
 
