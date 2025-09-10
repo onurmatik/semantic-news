@@ -18,11 +18,13 @@ class TopicDataFetchRequest(Schema):
 class TopicDataFetchResponse(Schema):
     headers: List[str]
     rows: List[List[str]]
+    name: str | None = None
 
 
 class TopicDataSaveRequest(Schema):
     topic_uuid: str
     url: str
+    name: str | None = None
     headers: List[str]
     rows: List[List[str]]
 
@@ -34,6 +36,7 @@ class TopicDataSaveResponse(Schema):
 class _TopicDataResponse(Schema):
     headers: List[str]
     rows: List[List[str]]
+    name: str | None = None
 
 
 @router.post("/fetch", response=TopicDataFetchResponse)
@@ -48,7 +51,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
         raise HttpError(404, "Topic not found")
 
     prompt = (
-        f"Fetch the tabular data from {payload.url} and return it as JSON with keys 'headers' and 'rows'."
+        f"Fetch the tabular data from {payload.url} and return it as JSON with keys 'headers', 'rows', and optionally 'name' representing a concise title for the dataset."
     )
 
     with OpenAI() as client:
@@ -61,6 +64,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
     return TopicDataFetchResponse(
         headers=response.output_parsed.headers,
         rows=response.output_parsed.rows,
+        name=response.output_parsed.name,
     )
 
 
@@ -78,6 +82,7 @@ def save_data(request, payload: TopicDataSaveRequest):
     TopicData.objects.create(
         topic=topic,
         url=payload.url,
+        name=payload.name,
         data={"headers": payload.headers, "rows": payload.rows},
     )
 

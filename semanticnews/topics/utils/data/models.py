@@ -4,6 +4,7 @@ from django.db import models
 class TopicData(models.Model):
     topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE, related_name='datas')
     url = models.URLField()
+    name = models.CharField(max_length=200, blank=True, null=True)
     data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
 

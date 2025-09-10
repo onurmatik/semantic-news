@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('dataForm');
   const urlInput = document.getElementById('dataUrl');
   const preview = document.getElementById('dataPreview');
+  const nameInput = document.getElementById('dataName');
+  const nameWrapper = document.getElementById('dataNameWrapper');
   let fetchedData = null;
 
   if (fetchBtn && urlInput) {
@@ -17,6 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('Request failed');
         fetchedData = await res.json();
+        if (nameInput) {
+          nameInput.value = fetchedData.name || '';
+          if (nameWrapper) nameWrapper.classList.remove('d-none');
+        }
         let html = '<table class="table table-sm"><thead><tr>';
         fetchedData.headers.forEach(h => { html += `<th>${h}</th>`; });
         html += '</tr></thead><tbody>';
@@ -45,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           topic_uuid: topicUuid,
           url,
+          name: nameInput ? nameInput.value : null,
           headers: fetchedData.headers,
           rows: fetchedData.rows
         })
