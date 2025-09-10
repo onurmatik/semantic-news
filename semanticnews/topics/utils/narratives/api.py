@@ -52,7 +52,7 @@ def create_narrative(request, payload: TopicNarrativeCreateRequest):
         f"Below is a set of events and contents about {topic.title}. "
         "Write a detailed narrative that explains the full context and connections between them. "
         "Respond in Markdown and highlight key entities by making them **bold**. "
-        "Use paragraphs where appropriate. Do not use lists, headings, or titles. "
+        "Use paragraphs where appropriate. "
         f"\n\n{content_md}"
     )
 

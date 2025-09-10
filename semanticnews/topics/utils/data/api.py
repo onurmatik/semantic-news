@@ -72,6 +72,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
         response = client.responses.parse(
             model="gpt-5",
             input=prompt,
+            tools=[{"type": "web_search_preview"}],
             text_format=_TopicDataResponse,
         )
 
