@@ -2,6 +2,7 @@ from typing import List
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
+from pydantic import ConfigDict
 
 from ...models import Topic
 from .models import TopicData, TopicDataInsight, TopicDataVisualization
@@ -58,9 +59,25 @@ class TopicDataVisualizeRequest(Schema):
     insight_id: int
 
 
+class _ChartDataset(Schema):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    data: List[float]
+
+
+class _ChartData(Schema):
+    model_config = ConfigDict(extra="forbid")
+
+    labels: List[str]
+    datasets: List[_ChartDataset]
+
+
 class _TopicDataVisualizationResponse(Schema):
+    model_config = ConfigDict(extra="forbid")
+
     chart_type: str
-    data: dict
+    data: _ChartData
 
 
 class TopicDataVisualizeResponse(Schema):
@@ -218,7 +235,7 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
         topic=topic,
         insight=insight,
         chart_type=response.output_parsed.chart_type,
-        chart_data=response.output_parsed.data,
+        chart_data=response.output_parsed.data.dict(),
     )
 
     return TopicDataVisualizeResponse(
