@@ -12,7 +12,7 @@ class TopicData(models.Model):
         app_label = 'topics'
 
     def __str__(self):
-        return f"Data for {self.topic}"
+        return f"{self.name or "Data"} for {self.topic}"
 
 
 class TopicDataInsight(models.Model):
