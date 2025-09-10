@@ -1,40 +1,33 @@
 window.generationControllers = window.generationControllers || {};
 
-function setupGenerationButton({ buttonId, spinnerId, errorId }) {
+function setupGenerationButton({ buttonId, spinnerId, errorIconId }) {
   const button = document.getElementById(buttonId);
   const spinner = document.getElementById(spinnerId);
-  const errorEl = errorId ? document.getElementById(errorId) : null;
+  const errorIcon = errorIconId ? document.getElementById(errorIconId) : null;
 
-  const setState = ({ status, error }) => {
+  const setState = ({ status }) => {
     if (!button) return;
     if (status === 'in_progress') {
       button.disabled = true;
       if (spinner) spinner.classList.remove('d-none');
-      if (errorEl) {
-        errorEl.classList.add('d-none');
-        errorEl.textContent = '';
-      }
+      if (errorIcon) errorIcon.classList.add('d-none');
+      button.classList.remove('text-danger');
     } else if (status === 'error') {
       button.disabled = false;
       if (spinner) spinner.classList.add('d-none');
-      if (errorEl) {
-        errorEl.textContent = error || 'Error';
-        errorEl.classList.remove('d-none');
-      }
+      if (errorIcon) errorIcon.classList.remove('d-none');
+      button.classList.add('text-danger');
     } else {
       button.disabled = false;
       if (spinner) spinner.classList.add('d-none');
-      if (errorEl) {
-        errorEl.classList.add('d-none');
-        errorEl.textContent = '';
-      }
+      if (errorIcon) errorIcon.classList.add('d-none');
+      button.classList.remove('text-danger');
     }
   };
 
   if (button) {
     setState({
       status: button.dataset.status,
-      error: button.dataset.error,
     });
   }
 

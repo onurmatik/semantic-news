@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const controller = setupGenerationButton({
     buttonId: 'recapButton',
     spinnerId: 'recapSpinner',
-    errorId: 'recapError',
+    errorIconId: 'recapErrorIcon',
   });
 
   const form = document.getElementById('recapForm');

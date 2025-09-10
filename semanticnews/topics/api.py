@@ -1,6 +1,8 @@
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from typing import Optional, List
+from datetime import datetime
+from django.utils import timezone
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
@@ -23,9 +25,11 @@ api.add_router("/relation", relations_router)
 class GenerationStatus(Schema):
     status: Optional[str] = None
     error_message: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 
 class GenerationStatusResponse(Schema):
+    current: datetime
     recap: Optional[GenerationStatus] = None
     narrative: Optional[GenerationStatus] = None
     relation: Optional[GenerationStatus] = None
@@ -48,9 +52,14 @@ def generation_status(request, topic_uuid: str):
     def latest(qs):
         obj = qs.order_by("-created_at").first()
         if obj:
-            return {"status": obj.status, "error_message": obj.error_message}
+            return {
+                "status": obj.status,
+                "error_message": obj.error_message,
+                "created_at": obj.created_at,
+            }
 
     return GenerationStatusResponse(
+        current=timezone.now(),
         recap=latest(topic.recaps),
         narrative=latest(topic.narratives),
         relation=latest(topic.entity_relations),

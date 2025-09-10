@@ -8,7 +8,7 @@
         data-status="{% if current_recap %}{{ current_recap.status }}{% endif %}"
         data-error="{% if current_recap %}{{ current_recap.error_message }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
         <span id="recapSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+        <i id="recapErrorIcon" class="bi bi-exclamation-triangle me-1 text-danger d-none"></i>
         {% trans "Recap" %}
     </button>
-    <span id="recapError" class="text-danger small ms-1 d-none"></span>
 </span>

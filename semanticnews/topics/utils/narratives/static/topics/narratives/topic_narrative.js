@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const controller = setupGenerationButton({
     buttonId: 'narrativeButton',
     spinnerId: 'narrativeSpinner',
-    errorId: 'narrativeError',
+    errorIconId: 'narrativeErrorIcon',
   });
 
   const form = document.getElementById('narrativeForm');

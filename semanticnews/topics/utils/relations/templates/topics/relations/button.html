@@ -8,7 +8,7 @@
         data-status="{% if current_relation %}{{ current_relation.status }}{% endif %}"
         data-error="{% if current_relation %}{{ current_relation.error_message }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
         <span id="relationSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+        <i id="relationErrorIcon" class="bi bi-exclamation-triangle me-1 text-danger d-none"></i>
         {% trans "Relations" %}
     </button>
-    <span id="relationError" class="text-danger small ms-1 d-none"></span>
 </span>

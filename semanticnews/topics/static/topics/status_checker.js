@@ -14,12 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
         narrative: 'narrativeButton',
         relation: 'relationButton',
       };
+      const currentTime = data.current ? new Date(data.current) : new Date();
       Object.keys(mapping).forEach((key) => {
         const info = data[key];
         const controller = window.generationControllers[mapping[key]];
         if (info && controller) {
-          controller.setState({ status: info.status, error: info.error_message });
-          if (info.status === 'in_progress') {
+          let status = info.status;
+          if (status === 'in_progress' && info.created_at) {
+            const createdAt = new Date(info.created_at);
+            if (currentTime - createdAt > 5 * 60 * 1000) {
+              status = 'finished';
+            }
+          }
+          controller.setState({ status, error: info.error_message });
+          if (status === 'in_progress') {
             allDone = false;
           }
         }

@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const controller = setupGenerationButton({
     buttonId: 'relationButton',
     spinnerId: 'relationSpinner',
-    errorId: 'relationError',
+    errorIconId: 'relationErrorIcon',
   });
 
   const form = document.getElementById('relationForm');
