@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import Topic, TopicContent, TopicEntity, TopicEvent
 from .utils.recaps import admin as recaps_admin  # noqa: F401
 from .utils.narratives import admin as narratives_admin  # noqa: F401
+from .utils.relations import admin as relations_admin  # noqa: F401
 
 
 @admin.register(Topic)
