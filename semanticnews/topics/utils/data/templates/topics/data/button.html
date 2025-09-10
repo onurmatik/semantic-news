@@ -1,0 +1,8 @@
+{% load i18n %}
+<button
+    id="dataButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#dataModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+    {% trans "Data" %}
+</button>

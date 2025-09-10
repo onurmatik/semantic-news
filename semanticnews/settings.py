@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'semanticnews.topics.utils.mcps',
     'semanticnews.topics.utils.images',
     'semanticnews.topics.utils.relations',
+    'semanticnews.topics.utils.data',
 ]
 
 MIDDLEWARE = [
