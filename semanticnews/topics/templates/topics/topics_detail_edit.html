@@ -72,17 +72,9 @@
 
     </div>
 
-    {% if user == topic.created_by %}
-        {% if topic.status == 'archived' %}
-            <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
-                {% trans "Edit" %}
-            </a>
-        {% else %}
-            <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' slug=topic.slug username=topic.created_by.username %}">
-                {% trans "Edit" %}
-            </a>
-        {% endif %}
-    {% endif %}
+    <a class="btn btn-outline-secondary btn-sm align-self-start" href="{% url 'topics_detail' slug=topic.slug username=topic.created_by.username %}">
+        {% trans "Exit" %}
+    </a>
 
 </div>
 
@@ -105,14 +97,6 @@
                 {% if topic.status == 'draft' %}
                     <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
                         {% trans "Publish" %}
-                    </button>
-                {% elif topic.status == 'published' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="archived">
-                        {% trans "Archive" %}
-                    </button>
-                {% elif topic.status == 'archived' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
-                        {% trans "Unarchive" %}
                     </button>
                 {% endif %}
             </div>
