@@ -22,7 +22,7 @@ def topics_detail(request, slug, username):
             "images",
             "entity_relations",
             "datas",
-            "data_insights",
+            "data_insights__sources",
         ),
         slug=slug,
         created_by__username=username,

@@ -101,10 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const selected = Array.from(insightsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
       if (selected.length === 0) return;
       const topicUuid = analyzeForm.querySelector('input[name="topic_uuid"]').value;
+      const dataIds = Array.from(analyzeForm.querySelectorAll('input[name="data_ids"]:checked')).map(cb => parseInt(cb.value));
       const res = await fetch('/api/topics/data/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic_uuid: topicUuid, insights: selected })
+        body: JSON.stringify({ topic_uuid: topicUuid, data_ids: dataIds, insights: selected })
       });
       if (res.ok) {
         window.location.reload();

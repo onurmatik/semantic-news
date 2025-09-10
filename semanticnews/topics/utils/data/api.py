@@ -116,8 +116,14 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
         raise HttpError(404, "Topic not found")
 
     if payload.insights:
+        if not payload.data_ids:
+            raise HttpError(400, "No data selected")
+        datas = TopicData.objects.filter(topic=topic, id__in=payload.data_ids)
+        if not datas.exists():
+            raise HttpError(404, "No data found")
         for insight in payload.insights:
-            TopicDataInsight.objects.create(topic=topic, insight=insight)
+            insight_obj = TopicDataInsight.objects.create(topic=topic, insight=insight)
+            insight_obj.sources.set(datas)
         return TopicDataAnalyzeResponse(insights=payload.insights)
 
     if not payload.data_ids:
