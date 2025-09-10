@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from pgvector.django import L2Distance
+import json
 
 from semanticnews.agenda.models import Event
 from .models import Topic, TopicEvent, TopicContent, TopicEntity
@@ -13,7 +14,9 @@ from .utils.mcps.models import MCPServer
 
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related("events", "recaps", "narratives", "images"),
+        Topic.objects.prefetch_related(
+            "events", "recaps", "narratives", "images", "entity_relations"
+        ),
         slug=slug,
         created_by__username=username,
     )
@@ -26,6 +29,15 @@ def topics_detail(request, slug, username):
     current_recap = topic.recaps.order_by("-created_at").first()
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
+    )
+    current_relation = topic.entity_relations.order_by("-created_at").first()
+    latest_relation = (
+        topic.entity_relations.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    relations_json = (
+        json.dumps(latest_relation.relations, indent=2) if latest_relation else ""
     )
     mcp_servers = MCPServer.objects.filter(active=True)
 
@@ -45,6 +57,9 @@ def topics_detail(request, slug, username):
         "suggested_events": suggested_events,
         "current_recap": current_recap,
         "latest_recap": latest_recap,
+        "current_relation": current_relation,
+        "latest_relation": latest_relation,
+        "relations_json": relations_json,
         "current_narrative": current_narrative,
         "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
