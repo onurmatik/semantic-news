@@ -16,7 +16,13 @@ from .utils.data.models import TopicData
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
         Topic.objects.prefetch_related(
-            "events", "recaps", "narratives", "images", "entity_relations", "datas"
+            "events",
+            "recaps",
+            "narratives",
+            "images",
+            "entity_relations",
+            "datas",
+            "data_insights",
         ),
         slug=slug,
         created_by__username=username,
@@ -39,6 +45,7 @@ def topics_detail(request, slug, username):
     )
     latest_data = topic.datas.order_by("-created_at").first()
     datas = topic.datas.order_by("-created_at")
+    data_insights = topic.data_insights.order_by("-created_at")
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -74,6 +81,7 @@ def topics_detail(request, slug, username):
         "mcp_servers": mcp_servers,
         "latest_data": latest_data,
         "datas": datas,
+        "data_insights": data_insights,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)

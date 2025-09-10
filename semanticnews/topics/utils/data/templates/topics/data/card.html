@@ -46,5 +46,14 @@
             {% endfor %}
         </div>
         {% endif %}
+        {% if data_insights %}
+        <hr>
+        <h6 class="fs-6 mt-3">{% trans "Insights" %}</h6>
+        <ul class="mb-0">
+            {% for insight in data_insights %}
+            <li>{{ insight.insight }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
     </div>
 </div>

@@ -6,7 +6,28 @@
                 <h5 class="modal-title">{% trans "Analyze data" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
-            <div class="modal-body"></div>
+            <div class="modal-body">
+                <form id="dataAnalyzeForm">
+                    <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <div class="mb-3">
+                        {% for data in datas %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="{{ data.id }}" id="analyzeData{{ data.id }}" name="data_ids" checked>
+                            <label class="form-check-label" for="analyzeData{{ data.id }}">
+                                {% if data.name %}{{ data.name }}{% else %}{{ data.created_at|date:"Y-m-d" }}{% endif %}
+                            </label>
+                        </div>
+                        {% empty %}
+                        <p class="text-secondary mb-0">{% trans "No data tables available" %}</p>
+                        {% endfor %}
+                    </div>
+                    <div id="dataInsights" class="mb-3 d-none"></div>
+                    <div class="modal-footer px-0">
+                        <button type="button" class="btn btn-outline-secondary float-start me-auto" id="analyzeDataBtn">{% trans "Analyze" %}</button>
+                        <button type="submit" class="btn btn-primary" id="saveInsightsBtn" disabled>{% trans "Save" %}</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
