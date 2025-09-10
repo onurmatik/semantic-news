@@ -18,6 +18,7 @@ from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
+from .utils.data.models import TopicData, TopicDataInsight
 
 
 class CreateTopicAPITests(TestCase):
@@ -266,6 +267,68 @@ class CreateRecapAPITests(TestCase):
         self.assertEqual(response.json(), {"recap": "My recap"})
         self.assertEqual(TopicRecap.objects.count(), 1)
         self.assertEqual(TopicRecap.objects.first().recap, "My recap")
+
+
+class AnalyzeDataAPITests(TestCase):
+    """Tests for the data analysis API endpoint."""
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_returns_ai_insights_without_saving(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {"insights": ["I1", "I2"]}
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "data_ids": [data.id]}
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"insights": ["I1", "I2"]})
+        self.assertEqual(topic.data_insights.count(), 0)
+
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_saves_provided_insights(self, mock_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "insights": ["Insight A", "Insight B"],
+        }
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(topic.data_insights.count(), 2)
+        self.assertListEqual(
+            list(topic.data_insights.values_list("insight", flat=True)),
+            ["Insight A", "Insight B"],
+        )
 
 
 class TopicDetailViewTests(TestCase):
