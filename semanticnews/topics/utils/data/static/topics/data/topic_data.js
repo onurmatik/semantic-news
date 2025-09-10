@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const analyzeForm = document.getElementById('dataAnalyzeForm');
   const insightsContainer = document.getElementById('dataInsights');
   const saveInsightsBtn = document.getElementById('saveInsightsBtn');
+  const visualizeBtn = document.getElementById('visualizeDataBtn');
+  const visualizeForm = document.getElementById('dataVisualizeForm');
   let fetchedData = null;
 
   if (fetchBtn && urlInput) {
@@ -109,6 +111,67 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (res.ok) {
         window.location.reload();
+      }
+    });
+  }
+
+  const initChart = (canvas, type, data) => {
+    if (!canvas) return;
+    new Chart(canvas.getContext('2d'), { type, data });
+  };
+
+  document.querySelectorAll('.data-visualization-chart').forEach((canvas) => {
+    const type = canvas.dataset.chartType;
+    const data = JSON.parse(canvas.dataset.chart);
+    initChart(canvas, type, data);
+  });
+
+  if (visualizeBtn && visualizeForm) {
+    visualizeBtn.addEventListener('click', async () => {
+      visualizeBtn.disabled = true;
+      const topicUuid = visualizeForm.querySelector('input[name="topic_uuid"]').value;
+      const insightInput = visualizeForm.querySelector('input[name="insight_id"]:checked');
+      if (!insightInput) {
+        visualizeBtn.disabled = false;
+        return;
+      }
+      const insightId = parseInt(insightInput.value);
+      try {
+        const res = await fetch('/api/topics/data/visualize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic_uuid: topicUuid, insight_id: insightId })
+        });
+        if (!res.ok) throw new Error('Request failed');
+        const data = await res.json();
+        const container = document.getElementById('topicDataVisualizationsContainer');
+        const cards = document.getElementById('topicDataVisualizationCards');
+        if (container && cards) {
+          container.style.display = '';
+          const div = document.createElement('div');
+          div.classList.add('mb-3');
+          const textDiv = document.createElement('div');
+          textDiv.className = 'mb-1';
+          textDiv.textContent = data.insight;
+          const canvas = document.createElement('canvas');
+          canvas.id = `dataVisualizationChart${data.id}`;
+          canvas.className = 'data-visualization-chart';
+          canvas.dataset.chartType = data.chart_type;
+          canvas.dataset.chart = JSON.stringify(data.chart_data);
+          div.appendChild(textDiv);
+          div.appendChild(canvas);
+          cards.prepend(div);
+          initChart(canvas, data.chart_type, data.chart_data);
+        }
+        const modalEl = document.getElementById('dataVisualizeModal');
+        if (modalEl && window.bootstrap) {
+          const modal = window.bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        visualizeBtn.disabled = false;
       }
     });
   }
