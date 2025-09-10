@@ -20,6 +20,7 @@ class TopicDataInsight(models.Model):
         'topics.Topic', on_delete=models.CASCADE, related_name='data_insights'
     )
     insight = models.TextField()
+    sources = models.ManyToManyField('TopicData', related_name='insights')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

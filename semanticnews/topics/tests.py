@@ -349,9 +349,15 @@ class AnalyzeDataAPITests(TestCase):
         self.client.force_login(user)
 
         topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
 
         payload = {
             "topic_uuid": str(topic.uuid),
+            "data_ids": [data.id],
             "insights": ["Insight A", "Insight B"],
         }
         response = self.client.post(
@@ -364,6 +370,11 @@ class AnalyzeDataAPITests(TestCase):
             list(topic.data_insights.values_list("insight", flat=True)),
             ["Insight A", "Insight B"],
         )
+        for insight in topic.data_insights.all():
+            self.assertListEqual(
+                list(insight.sources.values_list("id", flat=True)),
+                [data.id],
+            )
 
 
 class TopicDetailViewTests(TestCase):
