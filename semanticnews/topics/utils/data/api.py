@@ -135,8 +135,9 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
         tables_text += f"{name}\n{headers}\n" + "\n".join(rows) + "\n\n"
 
     prompt = (
-        "Analyze the following data tables and provide a list of insights."
-        " Return a JSON object with a key 'insights' containing a list of strings."
+        "Analyze the following data tables and provide up to three of the most"
+        " significant insights. Return a JSON object with a key 'insights'"
+        " containing a list of strings."
         f"\n\n{tables_text}"
     )
 
@@ -147,6 +148,6 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
             text_format=_TopicDataInsightsResponse,
         )
 
-    return TopicDataAnalyzeResponse(
-        insights=response.output_parsed.insights,
-    )
+    insights = response.output_parsed.insights
+
+    return TopicDataAnalyzeResponse(insights=insights[:3])

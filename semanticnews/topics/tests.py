@@ -304,6 +304,41 @@ class AnalyzeDataAPITests(TestCase):
         self.assertEqual(response.json(), {"insights": ["I1", "I2"]})
         self.assertEqual(topic.data_insights.count(), 0)
 
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_limits_number_of_insights(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "insights": ["I1", "I2", "I3", "I4"]
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user(
+            "user", "user@example.com", "password"
+        )
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "data_ids": [data.id]}
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"insights": ["I1", "I2", "I3"]})
+
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
