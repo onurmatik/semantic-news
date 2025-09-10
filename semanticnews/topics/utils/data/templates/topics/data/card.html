@@ -52,14 +52,6 @@
             {% for insight in data_insights %}
             <li>
                 {{ insight.insight }}
-                {% if insight.sources.all %}
-                <div class="small text-muted">
-                    {% trans "Sources" %}:
-                    {% for source in insight.sources.all %}
-                    <a href="{{ source.url }}" target="_blank">{{ source.name|default:source.url }}</a>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
             </li>
             {% endfor %}
         </ul>
