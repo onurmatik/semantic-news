@@ -11,6 +11,7 @@ from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
 from .utils.images.api import router as images_router
 from .utils.relations.api import router as relations_router
+from .utils.data.api import router as data_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
@@ -18,6 +19,7 @@ api.add_router("/narrative", narratives_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 api.add_router("/relation", relations_router)
+api.add_router("/data", data_router)
 
 
 class TopicCreateRequest(Schema):

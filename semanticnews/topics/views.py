@@ -10,12 +10,13 @@ from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
+from .utils.data.models import TopicData
 
 
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
         Topic.objects.prefetch_related(
-            "events", "recaps", "narratives", "images", "entity_relations"
+            "events", "recaps", "narratives", "images", "entity_relations", "datas"
         ),
         slug=slug,
         created_by__username=username,
@@ -36,6 +37,7 @@ def topics_detail(request, slug, username):
         .order_by("-created_at")
         .first()
     )
+    latest_data = topic.datas.order_by("-created_at").first()
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -69,6 +71,7 @@ def topics_detail(request, slug, username):
         "current_narrative": current_narrative,
         "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
+        "latest_data": latest_data,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
