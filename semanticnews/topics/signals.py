@@ -6,6 +6,7 @@ from .models import Topic, TopicEvent, TopicContent
 from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
+from .utils.relations.models import TopicEntityRelation
 
 
 def touch_topic(topic_id):
@@ -49,6 +50,11 @@ def update_topic_timestamp_from_narrative(sender, instance, **kwargs):
 def update_topic_timestamp_from_image(sender, instance, **kwargs):
     if instance.topic_id:
         touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicEntityRelation)
+def update_topic_timestamp_from_relation(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
 
 
 @receiver(m2m_changed, sender=Topic.events.through)

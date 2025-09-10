@@ -13,6 +13,7 @@ from ..utils import get_relevance
 from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
+from .utils.relations.models import TopicEntityRelation
 
 
 class Topic(models.Model):
@@ -184,6 +185,12 @@ class Topic(models.Model):
         for narrative in self.narratives.all():
             TopicNarrative.objects.create(
                 topic=cloned, narrative=narrative.narrative, status="finished"
+            )
+        for relation in self.entity_relations.all():
+            TopicEntityRelation.objects.create(
+                topic=cloned,
+                relations=relation.relations,
+                status="finished",
             )
         for image in self.images.all():
             TopicImage.objects.create(
