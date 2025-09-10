@@ -36,9 +36,14 @@ def topics_detail(request, slug, username):
         .order_by("-created_at")
         .first()
     )
-    relations_json = (
-        json.dumps(latest_relation.relations, indent=2) if latest_relation else ""
-    )
+    if latest_relation:
+        relations_json = json.dumps(
+            latest_relation.relations, separators=(",", ":")
+        )
+        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
+    else:
+        relations_json = ""
+        relations_json_pretty = ""
     mcp_servers = MCPServer.objects.filter(active=True)
 
     if topic.embedding is not None:
@@ -60,6 +65,7 @@ def topics_detail(request, slug, username):
         "current_relation": current_relation,
         "latest_relation": latest_relation,
         "relations_json": relations_json,
+        "relations_json_pretty": relations_json_pretty,
         "current_narrative": current_narrative,
         "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
