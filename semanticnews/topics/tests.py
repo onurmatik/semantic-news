@@ -277,6 +277,41 @@ class AnalyzeDataAPITests(TestCase):
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
     )
+    def test_passes_extra_instructions_to_ai(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {"insights": ["I1"]}
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "data_ids": [data.id],
+            "instructions": "Focus on anomalies",
+        }
+        self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        args, kwargs = mock_client.responses.parse.call_args
+        self.assertIn("Focus on anomalies", kwargs["input"])
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
     def test_returns_ai_insights_without_saving(self, mock_embedding, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client

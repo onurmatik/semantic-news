@@ -21,6 +21,10 @@
                         <p class="text-secondary mb-0">{% trans "No data tables available" %}</p>
                         {% endfor %}
                     </div>
+                    <div class="mb-3">
+                        <label for="analyzeInstructions" class="form-label">{% trans "Additional instructions" %}</label>
+                        <textarea class="form-control" id="analyzeInstructions" name="instructions" rows="3" placeholder="{% trans 'e.g., Focus on anomalies' %}"></textarea>
+                    </div>
                     <div id="dataInsights" class="mb-3 d-none"></div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="analyzeDataBtn">{% trans "Analyze" %}</button>

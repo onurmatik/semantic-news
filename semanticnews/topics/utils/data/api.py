@@ -44,6 +44,7 @@ class TopicDataAnalyzeRequest(Schema):
     topic_uuid: str
     data_ids: List[int] | None = None
     insights: List[str] | None = None
+    instructions: str | None = None
 
 
 class TopicDataAnalyzeResponse(Schema):
@@ -178,8 +179,10 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
         "Analyze the following data tables and provide up to three of the most"
         " significant insights. Return a JSON object with a key 'insights'"
         " containing a list of strings."
-        f"\n\n{tables_text}"
     )
+    if payload.instructions:
+        prompt += f" Please consider the following user instructions: {payload.instructions}"
+    prompt += f"\n\n{tables_text}"
 
     with OpenAI() as client:
         response = client.responses.parse(
