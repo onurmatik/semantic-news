@@ -38,14 +38,6 @@
                    class="text-info-emphasis bi bi-link copy-link ms-1"
                    data-url="{{ topic.get_absolute_url }}"></a>
 
-                {% if topic.created_by != user %}
-                    <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
-                       class="btn btn-outline-primary btn-sm ms-1"
-                       data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
-                        {% trans "Clone" %}
-                    </a>
-                {% endif %}
-
             </small>
 
         </h1>
@@ -72,7 +64,13 @@
 
     </div>
 
-    {% if user == topic.created_by %}
+    {% if topic.created_by != user %}
+        <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
+           class="btn btn-outline-primary btn-sm ms-1"
+           data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
+            {% trans "Clone" %}
+        </a>
+    {% elif user == topic.created_by %}
         {% if topic.status == 'archived' %}
             <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
                 {% trans "Edit" %}
