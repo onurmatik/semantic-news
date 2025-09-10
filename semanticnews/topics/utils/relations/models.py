@@ -14,6 +14,7 @@ class TopicEntityRelation(models.Model):
         ],
         default="in_progress",
     )
+    error_message = models.TextField(blank=True, null=True)
 
     class Meta:
         app_label = 'topics'

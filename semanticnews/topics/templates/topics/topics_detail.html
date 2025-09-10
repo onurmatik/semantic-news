@@ -66,62 +66,43 @@
 
     </div>
 
-    {% if topic.created_by != user %}
-        <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
-           class="btn btn-outline-primary btn-sm ms-1"
-           data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
-            {% trans "Clone" %}
-        </a>
-    {% elif user == topic.created_by %}
-        {% if topic.status == 'archived' %}
-            <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
-                {% trans "Edit" %}
+    <div class="d-flex align-items-start">
+
+        {% if topic.created_by != user %}
+            <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
+               class="btn btn-outline-primary btn-sm ms-1"
+               data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
+                {% trans "Clone" %}
             </a>
-        {% else %}
-            <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' slug=topic.slug username=topic.created_by.username %}">
-                {% trans "Edit" %}
-            </a>
+        {% elif user == topic.created_by %}
+            {% if topic.status == 'draft' %}
+                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
+                    {% trans "Publish" %}
+                </button>
+            {% elif topic.status == 'published' %}
+                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="archived">
+                    {% trans "Archive" %}
+                </button>
+            {% elif topic.status == 'archived' %}
+                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
+                    {% trans "Unarchive" %}
+                </button>
+            {% endif %}
+
+            {% if topic.status == 'archived' %}
+                <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
+                    {% trans "Edit" %}
+                </a>
+            {% else %}
+                <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' slug=topic.slug username=topic.created_by.username %}">
+                    {% trans "Edit" %}
+                </a>
+            {% endif %}
         {% endif %}
-    {% endif %}
+
+    </div>
 
 </div>
-
-{% if user == topic.created_by %}
-
-    <div class="alert alert-warning p-2" role="toolbar">
-
-        <div class="d-flex justify-content-between">
-
-            <div class="gap-2">
-                {% include "topics/recaps/button.html" %}
-                {% include "topics/narratives/button.html" %}
-                {% include "topics/images/button.html" %}
-                {% include "topics/relations/button.html" %}
-                {% include "topics/mcps/button.html" %}
-            </div>
-
-            <div class="gap-2">
-                <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
-                {% if topic.status == 'draft' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
-                        {% trans "Publish" %}
-                    </button>
-                {% elif topic.status == 'published' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="archived">
-                        {% trans "Archive" %}
-                    </button>
-                {% elif topic.status == 'archived' %}
-                    <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
-                        {% trans "Unarchive" %}
-                    </button>
-                {% endif %}
-            </div>
-
-    </div>
-
-    </div>
-
-{% endif %}
 
 <div class="row">
 
@@ -242,12 +223,6 @@
 
 </div>
 
-
-{% include "topics/mcps/modal.html" %}
-{% include "topics/recaps/modal.html" %}
-{% include "topics/narratives/modal.html" %}
-{% include "topics/images/modal.html" %}
-{% include "topics/relations/modal.html" %}
 {% include "topics/create_topic_modal.html" %}
 
 {% endblock %}
@@ -256,6 +231,7 @@
     {{ block.super }}
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
+    <script src="{% static 'topics/generation_button.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/narratives/scripts.html" %}

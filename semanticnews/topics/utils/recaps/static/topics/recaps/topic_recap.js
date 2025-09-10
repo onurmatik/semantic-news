@@ -1,29 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const recapBtn = document.getElementById('recapButton');
-  const recapSpinner = document.getElementById('recapSpinner');
-  const showLoading = () => {
-    if (recapBtn && recapSpinner) {
-      recapBtn.disabled = true;
-      recapSpinner.classList.remove('d-none');
-    }
-  };
-  const hideLoading = () => {
-    if (recapBtn && recapSpinner) {
-      recapBtn.disabled = false;
-      recapSpinner.classList.add('d-none');
-    }
-  };
-
-  if (recapBtn) {
-    const status = recapBtn.dataset.recapStatus;
-    const created = recapBtn.dataset.recapCreated;
-    if (status === 'in_progress' && created) {
-      const createdDate = new Date(created);
-      if (Date.now() - createdDate.getTime() < 2 * 60 * 1000) {
-        showLoading();
-      }
-    }
-  }
+  const controller = setupGenerationButton({
+    buttonId: 'recapButton',
+    spinnerId: 'recapSpinner',
+    errorId: 'recapError',
+  });
 
   const form = document.getElementById('recapForm');
   const suggestionBtn = document.getElementById('fetchRecapSuggestion');
@@ -55,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      showLoading();
+      controller.showLoading();
       const recapModal = document.getElementById('recapModal');
       if (recapModal && window.bootstrap) {
         const modal = window.bootstrap.Modal.getInstance(recapModal);
@@ -77,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error(err);
 
         submitBtn.disabled = false;
-        hideLoading();
+        controller.hideLoading();
       }
     });
   }

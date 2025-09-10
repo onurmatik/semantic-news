@@ -1,29 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const narrativeBtn = document.getElementById('narrativeButton');
-  const narrativeSpinner = document.getElementById('narrativeSpinner');
-  const showLoading = () => {
-    if (narrativeBtn && narrativeSpinner) {
-      narrativeBtn.disabled = true;
-      narrativeSpinner.classList.remove('d-none');
-    }
-  };
-  const hideLoading = () => {
-    if (narrativeBtn && narrativeSpinner) {
-      narrativeBtn.disabled = false;
-      narrativeSpinner.classList.add('d-none');
-    }
-  };
-
-  if (narrativeBtn) {
-    const status = narrativeBtn.dataset.narrativeStatus;
-    const created = narrativeBtn.dataset.narrativeCreated;
-    if (status === 'in_progress' && created) {
-      const createdDate = new Date(created);
-      if (Date.now() - createdDate.getTime() < 2 * 60 * 1000) {
-        showLoading();
-      }
-    }
-  }
+  const controller = setupGenerationButton({
+    buttonId: 'narrativeButton',
+    spinnerId: 'narrativeSpinner',
+    errorId: 'narrativeError',
+  });
 
   const form = document.getElementById('narrativeForm');
   const suggestionBtn = document.getElementById('fetchNarrativeSuggestion');
@@ -55,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      showLoading();
+      controller.showLoading();
       const narrativeModal = document.getElementById('narrativeModal');
       if (narrativeModal && window.bootstrap) {
         const modal = window.bootstrap.Modal.getInstance(narrativeModal);
@@ -77,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error(err);
 
         submitBtn.disabled = false;
-        hideLoading();
+        controller.hideLoading();
       }
     });
   }

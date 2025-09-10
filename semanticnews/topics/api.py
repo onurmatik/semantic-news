@@ -20,6 +20,43 @@ api.add_router("/image", images_router)
 api.add_router("/relation", relations_router)
 
 
+class GenerationStatus(Schema):
+    status: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class GenerationStatusResponse(Schema):
+    recap: Optional[GenerationStatus] = None
+    narrative: Optional[GenerationStatus] = None
+    relation: Optional[GenerationStatus] = None
+
+
+@api.get("/{topic_uuid}/generation-status", response=GenerationStatusResponse)
+def generation_status(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by != user:
+        raise HttpError(403, "Forbidden")
+
+    def latest(qs):
+        obj = qs.order_by("-created_at").first()
+        if obj:
+            return {"status": obj.status, "error_message": obj.error_message}
+
+    return GenerationStatusResponse(
+        recap=latest(topic.recaps),
+        narrative=latest(topic.narratives),
+        relation=latest(topic.entity_relations),
+    )
+
+
 class TopicCreateRequest(Schema):
     """Request body for creating a topic.
 

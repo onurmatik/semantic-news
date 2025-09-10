@@ -1,29 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const relationBtn = document.getElementById('relationButton');
-  const relationSpinner = document.getElementById('relationSpinner');
-  const showLoading = () => {
-    if (relationBtn && relationSpinner) {
-      relationBtn.disabled = true;
-      relationSpinner.classList.remove('d-none');
-    }
-  };
-  const hideLoading = () => {
-    if (relationBtn && relationSpinner) {
-      relationBtn.disabled = false;
-      relationSpinner.classList.add('d-none');
-    }
-  };
-
-  if (relationBtn) {
-    const status = relationBtn.dataset.relationStatus;
-    const created = relationBtn.dataset.relationCreated;
-    if (status === 'in_progress' && created) {
-      const createdDate = new Date(created);
-      if (Date.now() - createdDate.getTime() < 2 * 60 * 1000) {
-        showLoading();
-      }
-    }
-  }
+  const controller = setupGenerationButton({
+    buttonId: 'relationButton',
+    spinnerId: 'relationSpinner',
+    errorId: 'relationError',
+  });
 
   const form = document.getElementById('relationForm');
   const suggestionBtn = document.getElementById('fetchRelationSuggestion');
@@ -62,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      showLoading();
+      controller.showLoading();
       const relationModal = document.getElementById('relationModal');
       if (relationModal && window.bootstrap) {
         const modal = window.bootstrap.Modal.getInstance(relationModal);
@@ -81,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         console.error(err);
         submitBtn.disabled = false;
-        hideLoading();
+        controller.hideLoading();
       }
     });
   }

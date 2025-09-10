@@ -1,12 +1,14 @@
 {% load i18n %}
-<button
-    id="relationButton"
-    class="btn btn-outline-secondary btn-sm"
-    data-bs-toggle="modal"
-    data-bs-target="#relationModal"
-    data-relation-status="{% if current_relation %}{{ current_relation.status }}{% endif %}"
-    data-relation-created="{% if current_relation %}{{ current_relation.created_at|date:'c' }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
-    <span id="relationSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
-    {% trans "Relations" %}
-</button>
-
+<span class="d-inline-block">
+    <button
+        id="relationButton"
+        class="btn btn-outline-secondary btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#relationModal"
+        data-status="{% if current_relation %}{{ current_relation.status }}{% endif %}"
+        data-error="{% if current_relation %}{{ current_relation.error_message }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
+        <span id="relationSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+        {% trans "Relations" %}
+    </button>
+    <span id="relationError" class="text-danger small ms-1 d-none"></span>
+</span>
