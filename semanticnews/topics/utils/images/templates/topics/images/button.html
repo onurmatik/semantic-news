@@ -1,4 +1,9 @@
 {% load i18n %}
-<button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#imageModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+<button
+    id="imageButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#imageModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+    <span id="imageSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
     {% trans "Image" %}
 </button>
