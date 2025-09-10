@@ -73,11 +73,15 @@ document.addEventListener('DOMContentLoaded', () => {
       analyzeBtn.disabled = true;
       const topicUuid = analyzeForm.querySelector('input[name="topic_uuid"]').value;
       const dataIds = Array.from(analyzeForm.querySelectorAll('input[name="data_ids"]:checked')).map(cb => parseInt(cb.value));
+      const instructionsEl = analyzeForm.querySelector('textarea[name="instructions"]');
+      const instructions = instructionsEl ? instructionsEl.value.trim() : '';
       try {
+        const body = { topic_uuid: topicUuid, data_ids: dataIds };
+        if (instructions) body.instructions = instructions;
         const res = await fetch('/api/topics/data/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, data_ids: dataIds })
+          body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error('Request failed');
         const data = await res.json();
