@@ -1,8 +1,17 @@
 {% load i18n %}
-<button
-    id="dataButton"
-    class="btn btn-outline-secondary btn-sm"
-    data-bs-toggle="modal"
-    data-bs-target="#dataModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+<div class="btn-group">
+  <button id="dataButton" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"{% if topic.status == 'archived' %} disabled{% endif %}>
     {% trans "Data" %}
-</button>
+  </button>
+  <ul class="dropdown-menu">
+    <li>
+      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataModal">{% trans "Add" %}</button>
+    </li>
+    <li>
+      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataAnalyzeModal">{% trans "Analyze" %}</button>
+    </li>
+    <li>
+      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataVisualizeModal">{% trans "Visualize" %}</button>
+    </li>
+  </ul>
+</div>
