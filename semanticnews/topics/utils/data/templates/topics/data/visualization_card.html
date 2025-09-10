@@ -1,0 +1,16 @@
+{% load i18n %}
+<div class="card my-3" id="topicDataVisualizationsContainer"{% if not data_visualizations %} style="display: none;"{% endif %}>
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fs-5 mb-0">{% trans "Visualizations" %}</h6>
+        </div>
+        <div id="topicDataVisualizationCards">
+            {% for viz in data_visualizations %}
+            <div class="mb-3">
+                <div class="mb-1">{{ viz.insight.insight }}</div>
+                <canvas id="dataVisualizationChart{{ viz.id }}" class="data-visualization-chart" data-chart-type="{{ viz.chart_type }}" data-chart='{{ viz.chart_data|escapejs }}'></canvas>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

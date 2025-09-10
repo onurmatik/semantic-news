@@ -4,7 +4,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from ...models import Topic
-from .models import TopicData, TopicDataInsight
+from .models import TopicData, TopicDataInsight, TopicDataVisualization
 from ....openai import OpenAI
 
 router = Router()
@@ -51,6 +51,23 @@ class TopicDataAnalyzeResponse(Schema):
 
 class _TopicDataInsightsResponse(Schema):
     insights: List[str]
+
+
+class TopicDataVisualizeRequest(Schema):
+    topic_uuid: str
+    insight_id: int
+
+
+class _TopicDataVisualizationResponse(Schema):
+    chart_type: str
+    data: dict
+
+
+class TopicDataVisualizeResponse(Schema):
+    id: int
+    insight: str
+    chart_type: str
+    chart_data: dict
 
 
 @router.post("/fetch", response=TopicDataFetchResponse)
@@ -157,3 +174,56 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     insights = response.output_parsed.insights
 
     return TopicDataAnalyzeResponse(insights=insights[:3])
+
+
+@router.post("/visualize", response=TopicDataVisualizeResponse)
+def visualize_data(request, payload: TopicDataVisualizeRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    try:
+        insight = TopicDataInsight.objects.get(id=payload.insight_id, topic=topic)
+    except TopicDataInsight.DoesNotExist:
+        raise HttpError(404, "Insight not found")
+
+    tables_text = ""
+    for data in insight.sources.all():
+        name = data.name or "Dataset"
+        headers = ", ".join(data.data.get("headers", []))
+        rows = [", ".join(row) for row in data.data.get("rows", [])]
+        tables_text += f"{name}\n{headers}\n" + "\n".join(rows) + "\n\n"
+
+    prompt = (
+        "Given the following insight and data tables, choose an appropriate basic chart "
+        "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
+        "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
+        "formatted for Chart.js.\n\n"
+        f"Insight: {insight.insight}\n\n{tables_text}"
+    )
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model="gpt-5",
+            input=prompt,
+            text_format=_TopicDataVisualizationResponse,
+        )
+
+    visualization = TopicDataVisualization.objects.create(
+        topic=topic,
+        insight=insight,
+        chart_type=response.output_parsed.chart_type,
+        chart_data=response.output_parsed.data,
+    )
+
+    return TopicDataVisualizeResponse(
+        id=visualization.id,
+        insight=insight.insight,
+        chart_type=visualization.chart_type,
+        chart_data=visualization.chart_data,
+    )
