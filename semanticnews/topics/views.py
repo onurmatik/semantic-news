@@ -38,6 +38,7 @@ def topics_detail(request, slug, username):
         .first()
     )
     latest_data = topic.datas.order_by("-created_at").first()
+    datas = topic.datas.order_by("-created_at")
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -72,6 +73,7 @@ def topics_detail(request, slug, username):
         "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
         "latest_data": latest_data,
+        "datas": datas,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
