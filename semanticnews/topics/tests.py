@@ -456,6 +456,46 @@ class VisualizeDataAPITests(TestCase):
         })
 
     @patch("semanticnews.topics.utils.data.api.OpenAI")
+    def test_creates_visualization_with_chart_type(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "chart_type": "pie",
+            "data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
+        insight.sources.add(data)
+
+        payload = {"topic_uuid": str(topic.uuid), "insight_id": insight.id, "chart_type": "pie"}
+        response = self.client.post(
+            "/api/topics/data/visualize", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TopicDataVisualization.objects.count(), 1)
+        viz = TopicDataVisualization.objects.first()
+        self.assertEqual(viz.chart_type, "pie")
+        self.assertEqual(response.json(), {
+            "id": viz.id,
+            "insight": "Insight",
+            "chart_type": "pie",
+            "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        })
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
     def test_visualizes_custom_insight(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client

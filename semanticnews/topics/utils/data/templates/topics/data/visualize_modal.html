@@ -24,6 +24,15 @@
                         </div>
                         <input type="text" class="form-control mt-2 d-none" id="visualizeInsightOtherText" placeholder="{% trans 'Enter your insight' %}">
                     </div>
+                    <div class="mb-3">
+                        <label for="visualizeChartType" class="form-label">{% trans "Chart type" %}</label>
+                        <select class="form-select" id="visualizeChartType" name="chart_type">
+                            <option value="">{% trans "Let AI decide" %}</option>
+                            <option value="bar">{% trans "Bar" %}</option>
+                            <option value="line">{% trans "Line" %}</option>
+                            <option value="pie">{% trans "Pie" %}</option>
+                        </select>
+                    </div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="visualizeDataBtn">{% trans "Visualize" %}</button>
                     </div>
