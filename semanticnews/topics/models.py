@@ -118,6 +118,8 @@ class Topic(models.Model):
                 text = c.markdown or ""
                 content_md += f"### {title}\n{text}\n\n"
 
+        # TODO: Add data insights to the context
+
         return content_md
 
     def get_embedding(self, force: bool = False):
