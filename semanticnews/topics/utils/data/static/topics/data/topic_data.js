@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveInsightsBtn = document.getElementById('saveInsightsBtn');
   const visualizeBtn = document.getElementById('visualizeDataBtn');
   const visualizeForm = document.getElementById('dataVisualizeForm');
+  const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   let fetchedData = null;
 
   if (fetchBtn && urlInput) {
@@ -130,6 +131,22 @@ document.addEventListener('DOMContentLoaded', () => {
     initChart(canvas, type, data);
   });
 
+  if (visualizeForm && visualizeOtherInput) {
+    const insightRadios = visualizeForm.querySelectorAll('input[name="insight_id"]');
+    insightRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        const selected = visualizeForm.querySelector('input[name="insight_id"]:checked');
+        if (selected && selected.value === 'other') {
+          visualizeOtherInput.classList.remove('d-none');
+          visualizeOtherInput.focus();
+        } else {
+          visualizeOtherInput.classList.add('d-none');
+          visualizeOtherInput.value = '';
+        }
+      });
+    });
+  }
+
   if (visualizeBtn && visualizeForm) {
     visualizeBtn.addEventListener('click', async () => {
       visualizeBtn.disabled = true;
@@ -139,12 +156,24 @@ document.addEventListener('DOMContentLoaded', () => {
         visualizeBtn.disabled = false;
         return;
       }
-      const insightId = parseInt(insightInput.value);
+      const value = insightInput.value;
+      let body;
+      if (value === 'other') {
+        const insight = visualizeOtherInput ? visualizeOtherInput.value.trim() : '';
+        if (!insight) {
+          visualizeBtn.disabled = false;
+          return;
+        }
+        body = { topic_uuid: topicUuid, insight };
+      } else {
+        const insightId = parseInt(value);
+        body = { topic_uuid: topicUuid, insight_id: insightId };
+      }
       try {
         const res = await fetch('/api/topics/data/visualize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, insight_id: insightId })
+          body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error('Request failed');
         const data = await res.json();
