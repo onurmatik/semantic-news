@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeBtn = document.getElementById('visualizeDataBtn');
   const visualizeForm = document.getElementById('dataVisualizeForm');
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
+  const chartTypeSelect = document.getElementById('visualizeChartType');
   let fetchedData = null;
 
   if (fetchBtn && urlInput) {
@@ -168,6 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         const insightId = parseInt(value);
         body = { topic_uuid: topicUuid, insight_id: insightId };
+      }
+      const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+      if (chartType) {
+        body.chart_type = chartType;
       }
       try {
         const res = await fetch('/api/topics/data/visualize', {

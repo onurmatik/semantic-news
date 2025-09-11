@@ -59,6 +59,7 @@ class TopicDataVisualizeRequest(Schema):
     topic_uuid: str
     insight_id: int | None = None
     insight: str | None = None
+    chart_type: str | None = None
 
 
 class _ChartDataset(Schema):
@@ -229,13 +230,21 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
         rows = [", ".join(row) for row in data.data.get("rows", [])]
         tables_text += f"{name}\n{headers}\n" + "\n".join(rows) + "\n\n"
 
-    prompt = (
-        "Given the following insight and data tables, choose an appropriate basic chart "
-        "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
-        "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
-        "formatted for Chart.js.\n\n"
-        f"Insight: {insight_text}\n\n{tables_text}"
-    )
+    if payload.chart_type:
+        prompt = (
+            "Given the following insight and data tables, provide the chart data for a "
+            f"{payload.chart_type} chart in JSON with keys 'chart_type' and 'data'. "
+            "The 'data' should include 'labels' and 'datasets' formatted for Chart.js.\n\n"
+            f"Insight: {insight_text}\n\n{tables_text}"
+        )
+    else:
+        prompt = (
+            "Given the following insight and data tables, choose an appropriate basic chart "
+            "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
+            "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
+            "formatted for Chart.js.\n\n"
+            f"Insight: {insight_text}\n\n{tables_text}"
+        )
 
     with OpenAI() as client:
         response = client.responses.parse(
@@ -247,7 +256,7 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
     visualization = TopicDataVisualization.objects.create(
         topic=topic,
         insight=insight_obj,
-        chart_type=response.output_parsed.chart_type,
+        chart_type=payload.chart_type or response.output_parsed.chart_type,
         chart_data=response.output_parsed.data.dict(),
     )
 
