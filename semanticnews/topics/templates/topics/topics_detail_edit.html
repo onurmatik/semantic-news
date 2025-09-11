@@ -90,6 +90,7 @@
 
             <div class="gap-2">
                 {% include "topics/recaps/button.html" %}
+                {% include "topics/data/button.html" %}
                 {% include "topics/narratives/button.html" %}
                 {% include "topics/images/button.html" %}
                 {% include "topics/relations/button.html" %}
@@ -115,6 +116,10 @@
         {% endif %}
 
         {% include "topics/recaps/card.html" %}
+
+        {% include "topics/data/card.html" %}
+
+        {% include "topics/data/visualization_card.html" %}
 
         {% include "topics/narratives/card.html" %}
 
@@ -228,6 +233,9 @@
 
 {% include "topics/mcps/modal.html" %}
 {% include "topics/recaps/modal.html" %}
+{% include "topics/data/modal.html" %}
+{% include "topics/data/analyze_modal.html" %}
+{% include "topics/data/visualize_modal.html" %}
 {% include "topics/narratives/modal.html" %}
 {% include "topics/images/modal.html" %}
 {% include "topics/relations/modal.html" %}
@@ -242,6 +250,7 @@
     <script src="{% static 'topics/generation_button.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
+    {% include "topics/data/scripts.html" %}
     {% include "topics/narratives/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}
