@@ -57,7 +57,8 @@ class _TopicDataInsightsResponse(Schema):
 
 class TopicDataVisualizeRequest(Schema):
     topic_uuid: str
-    insight_id: int
+    insight_id: int | None = None
+    insight: str | None = None
 
 
 class _ChartDataset(Schema):
@@ -207,13 +208,22 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    try:
-        insight = TopicDataInsight.objects.get(id=payload.insight_id, topic=topic)
-    except TopicDataInsight.DoesNotExist:
-        raise HttpError(404, "Insight not found")
+    if payload.insight_id is not None:
+        try:
+            insight_obj = TopicDataInsight.objects.get(id=payload.insight_id, topic=topic)
+        except TopicDataInsight.DoesNotExist:
+            raise HttpError(404, "Insight not found")
+        insight_text = insight_obj.insight
+        sources = insight_obj.sources.all()
+    elif payload.insight:
+        insight_obj = None
+        insight_text = payload.insight
+        sources = TopicData.objects.filter(topic=topic)
+    else:
+        raise HttpError(400, "Insight not provided")
 
     tables_text = ""
-    for data in insight.sources.all():
+    for data in sources:
         name = data.name or "Dataset"
         headers = ", ".join(data.data.get("headers", []))
         rows = [", ".join(row) for row in data.data.get("rows", [])]
@@ -224,7 +234,7 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
         "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
         "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
         "formatted for Chart.js.\n\n"
-        f"Insight: {insight.insight}\n\n{tables_text}"
+        f"Insight: {insight_text}\n\n{tables_text}"
     )
 
     with OpenAI() as client:
@@ -236,14 +246,14 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
 
     visualization = TopicDataVisualization.objects.create(
         topic=topic,
-        insight=insight,
+        insight=insight_obj,
         chart_type=response.output_parsed.chart_type,
         chart_data=response.output_parsed.data.dict(),
     )
 
     return TopicDataVisualizeResponse(
         id=visualization.id,
-        insight=insight.insight,
+        insight=insight_text,
         chart_type=visualization.chart_type,
         chart_data=visualization.chart_data,
     )
