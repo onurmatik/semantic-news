@@ -3,6 +3,9 @@ from datetime import timedelta
 from types import SimpleNamespace
 import tempfile
 import shutil
+import json
+import html
+import re
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -915,9 +918,37 @@ class TopicUpdatedAtTests(TestCase):
                 image=SimpleUploadedFile("test.gif", image_bytes, content_type="image/gif"),
             )
 
-            topic.refresh_from_db()
-            self.assertNotEqual(initial, topic.updated_at)
-            self.assertEqual(topic.updated_at, later)
+        topic.refresh_from_db()
+        self.assertNotEqual(initial, topic.updated_at)
+        self.assertEqual(topic.updated_at, later)
+
+
+class VisualizationCardTemplateTests(TestCase):
+    """Ensure visualization data is serialized as JSON for the topic detail view."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_chart_data_serialized_as_json(self, _mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
+        TopicDataVisualization.objects.create(
+            topic=topic,
+            insight=insight,
+            chart_type="bar",
+            chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        )
+
+        response = self.client.get(topic.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+
+        html_content = response.content.decode()
+        match = re.search(r'data-chart="([^"]+)"', html_content)
+        self.assertIsNotNone(match)
+        chart_value = html.unescape(match.group(1))
+        json.loads(chart_value)
 
 
 class TopicEmbeddingUpdateTests(TestCase):
