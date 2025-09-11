@@ -36,11 +36,6 @@
                     <i class="bi bi-chevron-right"></i>
                 </a>
             </div>
-            {% if user.is_authenticated %}
-            <button id="addEventBtn" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add event' %}">
-                <i class="bi bi-plus-lg"></i>
-            </button>
-            {% endif %}
         </div>
     </div>
 
@@ -76,7 +71,6 @@
 </div>
 
 {% if user.is_authenticated %}
-{% include "agenda/event_modal.html" %}
 {% include "topics/create_topic_modal.html" %}
 {% endif %}
 
@@ -85,8 +79,6 @@
 {% block extra_js %}
     {{ block.super }}
     {% if user.is_authenticated %}
-    {{ exclude_events|json_script:"exclude-events" }}
-    <script src="{% static 'agenda/event_modal.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
     {% endif %}
     <script src="{% static 'agenda/category_filter.js' %}"></script>

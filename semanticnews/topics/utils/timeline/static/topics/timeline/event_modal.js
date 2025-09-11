@@ -1,18 +1,15 @@
-// Handles manual creation and AI-suggested events within a unified modal
-
+// Handles manual creation and AI-suggested events for topic timelines
 const CONFIDENCE_THRESHOLD = 0.85;
 
 (() => {
-  const modalEl = document.getElementById('eventModal');
+  const modalEl = document.getElementById('timelineModal');
   if (!modalEl) return;
   const modal = new bootstrap.Modal(modalEl);
 
   const createTab = document.getElementById('create-tab');
   const fetchTab = document.getElementById('fetch-tab');
 
-  const addBtn = document.getElementById('addEventBtn');
-  const suggestBtn = document.getElementById('suggestEventsBtn');
-
+  const timelineBtn = document.getElementById('timelineButton');
   const addForm = document.getElementById('addEventForm');
   const similarContainer = document.getElementById('similarEvents');
 
@@ -23,43 +20,41 @@ const CONFIDENCE_THRESHOLD = 0.85;
   const existingEventsEl = document.getElementById('exclude-events');
   const existingEvents = existingEventsEl ? JSON.parse(existingEventsEl.textContent) : [];
 
-  // open modal for manual creation
-  if (addBtn && addForm) {
-    addBtn.addEventListener('click', () => {
-      addForm.reset();
-      if (titleField) {
-        titleField.value = '';
-        titleField.readOnly = false;
-      }
-      similarContainer.innerHTML = '';
-      if (suggestForm) {
-        suggestForm.classList.remove('d-none');
-      }
-      if (suggestedList) {
-        suggestedList.classList.add('d-none');
-        suggestedList.innerHTML = '';
-      }
-      if (publishBtn) publishBtn.disabled = true;
+  const topicEl = document.querySelector('[data-topic-uuid]');
+  const topicUuid = topicEl ? topicEl.dataset.topicUuid : null;
+
+  function resetForms() {
+    if (addForm) addForm.reset();
+    if (titleField) {
+      titleField.value = '';
+      titleField.readOnly = false;
+    }
+    if (similarContainer) similarContainer.innerHTML = '';
+    if (suggestForm) {
+      suggestForm.reset();
+      suggestForm.classList.remove('d-none');
+    }
+    if (suggestedList) {
+      suggestedList.classList.add('d-none');
+      suggestedList.innerHTML = '';
+    }
+    if (publishBtn) publishBtn.disabled = true;
+  }
+
+  if (timelineBtn && addForm) {
+    timelineBtn.addEventListener('click', () => {
+      resetForms();
       new bootstrap.Tab(createTab).show();
       modal.show();
     });
   }
 
-  // open modal for AI suggestions
-  if (suggestBtn && suggestForm) {
-    suggestBtn.addEventListener('click', () => {
-      suggestForm.reset();
-      if (titleField) {
-        const t = suggestBtn.dataset.eventTitle || '';
-        titleField.value = t;
-        titleField.readOnly = !!t;
-      }
-      suggestForm.classList.remove('d-none');
-      suggestedList.innerHTML = '';
-      suggestedList.classList.add('d-none');
-      publishBtn.disabled = true;
-      new bootstrap.Tab(fetchTab).show();
-      modal.show();
+  async function addEventToTopic(eventUuid) {
+    if (!topicUuid) return;
+    await fetch('/api/topics/add-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic_uuid: topicUuid, event_uuid: eventUuid })
     });
   }
 
@@ -96,10 +91,11 @@ const CONFIDENCE_THRESHOLD = 0.85;
       body: JSON.stringify({ title, date, confidence: valData.confidence })
     });
     const created = await createRes.json();
+    if (topicUuid) await addEventToTopic(created.uuid);
     if (valData.confidence < CONFIDENCE_THRESHOLD) {
       alert('Event created as draft due to low confidence.');
     }
-    window.location.href = created.url;
+    window.location.reload();
   }
 
   // handle suggestion fetching
@@ -112,9 +108,8 @@ const CONFIDENCE_THRESHOLD = 0.85;
       publishBtn.disabled = true;
       if (fetchBtn) fetchBtn.disabled = true;
       try {
-        const btnTitle = suggestBtn ? suggestBtn.dataset.eventTitle : '';
-        const title = titleField ? titleField.value : btnTitle;
         const payload = {};
+        const title = titleField ? titleField.value : '';
         if (title) payload.related_event = title;
         const locality = document.getElementById('suggestLocality').value;
         const startDate = document.getElementById('suggestStartDate').value;
@@ -190,6 +185,9 @@ const CONFIDENCE_THRESHOLD = 0.85;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uuids })
         });
+        for (const uuid of uuids) {
+          await addEventToTopic(uuid);
+        }
       }
       modal.hide();
       window.location.reload();
