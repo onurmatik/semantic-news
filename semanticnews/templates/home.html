@@ -31,11 +31,6 @@
         <div class="col-12 col-md-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{%  trans "Agenda" %}</h2>
-                {% if user.is_authenticated %}
-                <button id="addEventBtn" class="btn btn-sm btn-outline-secondary" title="{% trans 'Add event' %}">
-                    <i class="bi bi-plus-lg"></i>
-                </button>
-                {% endif %}
             </div>
             {% for event in events %}
                 {% include "agenda/event_list_item.html" %}
@@ -50,16 +45,9 @@
 
 {% include "topics/create_topic_modal.html" %}
 
-{% if user.is_authenticated %}
-  {% include "agenda/event_modal.html" %}
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
-    {% if user.is_authenticated %}
-    <script src="{% static 'agenda/event_modal.js' %}"></script>
-    {% endif %}
     {% include "topics/create_topic_js.html" %}
 {% endblock %}
