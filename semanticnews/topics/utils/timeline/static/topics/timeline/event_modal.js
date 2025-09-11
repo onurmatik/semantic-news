@@ -16,6 +16,7 @@ const CONFIDENCE_THRESHOLD = 0.85;
   const suggestForm = document.getElementById('suggestEventsForm');
   const suggestedList = document.getElementById('suggestedEventsList');
   const publishBtn = document.getElementById('publishSelectedEventsBtn');
+  const titleField = document.getElementById('suggestRelatedEvent');
 
   let suggestions = [];
 
@@ -104,6 +105,8 @@ const CONFIDENCE_THRESHOLD = 0.85;
       if (fetchBtn) fetchBtn.disabled = true;
       try {
         const payload = { topic_uuid: topicUuid };
+        const title = titleField ? titleField.value : '';
+        if (title) payload.related_event = title;
         const locality = document.getElementById('suggestLocality').value;
         const startDate = document.getElementById('suggestStartDate').value;
         const endDate = document.getElementById('suggestEndDate').value;
