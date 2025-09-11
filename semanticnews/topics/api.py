@@ -5,7 +5,8 @@ from typing import Optional, List
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
 
-from .models import Topic, TopicEvent
+from .models import Topic
+from .utils.timeline.models import TopicEvent
 from .utils.recaps.api import router as recaps_router
 from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router

@@ -14,6 +14,7 @@ from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 from .utils.relations.models import TopicEntityRelation
+from .utils.timeline.models import TopicEvent
 
 
 class Topic(models.Model):
@@ -208,59 +209,6 @@ class Topic(models.Model):
             )
 
         return cloned
-
-
-class TopicEvent(models.Model):
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
-
-    role = models.CharField(
-        max_length=20,
-        choices=[('support','Support'), ('counter','Counter'), ('context','Context')],
-        default='support'
-    )
-    source = models.CharField(
-        max_length=10,
-        choices=[('user','User'), ('agent','Agent'), ('rule','Rule')],
-        default='user'
-    )
-
-    relevance = models.FloatField(
-        null=True, blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-    )
-
-    significance = models.PositiveSmallIntegerField(choices=(
-        (1, 'Normal'),
-        (2, 'High'),
-        (3, 'Very high'),
-    ), default=1)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        blank=True, null=True, on_delete=models.SET_NULL
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['topic', 'event'], name='unique_topic_event')
-        ]
-        indexes = [
-            models.Index(fields=['topic']),
-            models.Index(fields=['event']),
-            models.Index(fields=['topic', 'significance']),
-        ]
-
-    def __str__(self):
-        return f"{self.topic} ↔ {self.event} ({self.role})"
-
-    def save(self, *args, **kwargs):
-        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.event, 'embedding', None) is not None:
-            self.relevance = get_relevance(self.topic.embedding, self.event.embedding)
-        super().save(*args, **kwargs)
-
-
 class TopicContent(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
     content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)

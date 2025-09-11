@@ -417,7 +417,8 @@ class SuggestViewAdminTests(TestCase):
 class EventDetailTopicTests(TestCase):
     def test_event_detail_shows_topics(self):
         from datetime import date
-        from semanticnews.topics.models import Topic, TopicEvent
+        from semanticnews.topics.models import Topic
+        from semanticnews.topics.utils.timeline.models import TopicEvent
 
         event = Event.objects.create(
             title="My Event",
