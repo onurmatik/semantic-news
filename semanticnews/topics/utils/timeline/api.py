@@ -96,8 +96,14 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
             input=prompt,
             text_format=TimelineEventList,
         )
-
-    return response.output_parsed.events
+    existing_titles = set(
+        title.lower()
+        for title in topic.events.values_list("title", flat=True)
+    )
+    suggestions = [
+        ev for ev in response.output_parsed.events if ev.title.lower() not in existing_titles
+    ]
+    return suggestions
 
 
 class TimelineCreateRequest(Schema):

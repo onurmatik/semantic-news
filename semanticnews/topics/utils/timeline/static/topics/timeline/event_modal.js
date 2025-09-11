@@ -25,10 +25,6 @@ const CONFIDENCE_THRESHOLD = 0.85;
 
   function resetForms() {
     if (addForm) addForm.reset();
-    if (titleField) {
-      titleField.value = '';
-      titleField.readOnly = false;
-    }
     if (similarContainer) similarContainer.innerHTML = '';
     if (suggestForm) {
       suggestForm.reset();
