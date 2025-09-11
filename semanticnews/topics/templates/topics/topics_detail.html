@@ -114,6 +114,10 @@
 
         {% include "topics/recaps/card.html" %}
 
+        {% include "topics/data/card.html" %}
+
+        {% include "topics/data/visualization_card.html" %}
+
         {% include "topics/narratives/card.html" %}
 
         {% include "topics/relations/card.html" %}
@@ -234,6 +238,7 @@
     <script src="{% static 'topics/generation_button.js' %}"></script>
     {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
+    {% include "topics/data/scripts.html" %}
     {% include "topics/narratives/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}

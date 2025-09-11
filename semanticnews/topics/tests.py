@@ -3,6 +3,9 @@ from datetime import timedelta
 from types import SimpleNamespace
 import tempfile
 import shutil
+import json
+import html
+import re
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -18,6 +21,7 @@ from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
+from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 
 
 class CreateTopicAPITests(TestCase):
@@ -266,6 +270,272 @@ class CreateRecapAPITests(TestCase):
         self.assertEqual(response.json(), {"recap": "My recap"})
         self.assertEqual(TopicRecap.objects.count(), 1)
         self.assertEqual(TopicRecap.objects.first().recap, "My recap")
+
+
+class AnalyzeDataAPITests(TestCase):
+    """Tests for the data analysis API endpoint."""
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_passes_extra_instructions_to_ai(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {"insights": ["I1"]}
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "data_ids": [data.id],
+            "instructions": "Focus on anomalies",
+        }
+        self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        args, kwargs = mock_client.responses.parse.call_args
+        self.assertIn("Focus on anomalies", kwargs["input"])
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_returns_ai_insights_without_saving(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {"insights": ["I1", "I2"]}
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "data_ids": [data.id]}
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"insights": ["I1", "I2"]})
+        self.assertEqual(topic.data_insights.count(), 0)
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_limits_number_of_insights(self, mock_embedding, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "insights": ["I1", "I2", "I3", "I4"]
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user(
+            "user", "user@example.com", "password"
+        )
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "data_ids": [data.id]}
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"insights": ["I1", "I2", "I3"]})
+
+    @patch(
+        "semanticnews.topics.models.Topic.get_embedding",
+        return_value=[0.0] * 1536,
+    )
+    def test_saves_provided_insights(self, mock_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "data_ids": [data.id],
+            "insights": ["Insight A", "Insight B"],
+        }
+        response = self.client.post(
+            "/api/topics/data/analyze", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(topic.data_insights.count(), 2)
+        self.assertListEqual(
+            list(topic.data_insights.values_list("insight", flat=True)),
+            ["Insight A", "Insight B"],
+        )
+        for insight in topic.data_insights.all():
+            self.assertListEqual(
+                list(insight.sources.values_list("id", flat=True)),
+                [data.id],
+            )
+
+
+class VisualizeDataAPITests(TestCase):
+    """Tests for the data visualization API endpoint."""
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    def test_creates_visualization(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "chart_type": "bar",
+            "data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
+        insight.sources.add(data)
+
+        payload = {"topic_uuid": str(topic.uuid), "insight_id": insight.id}
+        response = self.client.post(
+            "/api/topics/data/visualize", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TopicDataVisualization.objects.count(), 1)
+        viz = TopicDataVisualization.objects.first()
+        self.assertEqual(viz.chart_type, "bar")
+        self.assertEqual(response.json(), {
+            "id": viz.id,
+            "insight": "Insight",
+            "chart_type": "bar",
+            "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        })
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    def test_creates_visualization_with_chart_type(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "chart_type": "pie",
+            "data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        data = TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
+        insight.sources.add(data)
+
+        payload = {"topic_uuid": str(topic.uuid), "insight_id": insight.id, "chart_type": "pie"}
+        response = self.client.post(
+            "/api/topics/data/visualize", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TopicDataVisualization.objects.count(), 1)
+        viz = TopicDataVisualization.objects.first()
+        self.assertEqual(viz.chart_type, "pie")
+        self.assertEqual(response.json(), {
+            "id": viz.id,
+            "insight": "Insight",
+            "chart_type": "pie",
+            "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        })
+
+    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    def test_visualizes_custom_insight(self, mock_openai):
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = {
+            "chart_type": "bar",
+            "data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        }
+        mock_client.responses.parse.return_value = mock_response
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        TopicData.objects.create(
+            topic=topic,
+            url="http://example.com",
+            data={"headers": ["A"], "rows": [["1"]]},
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "insight": "Custom"}
+        response = self.client.post(
+            "/api/topics/data/visualize", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TopicDataVisualization.objects.count(), 1)
+        viz = TopicDataVisualization.objects.first()
+        self.assertEqual(viz.chart_type, "bar")
+        self.assertIsNone(viz.insight)
+        self.assertEqual(response.json(), {
+            "id": viz.id,
+            "insight": "Custom",
+            "chart_type": "bar",
+            "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        })
 
 
 class TopicDetailViewTests(TestCase):
@@ -648,9 +918,37 @@ class TopicUpdatedAtTests(TestCase):
                 image=SimpleUploadedFile("test.gif", image_bytes, content_type="image/gif"),
             )
 
-            topic.refresh_from_db()
-            self.assertNotEqual(initial, topic.updated_at)
-            self.assertEqual(topic.updated_at, later)
+        topic.refresh_from_db()
+        self.assertNotEqual(initial, topic.updated_at)
+        self.assertEqual(topic.updated_at, later)
+
+
+class VisualizationCardTemplateTests(TestCase):
+    """Ensure visualization data is serialized as JSON for the topic detail view."""
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_chart_data_serialized_as_json(self, _mock_topic_embedding):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
+        TopicDataVisualization.objects.create(
+            topic=topic,
+            insight=insight,
+            chart_type="bar",
+            chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        )
+
+        response = self.client.get(topic.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+
+        html_content = response.content.decode()
+        match = re.search(r'data-chart="([^"]+)"', html_content)
+        self.assertIsNotNone(match)
+        chart_value = html.unescape(match.group(1))
+        json.loads(chart_value)
 
 
 class TopicEmbeddingUpdateTests(TestCase):

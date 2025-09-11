@@ -1,0 +1,33 @@
+{% load i18n %}
+<div class="modal fade" id="dataModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Add data" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dataForm">
+                    <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <div class="mb-3">
+                        <label for="dataUrl" class="form-label">{% trans "Data source URL" %}</label>
+                        <input type="url" class="form-control" id="dataUrl" name="url">
+                    </div>
+                    <div class="mb-3 d-none" id="dataNameWrapper">
+                        <label for="dataName" class="form-label">{% trans "Data name" %}</label>
+                        <input type="text" class="form-control" id="dataName" name="name">
+                    </div>
+                    <div class="mb-3">
+                        <div id="dataPreview" class="table-responsive"></div>
+                    </div>
+                    <div class="modal-footer px-0">
+                        <button type="button" class="btn btn-outline-secondary float-start me-auto" id="fetchDataBtn">
+                            {% trans "Fetch" %}
+                        </button>
+                        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
