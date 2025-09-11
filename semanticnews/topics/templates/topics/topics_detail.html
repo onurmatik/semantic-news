@@ -135,45 +135,12 @@
                 </h6>
             </div>
             {% for event in related_events %}
-                {% if user == topic.created_by %}
-                    {% if topic.status == 'archived' %}
-                        {% include "agenda/event_list_item.html" with event=event show_remove=True show_add=False archived=True %}
-                    {% else %}
-                        {% include "agenda/event_list_item.html" with event=event show_remove=True show_add=False archived=False %}
-                    {% endif %}
-                {% else %}
-                    {% if topic.status == 'archived' %}
-                        {% include "agenda/event_list_item.html" with event=event show_add=True topic=None archived=True %}
-                    {% else %}
-                        {% include "agenda/event_list_item.html" with event=event show_add=True topic=None archived=False %}
-                    {% endif %}
-                {% endif %}
+                {% include "agenda/event_list_item.html" with event=event show_remove=False show_add=False %}
             {% empty %}
                 <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
             {% endfor %}
           </div>
         </div>
-
-        {% if user == topic.created_by %}
-        <div class="card mt-3">
-          <div class="card-body" id="suggestedEventsContainer" data-empty-message="{% trans 'No suggestions' %}">
-            <div class="card-title d-flex justify-content-between">
-                <h6 class="fs-5">
-                    {% trans "Suggested events" %}
-                </h6>
-            </div>
-            {% for event in suggested_events %}
-                {% if topic.status == 'archived' %}
-                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=True %}
-                {% else %}
-                    {% include "agenda/event_list_item.html" with event=event show_add=True archived=False %}
-                {% endif %}
-            {% empty %}
-                <p class="text-secondary small mb-0 empty-msg">{% trans "No suggestions" %}</p>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
 
         {% if timeline %}
 
