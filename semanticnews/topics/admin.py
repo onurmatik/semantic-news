@@ -1,9 +1,10 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, TopicContent, TopicEntity, TopicEvent
+from .models import Topic, TopicContent, TopicEntity
 from .utils.recaps import admin as recaps_admin  # noqa: F401
 from .utils.narratives import admin as narratives_admin  # noqa: F401
 from .utils.relations import admin as relations_admin  # noqa: F401
+from .utils.timeline import admin as timeline_admin  # noqa: F401
 
 
 @admin.register(Topic)
@@ -45,10 +46,3 @@ class TopicEntityAdmin(admin.ModelAdmin):
     list_filter = ("created_at",)
     raw_id_fields = ("topic", "entity", "created_by")
     readonly_fields = ("created_at",)
-
-
-@admin.register(TopicEvent)
-class TopicEventAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'event', 'source', 'relevance', 'significance')
-    list_filter = ('source', 'significance')
-    search_fields = ('topic__title', 'event__title')

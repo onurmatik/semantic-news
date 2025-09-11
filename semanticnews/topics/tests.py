@@ -16,7 +16,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 
-from .models import Topic, TopicEvent, TopicContent, TopicKeyword
+from .models import Topic, TopicContent, TopicKeyword
+from .utils.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
