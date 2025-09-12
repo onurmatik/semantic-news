@@ -1,5 +1,4 @@
-from typing import Optional
-
+from typing import Optional, Literal
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
@@ -8,6 +7,8 @@ from .models import TopicRecap
 from ....openai import OpenAI
 
 router = Router()
+
+StatusLiteral = Literal["finished", "error"]
 
 
 class TopicRecapCreateRequest(Schema):
@@ -21,6 +22,9 @@ class TopicRecapCreateResponse(Schema):
     """Response returned after creating or suggesting a recap."""
 
     recap: str
+    status: StatusLiteral
+    error_message: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 class _TopicRecapResponse(Schema):
@@ -40,11 +44,8 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    if payload.recap:
-        TopicRecap.objects.create(
-            topic=topic, recap=payload.recap, status="finished"
-        )
-        return TopicRecapCreateResponse(recap=payload.recap)
+    # Create immediately; default status is "in_progress"
+    recap_obj = TopicRecap.objects.create(topic=topic, recap="")
 
     content_md = topic.build_context()
 
@@ -56,11 +57,32 @@ def create_recap(request, payload: TopicRecapCreateRequest):
         f"\n\n{content_md}"
     )
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model="gpt-5",
-            input=prompt,
-            text_format=_TopicRecapResponse,
-        )
+    try:
+        with OpenAI() as client:
+            response = client.responses.parse(
+                model="gpt-5",
+                input=prompt,
+                text_format=_TopicRecapResponse,
+            )
 
-    return TopicRecapCreateResponse(recap=response.output_parsed.recap)
+        recap_text = response.output_parsed.recap
+        recap_obj.recap = recap_text
+        recap_obj.status = "finished"
+        recap_obj.error_message = None
+        recap_obj.error_code = None
+        recap_obj.save(update_fields=["recap", "status", "error_message", "error_code"])
+
+        status: StatusLiteral = "finished"
+        return TopicRecapCreateResponse(recap=recap_text, status=status)
+
+    except Exception as e:
+        error_code = getattr(e, "code", None) or "openai_error"
+        error_message = str(e)
+
+        recap_obj.status = "error"
+        recap_obj.error_message = error_message
+        recap_obj.error_code = error_code
+        recap_obj.save(update_fields=["status", "error_message", "error_code"])
+
+        status: StatusLiteral = "error"
+        return TopicRecapCreateResponse(recap=recap_obj.recap or "", status=status)
