@@ -26,6 +26,12 @@ class TimelineSuggestedEvent(Schema):
     sources: List[str] = []
 
 
+class TimelineSuggestedEventOut(TimelineSuggestedEvent):
+    """Schema representing a suggested event with its created UUID."""
+
+    uuid: str
+
+
 class TimelineEventList(Schema):
     """Wrapper for a list of timeline events."""
 
@@ -96,9 +102,9 @@ class TimelineSuggestRequest(Schema):
     limit: int = 5
 
 
-@router.post("/suggest", response=List[TimelineSuggestedEvent])
+@router.post("/suggest", response=List[TimelineSuggestedEventOut])
 def suggest_topic_events(request, payload: TimelineSuggestRequest):
-    """Return AI-suggested events related to a topic."""
+    """Return AI-suggested events related to a topic and create Event objects."""
 
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
@@ -144,6 +150,8 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
     if context:
         prompt += "\n\nContext:\n" + context
 
+    created_events: List[TimelineSuggestedEventOut] = []
+
     with OpenAI() as client:
         response = client.responses.parse(
             model="gpt-5",
@@ -151,21 +159,70 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
             input=prompt,
             text_format=TimelineEventList,
         )
-    existing_titles = set(
-        title.lower()
-        for title in topic.events.values_list("title", flat=True)
-    )
-    suggestions = [
-        ev for ev in response.output_parsed.events if ev.title.lower() not in existing_titles
-    ]
-    return suggestions
+
+        existing_titles = set(
+            title.lower()
+            for title in topic.events.values_list("title", flat=True)
+        )
+        suggestions = [
+            ev for ev in response.output_parsed.events if ev.title.lower() not in existing_titles
+        ]
+
+        for ev in suggestions:
+            text = f"{ev.title} - {ev.date}\n{', '.join(ev.categories or [])}"
+            embedding = client.embeddings.create(
+                input=text,
+                model="text-embedding-3-small",
+            ).data[0].embedding
+
+            existing_event = (
+                Event.objects.filter(date=ev.date)
+                .exclude(embedding__isnull=True)
+                .annotate(distance=CosineDistance("embedding", embedding))
+                .filter(distance__lt=0.1)
+                .order_by("distance")
+                .first()
+            )
+
+            if existing_event:
+                event = existing_event
+            else:
+                event = Event.objects.create(
+                    title=ev.title,
+                    date=ev.date,
+                    status="published",
+                    created_by=user,
+                )
+
+                for url in ev.sources or []:
+                    source_obj, _ = Source.objects.get_or_create(url=url)
+                    event.sources.add(source_obj)
+
+                for name in ev.categories or []:
+                    category, _ = Category.objects.get_or_create(name=name)
+                    event.categories.add(category)
+
+                event.embedding = embedding
+                event.save(update_fields=["embedding"])
+
+            created_events.append(
+                TimelineSuggestedEventOut(
+                    uuid=str(event.uuid),
+                    title=event.title,
+                    date=event.date,
+                    categories=ev.categories,
+                    sources=ev.sources,
+                )
+            )
+
+    return created_events
 
 
 class TimelineCreateRequest(Schema):
-    """Request body for creating selected suggested events."""
+    """Request body for relating selected events to the topic."""
 
     topic_uuid: str
-    events: List[TimelineSuggestedEvent]
+    event_uuids: List[str]
 
 
 class TimelineCreatedEvent(Schema):
@@ -178,7 +235,7 @@ class TimelineCreatedEvent(Schema):
 
 @router.post("/create", response=List[TimelineCreatedEvent])
 def create_topic_events(request, payload: TimelineCreateRequest):
-    """Create events from AI suggestions and relate them to the topic."""
+    """Relate selected events to the topic as TopicEvents."""
 
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
@@ -190,31 +247,16 @@ def create_topic_events(request, payload: TimelineCreateRequest):
         raise HttpError(404, "Topic not found")
 
     created: List[TimelineCreatedEvent] = []
-    for ev in payload.events:
-        event = Event.objects.create(
-            title=ev.title,
-            date=ev.date,
-            status="published",
-            created_by=user,
-        )
+    for event_uuid in payload.event_uuids:
+        try:
+            event = Event.objects.get(uuid=event_uuid)
+        except Event.DoesNotExist:
+            raise HttpError(404, "Event not found")
 
-        for url in ev.sources or []:
-            source_obj, _ = Source.objects.get_or_create(url=url)
-            event.sources.add(source_obj)
-
-        for name in ev.categories or []:
-            category, _ = Category.objects.get_or_create(name=name)
-            event.categories.add(category)
-
-        event.embedding = event.get_embedding()
-        if event.embedding is not None:
-            event.save(update_fields=["embedding"])
-
-        TopicEvent.objects.create(
+        TopicEvent.objects.get_or_create(
             topic=topic,
             event=event,
-            source="agent",
-            created_by=user,
+            defaults={"source": "agent", "created_by": user},
         )
 
         created.append(
