@@ -9,6 +9,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('recapForm');
   const suggestionBtn = document.getElementById('fetchRecapSuggestion');
   const recapTextarea = document.getElementById('recapText');
+  const recapCardContainer = document.getElementById('topicRecapContainer');
+  const recapCardText = document.getElementById('topicRecapText');
+
+  // ---- Helper: normalize text for equality checks
+  const norm = (s) => (s || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // ---- Keep a baseline = "latest recap" from server
+  let latestRecapBaseline = recapTextarea ? norm(recapTextarea.value) : '';
+
+  // ---- Update button enable/disable based on textarea vs baseline
+  const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+  const updateSubmitButtonState = () => {
+    if (!submitBtn || !recapTextarea) return;
+    submitBtn.disabled = norm(recapTextarea.value) === latestRecapBaseline;
+  };
+
+  if (recapTextarea) {
+    recapTextarea.addEventListener('input', updateSubmitButtonState);
+    // initial state
+    updateSubmitButtonState();
+  }
+
+  // ---- Very light Markdown-to-HTML for bold + newlines (optional)
+  const renderMarkdownLite = (md) => {
+    if (!md) return '';
+    // bold **text**
+    let html = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // paragraphs by double newlines
+    html = html.split(/\n{2,}/).map(p => `<p class="mb-2">${p.replace(/\n/g, '<br>')}</p>`).join('');
+    return html;
+  };
+
+  // ---- Show/Update recap card content without page reload
+  const showRecapCard = (text) => {
+    if (!recapCardContainer || !recapCardText) return;
+    // Unhide if it was hidden via inline style
+    recapCardContainer.style.display = '';
+    recapCardText.innerHTML = renderMarkdownLite(text);
+  };
 
   if (suggestionBtn && recapTextarea && form) {
     const recapModalEl = document.getElementById('recapModal');
@@ -25,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       suggestionBtn.disabled = true;
 
       const topicUuid = form.querySelector('input[name="topic_uuid"]').value;
+
       try {
         const res = await fetch('/api/topics/recap/create', {
           method: 'POST',
@@ -36,10 +80,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = await res.json();
 
-        // Fill the textarea so user sees the AI result when reopening the modal
+        // Update textarea so user can edit if they want
         recapTextarea.value = data.recap || '';
 
-        // Keep the main Recap button green to indicate "AI done"
+        // Update the visible recap card on the page right away
+        showRecapCard(data.recap || '');
+
+        // Move the baseline to the new value and disable the Update button
+        latestRecapBaseline = norm(data.recap || '');
+        updateSubmitButtonState();
+
         controller.showSuccess();
       } catch (err) {
         console.error(err);
@@ -54,10 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-
-      // Start loading, close modal
+      submitBtn && (submitBtn.disabled = true);
       controller.showLoading();
 
       const recapModalEl = document.getElementById('recapModal');
@@ -76,15 +123,22 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ topic_uuid: topicUuid, recap })
         });
         if (!res.ok) throw new Error('Request failed');
-        await res.json();
-        // Return to neutral/stateless
+
+        const data = await res.json();
+
+        // Update baseline and card to the newly saved content
+        latestRecapBaseline = norm(data.recap || recap || '');
+        updateSubmitButtonState();
+        showRecapCard(data.recap || recap || '');
+
         controller.reset();
-        window.location.reload();
+
+        // window.location.reload();
       } catch (err) {
         console.error(err);
         controller.showError();
       } finally {
-        submitBtn.disabled = false;
+        submitBtn && (submitBtn.disabled = norm(recapTextarea.value) === latestRecapBaseline);
       }
     });
   }

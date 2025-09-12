@@ -44,6 +44,15 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    if payload.recap is not None:
+        recap_obj = TopicRecap.objects.create(
+            topic=topic,
+            recap=payload.recap,
+            status="finished",
+        )
+        status: StatusLiteral = "finished"
+        return TopicRecapCreateResponse(recap=recap_obj.recap, status=status)
+
     # Create immediately; default status is "in_progress"
     recap_obj = TopicRecap.objects.create(topic=topic, recap="")
 
