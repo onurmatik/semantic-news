@@ -131,20 +131,20 @@
 
     <div class="col-12 col-lg-4">
 
+        {% if related_events %}
         <div class="card mt-3">
           <div class="card-body" id="relatedEventsContainer" data-empty-message="{% trans 'No related events' %}">
             <div class="card-title d-flex justify-content-between">
                 <h6 class="fs-5">
-                    {% trans "Related events" %}
+                    {% trans "Timeline" %}
                 </h6>
             </div>
             {% for event in related_events %}
                 {% include "agenda/event_list_item.html" with event=event show_remove=False show_add=False %}
-            {% empty %}
-                <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
             {% endfor %}
           </div>
         </div>
+        {% endif %}
 
         {% if timeline %}
 

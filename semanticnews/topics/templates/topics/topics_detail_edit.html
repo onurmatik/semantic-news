@@ -86,31 +86,27 @@
 
 </div>
 
-{% if user == topic.created_by %}
+<div class="alert alert-warning p-2" role="toolbar">
 
-    <div class="alert alert-warning p-2" role="toolbar">
+    <div class="d-flex justify-content-between">
 
-        <div class="d-flex justify-content-between">
+        <div class="gap-2">
+            {% include "topics/recaps/button.html" %}
+            {% include "topics/data/button.html" %}
+            {% include "topics/narratives/button.html" %}
+            {% include "topics/images/button.html" %}
+            {% include "topics/relations/button.html" %}
+            {% include "topics/timeline/button.html" %}
+            {% include "topics/mcps/button.html" %}
+        </div>
 
-            <div class="gap-2">
-                {% include "topics/recaps/button.html" %}
-                {% include "topics/data/button.html" %}
-                {% include "topics/narratives/button.html" %}
-                {% include "topics/images/button.html" %}
-                {% include "topics/relations/button.html" %}
-                {% include "topics/timeline/button.html" %}
-                {% include "topics/mcps/button.html" %}
-            </div>
-
-            <div class="gap-2">
-                <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
-            </div>
-
+        <div class="gap-2">
+            <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
         </div>
 
     </div>
 
-{% endif %}
+</div>
 
 <div class="row">
 
@@ -138,33 +134,16 @@
 
     <div class="col-12 col-lg-4">
 
+        {% if related_events %}
         <div class="card mt-3">
           <div class="card-body" id="relatedEventsContainer" data-empty-message="{% trans 'No related events' %}">
             <div class="card-title d-flex justify-content-between">
                 <h6 class="fs-5">
-                    {% trans "Related events" %}
+                    {% trans "Timeline" %}
                 </h6>
             </div>
             {% for event in related_events %}
-                {% include "agenda/event_list_item.html" with event=event show_remove=True show_add=True %}
-            {% empty %}
-                <p class="text-secondary small mb-0 empty-msg">{% trans "No related events" %}</p>
-            {% endfor %}
-          </div>
-        </div>
-
-        {% if user == topic.created_by %}
-        <div class="card mt-3">
-          <div class="card-body" id="suggestedEventsContainer" data-empty-message="{% trans 'No suggestions' %}">
-            <div class="card-title d-flex justify-content-between">
-                <h6 class="fs-5">
-                    {% trans "Suggested events" %}
-                </h6>
-            </div>
-            {% for event in suggested_events %}
-                {% include "agenda/event_list_item.html" with event=event show_add=True topic=topic %}
-            {% empty %}
-                <p class="text-secondary small mb-0 empty-msg">{% trans "No suggestions" %}</p>
+                {% include "agenda/event_list_item.html" with event=event show_remove=True show_add=False %}
             {% endfor %}
           </div>
         </div>
