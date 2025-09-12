@@ -6,6 +6,17 @@ class TopicImage(models.Model):
     image = models.ImageField(upload_to='topics_images')
     thumbnail = models.ImageField(upload_to='topics_images', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("in_progress", "In progress"),
+            ("finished", "Finished"),
+            ("error", "Error"),
+        ],
+        default="in_progress",
+    )
+    error_message = models.TextField(blank=True, null=True)
+    error_code = models.CharField(blank=True, null=True, max_length=20)
 
     class Meta:
         app_label = 'topics'

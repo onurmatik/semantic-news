@@ -3,12 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap'];
+  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation', 'image'];
 
   const mapping = {
     recap: 'recapButton',
     narrative: 'narrativeButton',
     relation: 'relationButton',
+    image: 'imageButton',
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;

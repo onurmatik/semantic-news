@@ -46,13 +46,13 @@ def extract_entity_relations(request, payload: TopicEntityRelationCreateRequest)
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    if payload.relations:
-        TopicEntityRelation.objects.create(
+    if payload.relations is not None:
+        relation_obj = TopicEntityRelation.objects.create(
             topic=topic,
             relations=[r.dict() for r in payload.relations],
             status="finished",
         )
-        return TopicEntityRelationCreateResponse(relations=payload.relations)
+        return TopicEntityRelationCreateResponse(relations=[EntityRelation(**r) for r in relation_obj.relations])
 
     content_md = topic.build_context()
     prompt = (
@@ -63,18 +63,28 @@ def extract_entity_relations(request, payload: TopicEntityRelationCreateRequest)
         f"\n\n{content_md}"
     )
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model="gpt-5",
-            input=prompt,
-            text_format=_TopicEntityRelationResponse,
-        )
-
-    relations = response.output_parsed.relations
-    TopicEntityRelation.objects.create(
-        topic=topic,
-        relations=[r.dict() for r in relations],
-        status="finished",
-    )
-
-    return TopicEntityRelationCreateResponse(relations=relations)
+    relation_obj = TopicEntityRelation.objects.create(topic=topic, relations=[])
+    try:
+        with OpenAI() as client:
+            response = client.responses.parse(
+                model="gpt-5",
+                input=prompt,
+                text_format=_TopicEntityRelationResponse,
+            )
+        relations = response.output_parsed.relations
+        relation_obj.relations = [r.dict() for r in relations]
+        relation_obj.status = "finished"
+        relation_obj.error_message = None
+        relation_obj.error_code = None
+        relation_obj.save(update_fields=[
+            "relations",
+            "status",
+            "error_message",
+            "error_code",
+        ])
+        return TopicEntityRelationCreateResponse(relations=relations)
+    except Exception as e:
+        relation_obj.status = "error"
+        relation_obj.error_message = str(e)
+        relation_obj.save(update_fields=["status", "error_message"])
+        return TopicEntityRelationCreateResponse(relations=[EntityRelation(**r) for r in relation_obj.relations])

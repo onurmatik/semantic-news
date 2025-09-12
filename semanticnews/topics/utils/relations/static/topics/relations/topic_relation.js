@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buttonId: 'relationButton',
     spinnerId: 'relationSpinner',
     errorIconId: 'relationErrorIcon',
+    successIconId: 'relationSuccessIcon',
   });
 
   const form = document.getElementById('relationForm');
@@ -57,11 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
+        controller.showSuccess();
         window.location.reload();
       } catch (err) {
         console.error(err);
         submitBtn.disabled = false;
-        controller.hideLoading();
+        controller.showError();
       }
     });
   }

@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buttonId: 'narrativeButton',
     spinnerId: 'narrativeSpinner',
     errorIconId: 'narrativeErrorIcon',
+    successIconId: 'narrativeSuccessIcon',
   });
 
   const form = document.getElementById('narrativeForm');
@@ -52,12 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
+        controller.showSuccess();
         window.location.reload();
       } catch (err) {
         console.error(err);
-
         submitBtn.disabled = false;
-        controller.hideLoading();
+        controller.showError();
       }
     });
   }

@@ -1,5 +1,7 @@
 from typing import Optional
 
+from typing import Optional
+
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
@@ -40,11 +42,11 @@ def create_narrative(request, payload: TopicNarrativeCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    if payload.narrative:
-        TopicNarrative.objects.create(
+    if payload.narrative is not None:
+        narrative_obj = TopicNarrative.objects.create(
             topic=topic, narrative=payload.narrative, status="finished"
         )
-        return TopicNarrativeCreateResponse(narrative=payload.narrative)
+        return TopicNarrativeCreateResponse(narrative=narrative_obj.narrative)
 
     content_md = topic.build_context()
 
@@ -56,11 +58,28 @@ def create_narrative(request, payload: TopicNarrativeCreateRequest):
         f"\n\n{content_md}"
     )
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model="gpt-5",
-            input=prompt,
-            text_format=_TopicNarrativeResponse,
-        )
-
-    return TopicNarrativeCreateResponse(narrative=response.output_parsed.narrative)
+    narrative_obj = TopicNarrative.objects.create(topic=topic, narrative="")
+    try:
+        with OpenAI() as client:
+            response = client.responses.parse(
+                model="gpt-5",
+                input=prompt,
+                text_format=_TopicNarrativeResponse,
+            )
+        narrative_text = response.output_parsed.narrative
+        narrative_obj.narrative = narrative_text
+        narrative_obj.status = "finished"
+        narrative_obj.error_message = None
+        narrative_obj.error_code = None
+        narrative_obj.save(update_fields=[
+            "narrative",
+            "status",
+            "error_message",
+            "error_code",
+        ])
+        return TopicNarrativeCreateResponse(narrative=narrative_text)
+    except Exception as e:
+        narrative_obj.status = "error"
+        narrative_obj.error_message = str(e)
+        narrative_obj.save(update_fields=["status", "error_message"])
+        return TopicNarrativeCreateResponse(narrative=narrative_obj.narrative or "")

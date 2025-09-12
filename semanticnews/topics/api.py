@@ -40,6 +40,7 @@ class GenerationStatusResponse(Schema):
     recap: Optional[GenerationStatus] = None
     narrative: Optional[GenerationStatus] = None
     relation: Optional[GenerationStatus] = None
+    image: Optional[GenerationStatus] = None
 
 
 @api.get("/{topic_uuid}/generation-status", response=GenerationStatusResponse)
@@ -69,6 +70,7 @@ def generation_status(request, topic_uuid: str):
         recap=latest(topic.recaps),
         narrative=latest(topic.narratives),
         relation=latest(topic.entity_relations),
+        image=latest(topic.images),
     )
 
 
