@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('recapForm');
   const suggestionBtn = document.getElementById('fetchRecapSuggestion');
   const recapTextarea = document.getElementById('recapText');
+  const recapMDE = recapTextarea && window.EasyMDE ? new EasyMDE({ element: recapTextarea }) : null;
+  const getRecapValue = () => recapMDE ? recapMDE.value() : (recapTextarea ? recapTextarea.value : '');
   const recapCardContainer = document.getElementById('topicRecapContainer');
   const recapCardText = document.getElementById('topicRecapText');
 
@@ -38,15 +40,19 @@ document.addEventListener('DOMContentLoaded', () => {
     .trim();
 
   // ---- Keep a baseline = "current recap shown"
-  let latestRecapBaseline = recapTextarea ? norm(recapTextarea.value) : '';
+  let latestRecapBaseline = recapTextarea ? norm(getRecapValue()) : '';
 
   // ---- Update button enable/disable based on textarea vs baseline
   const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   const updateSubmitButtonState = () => {
     if (!submitBtn || !recapTextarea) return;
-    submitBtn.disabled = norm(recapTextarea.value) === latestRecapBaseline;
+    submitBtn.disabled = norm(getRecapValue()) === latestRecapBaseline;
   };
-  recapTextarea && recapTextarea.addEventListener('input', updateSubmitButtonState);
+  if (recapMDE) {
+    recapMDE.codemirror.on('change', updateSubmitButtonState);
+  } else {
+    recapTextarea && recapTextarea.addEventListener('input', updateSubmitButtonState);
+  }
   updateSubmitButtonState();
 
   // ---- Very light Markdown-to-HTML for bold + newlines
@@ -93,11 +99,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const item = recaps[currentIndex];
 
     // Fill textarea & card
-    if (recapTextarea) recapTextarea.value = item.recap || '';
+    if (recapMDE) {
+      recapMDE.value(item.recap || '');
+    } else if (recapTextarea) {
+      recapTextarea.value = item.recap || '';
+    }
     showRecapCard(item.recap || '');
 
     // Baseline for Update button
-    latestRecapBaseline = norm(item.recap || '');
+    latestRecapBaseline = norm(getRecapValue());
     updateSubmitButtonState();
 
     // Pager UI + created_at
@@ -211,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/topics/recap/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, recap: recapTextarea.value })
+          body: JSON.stringify({ topic_uuid: topicUuid, recap: getRecapValue() })
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
@@ -223,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         controller.showError();
       } finally {
         // keep button disabled if no diff from baseline
-        submitBtn && (submitBtn.disabled = norm(recapTextarea.value) === latestRecapBaseline);
+        submitBtn && (submitBtn.disabled = norm(getRecapValue()) === latestRecapBaseline);
       }
     });
   }

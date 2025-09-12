@@ -9,11 +9,15 @@ window.setupTopicHistory = function (options) {
     renderItem,     // function(item, cardContent)
     parseInput,     // function(text) -> data for create
     controller,     // generation button controller
+    useMarkdown = false, // whether to enhance textarea with EasyMDE
   } = options;
 
   const form = document.getElementById(`${key}Form`);
   const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`);
   const textarea = document.getElementById(`${key}Text`);
+  const easyMDE = useMarkdown && textarea && window.EasyMDE ? new EasyMDE({ element: textarea }) : null;
+  const getValue = () => easyMDE ? easyMDE.value() : (textarea ? textarea.value : '');
+  const setValue = (v) => { if (easyMDE) easyMDE.value(v); else if (textarea) textarea.value = v; };
   const cardContainer = document.getElementById(`topic${capitalize(key)}Container`);
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
 
@@ -33,14 +37,18 @@ window.setupTopicHistory = function (options) {
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
 
   const norm = (s) => (s || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  let baseline = textarea ? norm(textarea.value) : '';
+  let baseline = textarea ? norm(getValue()) : '';
 
   const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   const updateSubmitButtonState = () => {
     if (!submitBtn || !textarea) return;
-    submitBtn.disabled = norm(textarea.value) === baseline;
+    submitBtn.disabled = norm(getValue()) === baseline;
   };
-  textarea && textarea.addEventListener('input', updateSubmitButtonState);
+  if (easyMDE) {
+    easyMDE.codemirror.on('change', updateSubmitButtonState);
+  } else {
+    textarea && textarea.addEventListener('input', updateSubmitButtonState);
+  }
   updateSubmitButtonState();
 
   const recs = [];
@@ -63,10 +71,10 @@ window.setupTopicHistory = function (options) {
     currentIndex = Math.max(0, Math.min(i, recs.length - 1));
     const item = recs[currentIndex];
 
-    if (textarea) textarea.value = getItemText(item);
+    if (textarea) setValue(getItemText(item));
     cardContainer && (cardContainer.style.display = '');
     renderItem && renderItem(item, cardContent);
-    baseline = norm(textarea ? textarea.value : '');
+    baseline = norm(getValue());
     updateSubmitButtonState();
 
     pagerEl && (pagerEl.style.display = '');
@@ -165,7 +173,7 @@ window.setupTopicHistory = function (options) {
       controller && controller.showLoading();
       try {
         const payload = { topic_uuid: topicUuid };
-        Object.assign(payload, parseInput(textarea.value));
+        Object.assign(payload, parseInput(getValue()));
         const res = await fetch(createUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -179,7 +187,7 @@ window.setupTopicHistory = function (options) {
         console.error(err);
         controller && controller.showError();
       } finally {
-        submitBtn && (submitBtn.disabled = norm(textarea.value) === baseline);
+        submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);
       }
     });
   }
