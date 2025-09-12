@@ -5,11 +5,62 @@ from django.db import models
 from django.urls import reverse
 from django.conf import settings
 from semanticnews.openai import OpenAI
-from pgvector.django import VectorField, HnswIndex
+from pgvector.django import VectorField, HnswIndex, L2Distance
 from slugify import slugify
 
 
+class EventManager(models.Manager):
+    """Custom manager for :class:`Event` objects."""
+
+    def get_or_create_semantic(
+        self,
+        *,
+        date,
+        embedding,
+        defaults=None,
+        distance_threshold=0.15,
+    ):
+        """Return an event matching ``date`` and ``embedding`` proximity.
+
+        This behaves similarly to :meth:`django.db.models.Manager.get_or_create`
+        but checks for an existing event on the given ``date`` whose embedding is
+        within ``distance_threshold`` of the supplied ``embedding``. If such an
+        event exists, it is returned; otherwise a new event is created using the
+        provided ``defaults``.
+
+        Args:
+            date (datetime.date): The date of the candidate event.
+            embedding (list[float]): Embedding vector for similarity search.
+            defaults (dict | None): Fields for creating a new event when no
+                similar event is found.
+            distance_threshold (float): Maximum L2 distance for considering two
+                events the same.
+
+        Returns:
+            tuple[Event, bool]: ``(event, created)`` where ``created`` indicates
+            whether a new event was created.
+        """
+
+        defaults = defaults or {}
+        qs = (
+            self.get_queryset()
+            .filter(date=date)
+            .exclude(embedding__isnull=True)
+            .annotate(distance=L2Distance("embedding", embedding))
+            .order_by("distance")
+        )
+
+        match = qs.filter(distance__lt=distance_threshold).first()
+        if match:
+            return match, False
+
+        params = {**defaults, "date": date, "embedding": embedding}
+        obj = self.create(**params)
+        return obj, True
+
+
 class Event(models.Model):
+    objects = EventManager()
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True, null=True)
