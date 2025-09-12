@@ -47,9 +47,15 @@ def create_image(self):
 
     # S3 safe file saving flow:
     # create the DB row without touching storage
-    topic_image = TopicImage(topic=self)
-    # push the binaries through the storage backend
-    topic_image.image.save(main_file.name, main_file, save=False)
-    topic_image.thumbnail.save(thumb_file.name, thumb_file, save=False)
-    # persist the row
-    topic_image.save()
+    topic_image = TopicImage.objects.create(topic=self)
+    try:
+        # push the binaries through the storage backend
+        topic_image.image.save(main_file.name, main_file, save=False)
+        topic_image.thumbnail.save(thumb_file.name, thumb_file, save=False)
+        topic_image.status = "finished"
+        topic_image.save()
+    except Exception as e:
+        topic_image.status = "error"
+        topic_image.error_message = str(e)
+        topic_image.save(update_fields=["status", "error_message"])
+        raise
