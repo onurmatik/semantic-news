@@ -20,6 +20,13 @@ window.setupTopicHistory = function (options) {
   const setValue = (v) => { if (easyMDE) easyMDE.value(v); else if (textarea) textarea.value = v; };
   const cardContainer = document.getElementById(`topic${capitalize(key)}Container`);
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
+  const modalEl = document.getElementById(`${key}Modal`);
+
+  if (easyMDE && modalEl) {
+    modalEl.addEventListener('shown.bs.modal', () => {
+      easyMDE.codemirror.refresh();
+    });
+  }
 
   const pagerEl = document.getElementById(`${key}Pager`);
   const prevBtn = document.getElementById(`${key}Prev`);
