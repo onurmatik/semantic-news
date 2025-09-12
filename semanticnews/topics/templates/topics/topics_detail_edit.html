@@ -123,9 +123,11 @@
 
         {% include "topics/data/visualization_card.html" %}
 
-        {% include "topics/narratives/card.html" %}
+        {% include "topics/narratives/card.html" with edit_mode=True %}
+        {% include "topics/narratives/confirm_delete.html" %}
 
-        {% include "topics/relations/card.html" %}
+        {% include "topics/relations/card.html" with edit_mode=True %}
+        {% include "topics/relations/confirm_delete.html" %}
 
     </div>
 

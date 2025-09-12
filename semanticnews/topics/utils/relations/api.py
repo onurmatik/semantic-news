@@ -1,8 +1,9 @@
 from typing import List, Optional
+from datetime import datetime
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
-
+from django.utils.timezone import make_naive
 from ...models import Topic
 from .models import TopicEntityRelation
 from ....openai import OpenAI
@@ -88,3 +89,62 @@ def extract_entity_relations(request, payload: TopicEntityRelationCreateRequest)
         relation_obj.error_message = str(e)
         relation_obj.save(update_fields=["status", "error_message"])
         return TopicEntityRelationCreateResponse(relations=[EntityRelation(**r) for r in relation_obj.relations])
+
+
+class TopicEntityRelationItem(Schema):
+    id: int
+    relations: List[EntityRelation]
+    created_at: datetime
+
+
+class TopicEntityRelationListResponse(Schema):
+    total: int
+    items: List[TopicEntityRelationItem]
+
+
+@router.get("/{topic_uuid}/list", response=TopicEntityRelationListResponse)
+def list_entity_relations(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    relations = (
+        TopicEntityRelation.objects
+        .filter(topic=topic, status="finished")
+        .order_by("created_at")
+        .values("id", "relations", "created_at")
+    )
+
+    items = [
+        TopicEntityRelationItem(
+            id=r["id"],
+            relations=[EntityRelation(**rel) for rel in r["relations"]],
+            created_at=make_naive(r["created_at"]),
+        )
+        for r in relations
+    ]
+    return TopicEntityRelationListResponse(total=len(items), items=items)
+
+
+@router.delete("/{relation_id}", response={204: None})
+def delete_entity_relation(request, relation_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        relation = TopicEntityRelation.objects.select_related("topic").get(id=relation_id)
+    except TopicEntityRelation.DoesNotExist:
+        raise HttpError(404, "Relation not found")
+
+    if relation.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    relation.delete()
+    return 204, None

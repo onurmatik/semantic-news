@@ -6,60 +6,24 @@ document.addEventListener('DOMContentLoaded', () => {
     successIconId: 'narrativeSuccessIcon',
   });
 
-  const form = document.getElementById('narrativeForm');
-  const suggestionBtn = document.getElementById('fetchNarrativeSuggestion');
-  const narrativeTextarea = document.getElementById('narrativeText');
+  const renderMarkdownLite = (md) => {
+    if (!md) return '';
+    let html = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html
+      .split(/\n{2,}/)
+      .map(p => `<p class="mb-2">${p.replace(/\n/g, '<br>')}</p>`)
+      .join('');
+    return html;
+  };
 
-  if (suggestionBtn && narrativeTextarea && form) {
-    suggestionBtn.addEventListener('click', async () => {
-      suggestionBtn.disabled = true;
-      const topicUuid = form.querySelector('input[name="topic_uuid"]').value;
-      try {
-        const res = await fetch('/api/topics/narrative/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid })
-        });
-        if (!res.ok) throw new Error('Request failed');
-        const data = await res.json();
-        narrativeTextarea.value = data.narrative;
-      } catch (err) {
-        console.error(err);
-      } finally {
-        suggestionBtn.disabled = false;
-      }
-    });
-  }
-
-  if (form && narrativeTextarea) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      controller.showLoading();
-      const narrativeModal = document.getElementById('narrativeModal');
-      if (narrativeModal && window.bootstrap) {
-        const modal = window.bootstrap.Modal.getInstance(narrativeModal);
-        if (modal) modal.hide();
-      }
-      const topicUuid = form.querySelector('input[name="topic_uuid"]').value;
-      const narrative = narrativeTextarea.value;
-
-      try {
-        const res = await fetch('/api/topics/narrative/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, narrative })
-        });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
-        controller.showSuccess();
-        window.location.reload();
-      } catch (err) {
-        console.error(err);
-        submitBtn.disabled = false;
-        controller.showError();
-      }
-    });
-  }
+  setupTopicHistory({
+    key: 'narrative',
+    field: 'narrative',
+    listUrl: (uuid) => `/api/topics/narrative/${uuid}/list`,
+    createUrl: '/api/topics/narrative/create',
+    deleteUrl: (id) => `/api/topics/narrative/${id}`,
+    renderItem: (item, el) => { if (el) el.innerHTML = renderMarkdownLite(item.narrative || ''); },
+    parseInput: (text) => ({ narrative: text }),
+    controller,
+  });
 });
