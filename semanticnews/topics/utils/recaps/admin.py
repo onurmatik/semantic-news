@@ -5,7 +5,7 @@ from .models import TopicRecap
 
 @admin.register(TopicRecap)
 class TopicRecapAdmin(admin.ModelAdmin):
-    list_display = ("topic", "created_at", "short_recap")
+    list_display = ("topic", "created_at", "short_recap", "status")
     search_fields = ("topic__title", "recap")
     readonly_fields = ("created_at",)
 

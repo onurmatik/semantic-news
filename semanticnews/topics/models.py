@@ -91,13 +91,13 @@ class Topic(models.Model):
 
     @cached_property
     def image(self):
-        img = self.images.first()
+        img = self.images.last()
         if img:
             return img.image
 
     @cached_property
     def thumbnail(self):
-        img = self.images.first()
+        img = self.images.last()
         if img:
             return img.thumbnail
 

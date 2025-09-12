@@ -1,7 +1,9 @@
-
 {% load i18n %}
 
-<div class="event-item mb-3" data-event-uuid="{{ event.uuid }}" data-categories="{% for category in event.categories.all %}{% if not forloop.first %} {% endif %}{{ category.name|slugify }}{% endfor %}" data-domains="{% for source in event.sources.all %}{% if not forloop.first %} {% endif %}{{ source.domain }}{% endfor %}">
+<div class="event-item mb-3"
+     data-event-uuid="{{ event.uuid }}"
+     data-categories="{% for category in event.categories.all %}{% if not forloop.first %} {% endif %}{{ category.name|slugify }}{% endfor %}"
+     data-domains="{% for source in event.sources.all %}{% if not forloop.first %} {% endif %}{{ source.domain }}{% endfor %}">
     <p class="text-secondary small mb-0">
         {{ event.date|date:"M d, Y" }}
         {% for category in event.categories.all %}
@@ -17,39 +19,62 @@
             {% if not forloop.last %}&middot;{% endif %}
         {%  endfor %}
     </p>
-    {% if request.user.is_authenticated and show_add|default:True %}
+
+    {# Add button (only when requested by parent) #}
+    {% if request.user.is_authenticated and show_add|default:False %}
         <div class="dropdown d-inline">
             <button class="btn btn-sm btn-outline-primary dropdown-toggle"
-                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                    {% if archived %}disabled{% endif %}>
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
                 {% trans "Add" %}
             </button>
             <ul class="dropdown-menu">
+                {# Quick-add to the current topic if provided #}
                 {% if topic %}
                     {% if event not in topic.events.all %}
-                        <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ topic.uuid }}" data-event-uuid="{{ event.uuid }}">{% trans "This topic" %}</a></li>
+                        <li>
+                            <a class="dropdown-item small add-to-topic"
+                               href="#"
+                               data-topic-uuid="{{ topic.uuid }}"
+                               data-event-uuid="{{ event.uuid }}">
+                                {% trans "This topic" %}
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                     {% endif %}
                 {% endif %}
+
+                {# User’s other topics #}
                 {% if user_topics %}
                     <li><h6 class="dropdown-header">{% trans "Your topics" %}</h6></li>
                     {% for t in user_topics %}
-                        <li><a class="dropdown-item small add-to-topic" href="#" data-topic-uuid="{{ t.uuid }}" data-event-uuid="{{ event.uuid }}">{{ t.title }}</a></li>
+                        <li>
+                            <a class="dropdown-item small add-to-topic"
+                               href="#"
+                               data-topic-uuid="{{ t.uuid }}"
+                               data-event-uuid="{{ event.uuid }}">
+                                {{ t.title }}
+                            </a>
+                        </li>
                     {% endfor %}
+                    <li><hr class="dropdown-divider"></li>
                 {% endif %}
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item small add-topic-btn" href="#" data-event-title="{{ event.title }}">{% trans "Create new topic" %}</a></li>
+
+                <li>
+                    <a class="dropdown-item small add-topic-btn"
+                       href="#"
+                       data-event-title="{{ event.title }}">
+                        {% trans "Create new topic" %}
+                    </a>
+                </li>
             </ul>
         </div>
     {% endif %}
-    {% if show_remove and request.user.is_authenticated %}
+
+    {# Remove button (only when requested by parent) #}
+    {% if show_remove|default:False and request.user.is_authenticated %}
         <button type="button"
-                class="btn btn-sm btn-outline-danger remove-event-btn"
-                data-add-label="{% trans 'Add' %}"
-                data-remove-label="{% trans 'Remove' %}"
-                {% if archived %}disabled{% endif %}>
+                class="btn btn-sm btn-outline-danger remove-event-btn">
             {% trans "Remove" %}
         </button>
     {% endif %}
 </div>
-

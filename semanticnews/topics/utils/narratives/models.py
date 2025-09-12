@@ -14,6 +14,8 @@ class TopicNarrative(models.Model):
         ],
         default="in_progress",
     )
+    error_message = models.TextField(blank=True, null=True)
+    error_code = models.CharField(blank=True, null=True, max_length=20)
 
     class Meta:
         app_label = 'topics'

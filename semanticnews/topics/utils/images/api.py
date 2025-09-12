@@ -47,34 +47,41 @@ def create_image(request, payload: TopicImageCreateRequest):
         f"{topic.build_context()}"
     )
 
-    with OpenAI() as client:
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1536x1024",
-            output_format="webp",
-        )
+    topic_image = TopicImage.objects.create(topic=topic)
+    try:
+        with OpenAI() as client:
+            result = client.images.generate(
+                model="gpt-image-1",
+                prompt=prompt,
+                size="1536x1024",
+                output_format="webp",
+            )
 
-    image_base64 = result.data[0].b64_json
-    image_bytes = base64.b64decode(image_base64)
+        image_base64 = result.data[0].b64_json
+        image_bytes = base64.b64decode(image_base64)
 
-    base_name = f"{topic.slug or topic.id}"
-    main_file = ContentFile(image_bytes, name=f"{base_name}.webp")
+        base_name = f"{topic.slug or topic.id}"
+        main_file = ContentFile(image_bytes, name=f"{base_name}.webp")
 
-    thumb_size = (450, 300)
-    thumb_img = Image.open(BytesIO(image_bytes))
-    thumb_img = thumb_img.convert("RGB")
-    thumb_img.thumbnail(thumb_size, Image.LANCZOS)
-    thumb_io = BytesIO()
-    thumb_img.save(thumb_io, format="WEBP", quality=85)
+        thumb_size = (450, 300)
+        thumb_img = Image.open(BytesIO(image_bytes))
+        thumb_img = thumb_img.convert("RGB")
+        thumb_img.thumbnail(thumb_size, Image.LANCZOS)
+        thumb_io = BytesIO()
+        thumb_img.save(thumb_io, format="WEBP", quality=85)
 
-    thumb_name = f"{base_name}_thumb_{thumb_size[0]}x{thumb_size[1]}.webp"
-    thumb_file = ContentFile(thumb_io.getvalue(), name=thumb_name)
+        thumb_name = f"{base_name}_thumb_{thumb_size[0]}x{thumb_size[1]}.webp"
+        thumb_file = ContentFile(thumb_io.getvalue(), name=thumb_name)
 
-    topic_image = TopicImage(topic=topic)
-    topic_image.image.save(main_file.name, main_file, save=False)
-    topic_image.thumbnail.save(thumb_file.name, thumb_file, save=False)
-    topic_image.save()
+        topic_image.image.save(main_file.name, main_file, save=False)
+        topic_image.thumbnail.save(thumb_file.name, thumb_file, save=False)
+        topic_image.status = "finished"
+        topic_image.save()
+    except Exception as e:
+        topic_image.status = "error"
+        topic_image.error_message = str(e)
+        topic_image.save(update_fields=["status", "error_message"])
+        raise
 
     return TopicImageCreateResponse(
         image_url=topic_image.image.url,

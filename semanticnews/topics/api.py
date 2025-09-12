@@ -1,6 +1,8 @@
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
-from typing import Optional, List
+from typing import Optional, List, Literal
+from datetime import datetime
+from django.utils import timezone
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
@@ -23,6 +25,53 @@ api.add_router("/image", images_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
 api.add_router("/timeline", timeline_router)
+
+StatusLiteral = Literal["in_progress", "finished", "error"]
+
+
+class GenerationStatus(Schema):
+    status: Optional[StatusLiteral] = None
+    error_message: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class GenerationStatusResponse(Schema):
+    current: datetime
+    recap: Optional[GenerationStatus] = None
+    narrative: Optional[GenerationStatus] = None
+    relation: Optional[GenerationStatus] = None
+    image: Optional[GenerationStatus] = None
+
+
+@api.get("/{topic_uuid}/generation-status", response=GenerationStatusResponse)
+def generation_status(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    def latest(qs):
+        row = (
+            qs.order_by("-created_at")
+              .values("status", "error_message", "created_at")
+              .first()
+        )
+        return row or None
+
+    return GenerationStatusResponse(
+        current=timezone.now(),
+        recap=latest(topic.recaps),
+        narrative=latest(topic.narratives),
+        relation=latest(topic.entity_relations),
+        image=latest(topic.images),
+    )
 
 
 class TopicCreateRequest(Schema):

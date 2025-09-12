@@ -1,11 +1,15 @@
 {% load i18n %}
-<button
-    id="narrativeButton"
-    class="btn btn-outline-secondary btn-sm"
-    data-bs-toggle="modal"
-    data-bs-target="#narrativeModal"
-    data-narrative-status="{% if current_narrative %}{{ current_narrative.status }}{% endif %}"
-    data-narrative-created="{% if current_narrative %}{{ current_narrative.created_at|date:'c' }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
-    <span id="narrativeSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
-    {% trans "Narrative" %}
-</button>
+<span class="d-inline-block">
+    <button
+        id="narrativeButton"
+        class="btn btn-outline-secondary btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#narrativeModal"
+        data-status="{% if current_narrative %}{{ current_narrative.status }}{% endif %}"
+        data-error="{% if current_narrative %}{{ current_narrative.error_message }}{% endif %}"{% if topic.status == 'archived' %} disabled{% endif %}>
+        <span id="narrativeSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+        <i id="narrativeErrorIcon" class="bi bi-exclamation-triangle me-1 text-danger d-none"></i>
+        <i id="narrativeSuccessIcon" class="bi bi-check-circle me-1 text-success d-none"></i>
+        {% trans "Narrative" %}
+    </button>
+</span>
