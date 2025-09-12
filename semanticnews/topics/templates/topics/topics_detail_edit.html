@@ -115,7 +115,8 @@
             <img src="{{ topic.image.url }}" class="img-fluid rounded mt-3 mb-3" alt="{{ topic.title }}">
         {% endif %}
 
-        {% include "topics/recaps/card.html" %}
+        {% include "topics/recaps/card.html" with edit_mode=True %}
+        {% include "topics/recaps/confirm_delete.html" %}
 
         {% include "topics/data/card.html" %}
 

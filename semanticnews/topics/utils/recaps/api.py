@@ -1,4 +1,7 @@
-from typing import Optional, Literal
+from datetime import datetime
+from typing import Optional, Literal, List
+
+from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
@@ -95,3 +98,62 @@ def create_recap(request, payload: TopicRecapCreateRequest):
 
         status: StatusLiteral = "error"
         return TopicRecapCreateResponse(recap=recap_obj.recap or "", status=status)
+
+
+class TopicRecapItem(Schema):
+    id: int
+    recap: str
+    created_at: datetime  # ISO string back to JS nicely
+
+
+class TopicRecapListResponse(Schema):
+    total: int
+    items: List[TopicRecapItem]
+
+
+@router.get("/{topic_uuid}/list", response=TopicRecapListResponse)
+def list_recaps(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    recaps = (
+        TopicRecap.objects
+        .filter(topic=topic, status="finished")
+        .order_by("created_at")
+        .values("id", "recap", "created_at")
+    )
+
+    items = [
+        TopicRecapItem(
+            id=r["id"],
+            recap=r["recap"],
+            created_at=make_naive(r["created_at"]),
+        )
+        for r in recaps
+    ]
+    return TopicRecapListResponse(total=len(items), items=items)
+
+
+@router.delete("/{recap_id}", response={204: None})
+def delete_recap(request, recap_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        recap = TopicRecap.objects.select_related("topic").get(id=recap_id)
+    except TopicRecap.DoesNotExist:
+        raise HttpError(404, "Recap not found")
+
+    if recap.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    recap.delete()
+    return 204, None

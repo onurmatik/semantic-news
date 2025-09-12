@@ -4,7 +4,26 @@
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fs-5 mb-0">{% trans "Recap" %}</h6>
+
+            {# EDIT MODE controls only #}
+            {% if edit_mode %}
+                <div class="d-flex align-items-center gap-2" id="recapPager" style="display:none;">
+                    <span class="small text-secondary me-2" id="recapCreatedAt"></span>
+                    <button class="btn btn-sm btn-outline-secondary" id="recapPrev"
+                            aria-label="{% trans 'Previous recap' %}">&lt;
+                    </button>
+                    <span class="small text-secondary" id="recapPagerLabel">0/0</span>
+                    <button class="btn btn-sm btn-outline-secondary" id="recapNext"
+                            aria-label="{% trans 'Next recap' %}">&gt;
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
+                            aria-label="{% trans 'Delete recap' %}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            {% endif %}
         </div>
+
         <div id="topicRecapText">
             {% if latest_recap and latest_recap.recap %}
                 {{ latest_recap.recap|markdownify }}
