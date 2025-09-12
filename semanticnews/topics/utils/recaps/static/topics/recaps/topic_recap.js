@@ -179,6 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ? bootstrap.Modal.getOrCreateInstance(recapModalEl)
     : null;
 
+  if (recapModalEl && recapMDE) {
+    recapModalEl.addEventListener('shown.bs.modal', () => {
+      recapMDE.codemirror.refresh();
+    });
+  }
+
   const afterPersistedChange = async () => {
     // After AI suggestion or manual Update, ensure pager/card/textarea/baseline are correct
     await reloadRecapsAndJumpToLatest();
