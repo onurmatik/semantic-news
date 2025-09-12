@@ -174,26 +174,17 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
                 input=text,
                 model="text-embedding-3-small",
             ).data[0].embedding
-
-            existing_event = (
-                Event.objects.filter(date=ev.date)
-                .exclude(embedding__isnull=True)
-                .annotate(distance=CosineDistance("embedding", embedding))
-                .filter(distance__lt=0.1)
-                .order_by("distance")
-                .first()
+            event, created = Event.objects.get_or_create_semantic(
+                date=ev.date,
+                embedding=embedding,
+                defaults={
+                    "title": ev.title,
+                    "status": "published",
+                    "created_by": user,
+                },
             )
 
-            if existing_event:
-                event = existing_event
-            else:
-                event = Event.objects.create(
-                    title=ev.title,
-                    date=ev.date,
-                    status="published",
-                    created_by=user,
-                )
-
+            if created:
                 for url in ev.sources or []:
                     source_obj, _ = Source.objects.get_or_create(url=url)
                     event.sources.add(source_obj)
@@ -201,9 +192,6 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
                 for name in ev.categories or []:
                     category, _ = Category.objects.get_or_create(name=name)
                     event.categories.add(category)
-
-                event.embedding = embedding
-                event.save(update_fields=["embedding"])
 
             created_events.append(
                 TimelineSuggestedEventOut(
