@@ -5,7 +5,8 @@ from pgvector.django import L2Distance
 import json
 
 from semanticnews.agenda.models import Event
-from .models import Topic, TopicEvent, TopicContent, TopicEntity
+from .models import Topic, TopicContent, TopicEntity
+from .utils.timeline.models import TopicEvent
 from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage

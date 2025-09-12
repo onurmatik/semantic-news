@@ -5,6 +5,7 @@ from django.test import SimpleTestCase, TestCase
 from django.contrib.auth import get_user_model
 
 from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
+from .models import Event
 
 
 class ValidateEventTests(SimpleTestCase):
@@ -417,7 +418,8 @@ class SuggestViewAdminTests(TestCase):
 class EventDetailTopicTests(TestCase):
     def test_event_detail_shows_topics(self):
         from datetime import date
-        from semanticnews.topics.models import Topic, TopicEvent
+        from semanticnews.topics.models import Topic
+        from semanticnews.topics.utils.timeline.models import TopicEvent
 
         event = Event.objects.create(
             title="My Event",
@@ -453,3 +455,39 @@ class EventDetailLocalityTests(TestCase):
         self.assertContains(response, '<option value="">Global</option>', html=True)
         content = response.content.decode()
         self.assertLess(content.index(default_loc.name), content.index(other_loc.name))
+
+
+class EventManagerTests(TestCase):
+    """Tests for the :class:`EventManager` semantic get_or_create method."""
+
+    def test_semantic_get_or_create_returns_existing_event(self):
+        from datetime import date
+
+        existing = Event.objects.create(
+            title="Existing", date=date(2024, 1, 1), embedding=[0.0] * 1536
+        )
+
+        obj, created = Event.objects.get_or_create_semantic(
+            date=existing.date,
+            embedding=[0.0] * 1536,
+            defaults={"title": "New"},
+        )
+
+        self.assertFalse(created)
+        self.assertEqual(obj.id, existing.id)
+
+    def test_semantic_get_or_create_creates_new_event(self):
+        from datetime import date
+
+        Event.objects.create(
+            title="Existing", date=date(2024, 1, 1), embedding=[0.0] * 1536
+        )
+
+        obj, created = Event.objects.get_or_create_semantic(
+            date=date(2024, 1, 1),
+            embedding=[1.0] * 1536,
+            defaults={"title": "Different"},
+        )
+
+        self.assertTrue(created)
+        self.assertEqual(obj.title, "Different")

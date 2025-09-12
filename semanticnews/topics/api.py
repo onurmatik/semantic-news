@@ -7,7 +7,9 @@ from django.utils import timezone
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
 
-from .models import Topic, TopicEvent
+from .models import Topic
+from .utils.timeline.models import TopicEvent
+from .utils.timeline.api import router as timeline_router
 from .utils.recaps.api import router as recaps_router
 from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
@@ -22,6 +24,7 @@ api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
+api.add_router("/timeline", timeline_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
 

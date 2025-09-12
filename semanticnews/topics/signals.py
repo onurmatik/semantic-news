@@ -2,7 +2,8 @@ from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Topic, TopicEvent, TopicContent
+from .models import Topic, TopicContent
+from .utils.timeline.models import TopicEvent
 from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage

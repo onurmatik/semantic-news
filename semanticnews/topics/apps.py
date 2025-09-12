@@ -10,4 +10,5 @@ class TopicsConfig(AppConfig):
         # from .utils.recaps import models  # noqa: F401
         from .utils.images import models  # noqa: F401
         from .utils.arguments import models  # noqa: F401
+        from .utils.timeline import models  # noqa: F401
         from . import signals  # noqa: F401

@@ -1,0 +1,8 @@
+{% load i18n %}
+<button
+    id="timelineButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#timelineModal"{% if topic.status == 'archived' %} disabled{% endif %}>
+    {% trans "Timeline" %}
+</button>
