@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     reloadRecapsAndJumpToLatest();
   }
 
-  // ====== Existing suggestion + update flows ======
+  // ====== Suggest + Update flows ======
   const recapModalEl = document.getElementById('recapModal');
   const recapModal = recapModalEl && window.bootstrap
     ? bootstrap.Modal.getOrCreateInstance(recapModalEl)

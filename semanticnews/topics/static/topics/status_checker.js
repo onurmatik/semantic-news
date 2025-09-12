@@ -3,44 +3,52 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
+  const KEYS_TO_CHECK = ['recap'];
+
+  const mapping = {
+    recap: 'recapButton',
+    narrative: 'narrativeButton',
+    relation: 'relationButton',
+  };
+
+  const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
+
   const fetchStatus = async () => {
     try {
       const res = await fetch(`/api/topics/${topicUuid}/generation-status`);
       if (!res.ok) return;
-      const data = await res.json();
-      let allDone = true;
 
-      const mapping = {
-        recap: 'recapButton',
-        narrative: 'narrativeButton',
-        relation: 'relationButton',
-      };
+      const data = await res.json();
+      let anyStillInProgress = false;
 
       const currentTime = data.current ? new Date(data.current) : new Date();
 
-      Object.keys(mapping).forEach((key) => {
+      KEYS_TO_CHECK.forEach((key) => {
         const info = data[key];
         const controller = window.generationControllers[mapping[key]];
         if (!info || !controller) return;
 
-        let status = info.status;
+        // Only care about in_progress; ignore finished/error
+        if (info.status !== 'in_progress') return;
 
-        if (status === 'in_progress' && info.created_at) {
+        if (info.created_at) {
           const createdAt = new Date(info.created_at);
-          if (currentTime - createdAt > 5 * 60 * 1000) {
-            status = 'finished';
+          const age = currentTime - createdAt;
+
+          if (age > INPROGRESS_TIMEOUT_MS) {
+            // Too old — neutralize and stop tracking
+            // TODO change status to error in db
+            controller.setState({ status: 'finished' }); // neutral/stateless in button code
+            return;
           }
         }
 
-        // Only push state if backend has a meaningful status
-        controller.setState({ status });
-
-        if (status === 'in_progress') {
-          allDone = false;
-        }
+        // Still in progress and within timeout window -> keep spinner on
+        controller.setState({ status: 'in_progress' });
+        anyStillInProgress = true;
       });
 
-      if (allDone) {
+      if (!anyStillInProgress) {
         clearInterval(intervalId);
       }
     } catch (err) {

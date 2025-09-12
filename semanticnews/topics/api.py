@@ -1,6 +1,6 @@
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 from django.utils import timezone
 
@@ -23,9 +23,11 @@ api.add_router("/image", images_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
 
+StatusLiteral = Literal["in_progress", "finished", "error"]
+
 
 class GenerationStatus(Schema):
-    status: Optional[str] = None
+    status: Optional[StatusLiteral] = None
     error_message: Optional[str] = None
     created_at: Optional[datetime] = None
 
@@ -48,17 +50,16 @@ def generation_status(request, topic_uuid: str):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    if topic.created_by != user:
+    if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
     def latest(qs):
-        obj = qs.order_by("-created_at").first()
-        if obj:
-            return {
-                "status": obj.status,
-                "error_message": obj.error_message,
-                "created_at": obj.created_at,
-            }
+        row = (
+            qs.order_by("-created_at")
+              .values("status", "error_message", "created_at")
+              .first()
+        )
+        return row or None
 
     return GenerationStatusResponse(
         current=timezone.now(),
