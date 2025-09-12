@@ -94,6 +94,7 @@
                 {% include "topics/narratives/button.html" %}
                 {% include "topics/images/button.html" %}
                 {% include "topics/relations/button.html" %}
+                {% include "topics/timeline/button.html" %}
                 {% include "topics/mcps/button.html" %}
             </div>
 
@@ -224,6 +225,7 @@
 {% include "topics/narratives/modal.html" %}
 {% include "topics/images/modal.html" %}
 {% include "topics/relations/modal.html" %}
+{% include "topics/timeline/modal.html" %}
 {% include "topics/create_topic_modal.html" %}
 
 {% endblock %}
@@ -239,6 +241,7 @@
     {% include "topics/narratives/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}
+    {% include "topics/timeline/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}
     <script src="{% static 'topics/status_checker.js' %}"></script>
 {% endblock %}
