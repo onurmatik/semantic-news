@@ -5,6 +5,8 @@ from typing import List, Optional
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
+from django.db.models import F, Value
+from pgvector.django import CosineDistance
 
 from ...models import Topic
 from ....agenda.models import Category, Event, Source
@@ -28,6 +30,59 @@ class TimelineEventList(Schema):
     """Wrapper for a list of timeline events."""
 
     events: List[TimelineSuggestedEvent] = []
+
+
+class TimelineRelatedEvent(Schema):
+    """Schema for an existing event related to the topic."""
+
+    uuid: str
+    title: str
+    date: date
+    similarity: float
+
+
+class TimelineRelatedRequest(Schema):
+    """Request body for retrieving existing events related to a topic."""
+
+    topic_uuid: str
+    threshold: float = 0.8
+    limit: int = 5
+
+
+@router.post("/related", response=List[TimelineRelatedEvent])
+def list_related_events(request, payload: TimelineRelatedRequest):
+    """List existing agenda events related to the topic by embedding similarity."""
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.embedding is None:
+        return []
+
+    queryset = (
+        Event.objects.exclude(embedding__isnull=True)
+        .exclude(topics=topic)
+        .annotate(distance=CosineDistance("embedding", topic.embedding))
+        .annotate(similarity=Value(1.0) - F("distance"))
+        .filter(similarity__gte=payload.threshold)
+        .order_by("-similarity")[: payload.limit]
+    )
+
+    return [
+        TimelineRelatedEvent(
+            uuid=str(ev.uuid),
+            title=ev.title,
+            date=ev.date,
+            similarity=ev.similarity,
+        )
+        for ev in queryset
+    ]
 
 
 class TimelineSuggestRequest(Schema):

@@ -6,12 +6,16 @@ const CONFIDENCE_THRESHOLD = 0.85;
   if (!modalEl) return;
   const modal = new bootstrap.Modal(modalEl);
 
+  const existingTab = document.getElementById('existing-tab');
   const createTab = document.getElementById('create-tab');
   const fetchTab = document.getElementById('fetch-tab');
 
   const timelineBtn = document.getElementById('timelineButton');
   const addForm = document.getElementById('addEventForm');
   const similarContainer = document.getElementById('similarEvents');
+
+  const relatedList = document.getElementById('relatedEventsList');
+  const addRelatedBtn = document.getElementById('addRelatedEventsBtn');
 
   const suggestForm = document.getElementById('suggestEventsForm');
   const suggestedList = document.getElementById('suggestedEventsList');
@@ -26,6 +30,8 @@ const CONFIDENCE_THRESHOLD = 0.85;
   function resetForms() {
     if (addForm) addForm.reset();
     if (similarContainer) similarContainer.innerHTML = '';
+    if (relatedList) relatedList.innerHTML = '';
+    if (addRelatedBtn) addRelatedBtn.disabled = true;
     if (suggestForm) {
       suggestForm.reset();
       suggestForm.classList.remove('d-none');
@@ -37,12 +43,54 @@ const CONFIDENCE_THRESHOLD = 0.85;
     if (publishBtn) publishBtn.disabled = true;
   }
 
-  if (timelineBtn && addForm) {
+  if (timelineBtn) {
     timelineBtn.addEventListener('click', () => {
       resetForms();
-      new bootstrap.Tab(createTab).show();
+      new bootstrap.Tab(existingTab).show();
+      loadRelatedEvents();
       modal.show();
     });
+  }
+
+  async function loadRelatedEvents() {
+    if (!topicUuid || !relatedList) return;
+    relatedList.innerHTML = '<p>Loading...</p>';
+    try {
+      const res = await fetch('/api/topics/timeline/related', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic_uuid: topicUuid })
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        relatedList.innerHTML = '';
+        data.forEach(ev => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'form-check';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'form-check-input';
+          cb.value = ev.uuid;
+          cb.id = `rel${ev.uuid}`;
+          cb.addEventListener('change', () => {
+            if (!addRelatedBtn) return;
+            const any = relatedList.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+            addRelatedBtn.disabled = !any;
+          });
+          const label = document.createElement('label');
+          label.className = 'form-check-label';
+          label.htmlFor = cb.id;
+          label.textContent = `${ev.title} (${ev.date})`;
+          wrapper.appendChild(cb);
+          wrapper.appendChild(label);
+          relatedList.appendChild(wrapper);
+        });
+      } else {
+        relatedList.innerHTML = '<p>No related events found.</p>';
+      }
+    } catch (err) {
+      relatedList.innerHTML = '<p>Error loading events.</p>';
+    }
   }
 
   async function addEventToTopic(eventUuid) {
@@ -51,6 +99,17 @@ const CONFIDENCE_THRESHOLD = 0.85;
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topic_uuid: topicUuid, event_uuid: eventUuid })
+    });
+  }
+
+  if (addRelatedBtn && relatedList) {
+    addRelatedBtn.addEventListener('click', async () => {
+      const checked = relatedList.querySelectorAll('input[type="checkbox"]:checked');
+      for (const cb of checked) {
+        await addEventToTopic(cb.value);
+      }
+      modal.hide();
+      window.location.reload();
     });
   }
 
