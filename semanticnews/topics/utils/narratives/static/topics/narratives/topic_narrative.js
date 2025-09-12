@@ -25,5 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderItem: (item, el) => { if (el) el.innerHTML = renderMarkdownLite(item.narrative || ''); },
     parseInput: (text) => ({ narrative: text }),
     controller,
+    useMarkdown: true,
   });
 });

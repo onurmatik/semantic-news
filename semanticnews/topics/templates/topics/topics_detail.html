@@ -4,6 +4,10 @@
 
 {% block title %}{{ topic.title }}{% endblock %}
 
+{% block extra_head %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+{% endblock %}
 
 {% block content %}
 
@@ -200,6 +204,7 @@
 
 {% block extra_js %}
     {{ block.super }}
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
