@@ -45,8 +45,8 @@ class TimelineRelatedRequest(Schema):
     """Request body for retrieving existing events related to a topic."""
 
     topic_uuid: str
-    threshold: float = 0.8
-    limit: int = 5
+    threshold: float = 0.5
+    limit: int = 10
 
 
 @router.post("/related", response=List[TimelineRelatedEvent])
