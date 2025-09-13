@@ -22,6 +22,18 @@ class TopicDataFetchResponse(Schema):
     name: str | None = None
 
 
+class TopicDataSearchRequest(Schema):
+    topic_uuid: str
+    description: str
+
+
+class TopicDataSearchResponse(Schema):
+    headers: List[str]
+    rows: List[List[str]]
+    name: str | None = None
+    sources: List[str]
+
+
 class TopicDataSaveRequest(Schema):
     topic_uuid: str
     url: str
@@ -38,6 +50,10 @@ class _TopicDataResponse(Schema):
     headers: List[str]
     rows: List[List[str]]
     name: str | None = None
+
+
+class _TopicDataSearchResponse(_TopicDataResponse):
+    sources: List[str]
 
 
 class TopicDataAnalyzeRequest(Schema):
@@ -115,8 +131,42 @@ def fetch_data(request, payload: TopicDataFetchRequest):
 
     return TopicDataFetchResponse(
         headers=response.output_parsed.headers,
+       rows=response.output_parsed.rows,
+        name=response.output_parsed.name,
+    )
+
+
+@router.post("/search", response=TopicDataSearchResponse)
+def search_data(request, payload: TopicDataSearchRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    prompt = (
+        "Using web search, find tabular data that matches the following description and "
+        "return it as JSON with keys 'headers', 'rows', 'sources' (a list of URLs), and "
+        "optionally 'name'. Description: "
+        f"{payload.description}"
+    )
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model="gpt-5",
+            input=prompt,
+            tools=[{"type": "web_search"}],
+            text_format=_TopicDataSearchResponse,
+        )
+
+    return TopicDataSearchResponse(
+        headers=response.output_parsed.headers,
         rows=response.output_parsed.rows,
         name=response.output_parsed.name,
+        sources=response.output_parsed.sources,
     )
 
 
