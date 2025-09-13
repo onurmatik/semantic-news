@@ -32,6 +32,7 @@ class TopicDataSearchResponse(Schema):
     rows: List[List[str]]
     name: str | None = None
     sources: List[str]
+    explanation: str | None = None
 
 
 class TopicDataSaveRequest(Schema):
@@ -54,6 +55,7 @@ class _TopicDataResponse(Schema):
 
 class _TopicDataSearchResponse(_TopicDataResponse):
     sources: List[str]
+    explanation: str | None = None
 
 
 class TopicDataAnalyzeRequest(Schema):
@@ -131,7 +133,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
 
     return TopicDataFetchResponse(
         headers=response.output_parsed.headers,
-       rows=response.output_parsed.rows,
+        rows=response.output_parsed.rows,
         name=response.output_parsed.name,
     )
 
@@ -150,7 +152,8 @@ def search_data(request, payload: TopicDataSearchRequest):
     prompt = (
         "Using web search, find tabular data that matches the following description and "
         "return it as JSON with keys 'headers', 'rows', 'sources' (a list of URLs), and "
-        "optionally 'name'. Description: "
+        "optionally 'name' and 'explanation' (a brief note if the data does not fully "
+        "match the request). Description: "
         f"{payload.description}"
     )
 
@@ -162,12 +165,15 @@ def search_data(request, payload: TopicDataSearchRequest):
             text_format=_TopicDataSearchResponse,
         )
 
-    return TopicDataSearchResponse(
-        headers=response.output_parsed.headers,
-        rows=response.output_parsed.rows,
-        name=response.output_parsed.name,
-        sources=response.output_parsed.sources,
-    )
+    result = {
+        "headers": response.output_parsed.headers,
+        "rows": response.output_parsed.rows,
+        "name": response.output_parsed.name,
+        "sources": response.output_parsed.sources,
+    }
+    if response.output_parsed.explanation:
+        result["explanation"] = response.output_parsed.explanation
+    return TopicDataSearchResponse(**result)
 
 
 @router.post("/create", response=TopicDataSaveResponse)
