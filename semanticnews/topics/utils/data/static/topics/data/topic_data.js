@@ -2,7 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchBtn = document.getElementById('fetchDataBtn');
   const form = document.getElementById('dataForm');
   const urlInput = document.getElementById('dataUrl');
+  const descriptionInput = document.getElementById('dataDescription');
   const preview = document.getElementById('dataPreview');
+  const sourcesWrapper = document.getElementById('dataSourcesWrapper');
+  const sourcesList = document.getElementById('dataSources');
+  const explanationEl = document.getElementById('dataExplanation');
   const nameInput = document.getElementById('dataName');
   const nameWrapper = document.getElementById('dataNameWrapper');
   const analyzeBtn = document.getElementById('analyzeDataBtn');
@@ -15,18 +19,40 @@ document.addEventListener('DOMContentLoaded', () => {
   const chartTypeSelect = document.getElementById('visualizeChartType');
   let fetchedData = null;
 
-  if (fetchBtn && urlInput) {
+  if (fetchBtn) {
     fetchBtn.addEventListener('click', async () => {
       fetchBtn.disabled = true;
       const topicUuid = form.querySelector('input[name="topic_uuid"]').value;
+      const modeEl = document.querySelector('input[name="data_mode"]:checked');
+      const mode = modeEl ? modeEl.value : 'url';
+      const body = { topic_uuid: topicUuid };
+      let endpoint = '/api/topics/data/fetch';
+      if (mode === 'url') {
+        if (!urlInput || !urlInput.value) {
+          fetchBtn.disabled = false;
+          return;
+        }
+        body.url = urlInput.value;
+      } else {
+        endpoint = '/api/topics/data/search';
+        const description = descriptionInput ? descriptionInput.value.trim() : '';
+        if (!description) {
+          fetchBtn.disabled = false;
+          return;
+        }
+        body.description = description;
+      }
       try {
-        const res = await fetch('/api/topics/data/fetch', {
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, url: urlInput.value })
+          body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error('Request failed');
         fetchedData = await res.json();
+        fetchedData.url = mode === 'url'
+          ? (urlInput ? urlInput.value : '')
+          : (fetchedData.sources && fetchedData.sources.length > 0 ? fetchedData.sources[0] : '');
         if (nameInput) {
           nameInput.value = fetchedData.name || '';
           if (nameWrapper) nameWrapper.classList.remove('d-none');
@@ -39,6 +65,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         html += '</tbody></table>';
         preview.innerHTML = html;
+        if (mode === 'search') {
+          if (sourcesWrapper && sourcesList) {
+            if (fetchedData.sources && fetchedData.sources.length > 0) {
+              sourcesList.innerHTML = fetchedData.sources.map(src => `<li><a href="${src}" target="_blank">${src}</a></li>`).join('');
+              sourcesWrapper.classList.remove('d-none');
+            } else {
+              sourcesList.innerHTML = '';
+              sourcesWrapper.classList.add('d-none');
+            }
+          }
+          if (explanationEl) {
+            if (fetchedData.explanation) {
+              explanationEl.textContent = fetchedData.explanation;
+              explanationEl.classList.remove('d-none');
+            } else {
+              explanationEl.classList.add('d-none');
+              explanationEl.textContent = '';
+            }
+          }
+        } else {
+          if (sourcesWrapper) sourcesWrapper.classList.add('d-none');
+          if (sourcesList) sourcesList.innerHTML = '';
+          if (explanationEl) {
+            explanationEl.classList.add('d-none');
+            explanationEl.textContent = '';
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -52,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       if (!fetchedData) return;
       const topicUuid = form.querySelector('input[name="topic_uuid"]').value;
-      const url = urlInput.value;
+      const url = fetchedData.url || (urlInput ? urlInput.value : '');
       const res = await fetch('/api/topics/data/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
