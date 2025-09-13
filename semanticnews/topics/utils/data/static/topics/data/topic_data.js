@@ -3,9 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('dataForm');
   const urlInput = document.getElementById('dataUrl');
   const descriptionInput = document.getElementById('dataDescription');
-  const urlWrapper = document.getElementById('dataUrlWrapper');
-  const descriptionWrapper = document.getElementById('dataDescriptionWrapper');
-  const modeRadios = document.querySelectorAll('input[name="data_mode"]');
   const preview = document.getElementById('dataPreview');
   const sourcesWrapper = document.getElementById('dataSourcesWrapper');
   const sourcesList = document.getElementById('dataSources');
@@ -21,18 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   const chartTypeSelect = document.getElementById('visualizeChartType');
   let fetchedData = null;
-
-  modeRadios.forEach((radio) => {
-    radio.addEventListener('change', () => {
-      if (radio.value === 'url' && radio.checked) {
-        if (urlWrapper) urlWrapper.classList.remove('d-none');
-        if (descriptionWrapper) descriptionWrapper.classList.add('d-none');
-      } else if (radio.value === 'search' && radio.checked) {
-        if (descriptionWrapper) descriptionWrapper.classList.remove('d-none');
-        if (urlWrapper) urlWrapper.classList.add('d-none');
-      }
-    });
-  });
 
   if (fetchBtn) {
     fetchBtn.addEventListener('click', async () => {
