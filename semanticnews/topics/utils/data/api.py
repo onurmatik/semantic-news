@@ -50,7 +50,7 @@ class TopicDataSaveResponse(Schema):
 class _TopicDataResponse(Schema):
     headers: List[str]
     rows: List[List[str]]
-    name: str | None = None
+    name: str
 
 
 class _TopicDataSearchResponse(_TopicDataResponse):
@@ -150,10 +150,10 @@ def search_data(request, payload: TopicDataSearchRequest):
         raise HttpError(404, "Topic not found")
 
     prompt = (
-        "Using web search, find tabular data that matches the following description and "
-        "return it as JSON with keys 'headers', 'rows', 'sources' (a list of URLs), and "
-        "optionally 'name' and 'explanation' (a brief note if the data does not fully "
-        "match the request). Description: "
+        "Find tabular data that matches the following description and "
+        "return it as JSON with keys 'headers', 'rows', 'sources' (a list of URLs), 'name', and "
+        "optionally 'explanation' (a brief note if the data does not fully match the request). "
+        "Description: "
         f"{payload.description}"
     )
 
