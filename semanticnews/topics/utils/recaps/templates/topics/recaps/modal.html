@@ -3,14 +3,13 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">{% trans "Update recap" %}</h5>
+                <h5 class="modal-title">{% trans "Recap" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
             <div class="modal-body">
                 <form id="recapForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
                     <div class="mb-3">
-                        <label for="recapText" class="form-label">{% trans "Recap" %}</label>
                         <textarea class="form-control" id="recapText" name="recap" rows="8">{% if latest_recap %}{{ latest_recap.recap }}{% endif %}</textarea>
                     </div>
                     <div class="modal-footer px-0">
