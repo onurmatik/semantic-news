@@ -17,7 +17,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeForm = document.getElementById('dataVisualizeForm');
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   const chartTypeSelect = document.getElementById('visualizeChartType');
+  const urlMode = document.getElementById('dataModeUrl');
+  const searchMode = document.getElementById('dataModeSearch');
   let fetchedData = null;
+
+  if (urlInput && urlMode) {
+    urlInput.addEventListener('focus', () => {
+      urlMode.checked = true;
+    });
+  }
+
+  if (descriptionInput && searchMode) {
+    descriptionInput.addEventListener('focus', () => {
+      searchMode.checked = true;
+    });
+  }
 
   if (fetchBtn) {
     fetchBtn.addEventListener('click', async () => {
