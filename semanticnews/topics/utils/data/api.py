@@ -161,7 +161,7 @@ def search_data(request, payload: TopicDataSearchRequest):
         response = client.responses.parse(
             model="gpt-5",
             input=prompt,
-            tools=[{"type": "web_search"}],
+            tools=[{"type": "web_search_preview"}],
             text_format=_TopicDataSearchResponse,
         )
 
