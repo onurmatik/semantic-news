@@ -3,11 +3,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap', 'narrative'];
+  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation'];
 
   const mapping = {
     recap: 'recapButton',
     narrative: 'narrativeButton',
+    relation: 'relationButton',
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
@@ -15,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const seenInProgress = Object.create(null);
 
+  // --- prevent spinner flash on initial paint for stale "in_progress"
   const neutralizeStaleInitial = () => {
     for (const key of KEYS_TO_CHECK) {
       const buttonId = mapping[key];
@@ -34,11 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   };
 
-  // Generic fallback applier for card + modal + createdAt for a given key
-  const applyGenericFallback = (key, text, createdAtIso) => {
-    const cap = key.charAt(0).toUpperCase() + key.slice(1); // Narrative
-    const card = document.getElementById(`topic${cap}Container`);
-    const cardText = document.getElementById(`topic${cap}Text`);
+  // Fallback applier for text-based keys (recap, narrative)
+  const applyTextFallback = (key, text, createdAtIso) => {
+    const Cap = key.charAt(0).toUpperCase() + key.slice(1);
+    const card = document.getElementById(`topic${Cap}Container`);
+    const cardText = document.getElementById(`topic${Cap}Text`);
     if (card && cardText) {
       card.style.display = '';
       cardText.innerHTML = renderMarkdownLite(text || '');
@@ -61,11 +63,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // Fallback applier for relation (graph)
+  const applyRelationFallback = (relations, createdAtIso) => {
+    const graph = document.getElementById('topicRelationGraph');
+    const container = document.getElementById('topicRelationContainer');
+    if (container) container.style.display = '';
+    if (graph && window.renderRelationGraph) {
+      window.renderRelationGraph(graph, relations || []);
+    }
+    const textarea = document.getElementById('relationText');
+    if (textarea) {
+      // keep textarea JSON in sync
+      textarea.value = JSON.stringify(relations || [], null, 2);
+      const form = document.getElementById('relationForm');
+      const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+      if (submitBtn) submitBtn.disabled = true;
+      const createdAtEl = document.getElementById('relationCreatedAt');
+      if (createdAtEl && createdAtIso) {
+        const d = new Date(createdAtIso);
+        createdAtEl.textContent = d.toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+      }
+    }
+  };
+
   // Pull latest list for a given key and apply via hook or fallback
   const updateFromServer = async (key) => {
-    const listUrl = key === 'recap'
-      ? `/api/topics/recap/${topicUuid}/list`
-      : `/api/topics/narrative/${topicUuid}/list`;
+    const listUrl =
+      key === 'recap'      ? `/api/topics/recap/${topicUuid}/list` :
+      key === 'narrative'  ? `/api/topics/narrative/${topicUuid}/list` :
+                             `/api/topics/relation/${topicUuid}/list`; // relation
+
     try {
       const res = await fetch(listUrl);
       if (!res.ok) return;
@@ -74,12 +103,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!items.length) return;
       const latest = items[items.length - 1];
 
-      // Prefer key-specific externalApply hook if exposed by history.js
       const hookName = `__${key}ExternalApply`;
       if (typeof window[hookName] === 'function') {
-        window[hookName](latest[key], latest.created_at);
+        // For text keys, pass the text. For relation, pass the array.
+        if (key === 'relation') {
+          window[hookName](latest.relations, latest.created_at);
+        } else {
+          window[hookName](latest[key], latest.created_at);
+        }
       } else {
-        applyGenericFallback(key, latest[key], latest.created_at);
+        // Fallback paint
+        if (key === 'relation') {
+          applyRelationFallback(latest.relations, latest.created_at);
+        } else {
+          applyTextFallback(key, latest[key], latest.created_at);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -122,14 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (status === 'finished') {
-          // Success green only if we saw it running in THIS session
           if (seenInProgress[key]) setController(buttonId, 'success');
-          else setController(buttonId, 'finished'); // neutral
+          else setController(buttonId, 'finished'); // neutral (no green if we didn't see it running)
 
-          // Always refresh content AND counts/pager for this key
+          // Always refresh content AND counts/pager
           const reloadHook = window[`__${key}ReloadAndJump`];
           if (typeof reloadHook === 'function') {
-            await reloadHook(); // updates list, counts, baseline, card through renderItem
+            await reloadHook(); // updates list, counts, baseline, and card via renderItem
           } else {
             await updateFromServer(key); // fallback: apply latest only
           }
