@@ -15,6 +15,7 @@ from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
 from .utils.images.api import router as images_router
 from .utils.media.api import router as media_router
+from .utils.embeds.api import router as embeds_router
 from .utils.relations.api import router as relations_router
 from .utils.data.api import router as data_router
 
@@ -24,6 +25,7 @@ api.add_router("/narrative", narratives_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 api.add_router("/media", media_router)
+api.add_router("/embed", embeds_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
 api.add_router("/timeline", timeline_router)
