@@ -1,7 +1,7 @@
 from typing import Dict, Callable, Optional
-from datetime import datetime
+from datetime import datetime, timezone as datetime_timezone
 
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 import yt_dlp
@@ -51,10 +51,10 @@ def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
     except Exception as exc:  # pragma: no cover - network errors
         raise HttpError(400, "Failed to fetch video details") from exc
 
-    published_at = timezone.now()
+    published_at = django_timezone.now()
     timestamp = info.get("timestamp")
     if timestamp:
-        published_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        published_at = datetime.fromtimestamp(timestamp, tz=datetime_timezone.utc)
 
     return TopicYoutubeVideo.objects.create(
         topic=topic,
