@@ -2,6 +2,8 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
 
 from ...models import Topic
 from .models import TopicYoutubeVideo
@@ -11,7 +13,8 @@ class TopicMediaAPITests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("alice", "alice@example.com", "pwd12345")
         self.client.force_login(self.user)
-        self.topic = Topic.objects.create(title="Test Topic", created_by=self.user)
+        with patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536):
+            self.topic = Topic.objects.create(title="Test Topic", created_by=self.user)
 
     @patch("semanticnews.topics.utils.media.api.yt_dlp.YoutubeDL.extract_info")
     def test_add_media(self, mock_extract_info):
@@ -42,3 +45,33 @@ class TopicMediaAPITests(TestCase):
         self.assertEqual(media.thumbnail, "http://example.com/thumb.jpg")
         self.assertEqual(media.published_at.year, 2021)
         self.assertEqual(media.status, "finished")
+
+
+class TopicMediaDisplayTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("bob", "bob@example.com", "pwd12345")
+        with patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536):
+            self.topic = Topic.objects.create(title="Display", created_by=self.user)
+        TopicYoutubeVideo.objects.create(
+            topic=self.topic,
+            url="https://youtu.be/vid123",
+            video_id="vid123",
+            title="Video",
+            description="",
+            thumbnail="",
+            published_at=timezone.now(),
+            status="finished",
+        )
+
+    def test_detail_displays_video(self):
+        response = self.client.get(self.topic.get_absolute_url())
+        self.assertContains(response, "youtube.com/embed/vid123")
+
+    def test_edit_displays_video(self):
+        self.client.force_login(self.user)
+        url = reverse(
+            "topics_detail_edit",
+            kwargs={"username": self.user.username, "slug": self.topic.slug},
+        )
+        response = self.client.get(url)
+        self.assertContains(response, "youtube.com/embed/vid123")
