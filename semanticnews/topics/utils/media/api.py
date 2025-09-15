@@ -1,8 +1,10 @@
 from typing import Dict, Callable, Optional
+from datetime import datetime
 
 from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
+import yt_dlp
 
 from ...models import Topic
 from .models import TopicYoutubeVideo
@@ -42,13 +44,27 @@ def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
     video_id = _extract_youtube_id(url)
     if not video_id:
         raise HttpError(400, "Invalid YouTube URL")
+
+    try:
+        ydl = yt_dlp.YoutubeDL({"quiet": True})
+        info = ydl.extract_info(url, download=False)
+    except Exception as exc:  # pragma: no cover - network errors
+        raise HttpError(400, "Failed to fetch video details") from exc
+
+    published_at = timezone.now()
+    timestamp = info.get("timestamp")
+    if timestamp:
+        published_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+
     return TopicYoutubeVideo.objects.create(
         topic=topic,
         url=url,
         video_id=video_id,
-        title=video_id,
-        description="",
-        published_at=timezone.now(),
+        title=info.get("title", video_id),
+        description=info.get("description", ""),
+        thumbnail=info.get("thumbnail"),
+        published_at=published_at,
+        status="finished",
     )
 
 

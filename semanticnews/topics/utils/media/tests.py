@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -11,7 +13,15 @@ class TopicMediaAPITests(TestCase):
         self.client.force_login(self.user)
         self.topic = Topic.objects.create(title="Test Topic", created_by=self.user)
 
-    def test_add_media(self):
+    @patch("semanticnews.topics.utils.media.api.yt_dlp.YoutubeDL.extract_info")
+    def test_add_media(self, mock_extract_info):
+        mock_extract_info.return_value = {
+            "title": "Sample Title",
+            "description": "Sample description",
+            "thumbnail": "http://example.com/thumb.jpg",
+            "timestamp": 1609459200,  # 2021-01-01 00:00:00 UTC
+        }
+
         payload = {
             "topic_uuid": str(self.topic.uuid),
             "media_type": "youtube",
@@ -27,3 +37,8 @@ class TopicMediaAPITests(TestCase):
         media = TopicYoutubeVideo.objects.first()
         self.assertEqual(media.url, payload["url"])
         self.assertEqual(media.video_id, "dQw4w9WgXcQ")
+        self.assertEqual(media.title, "Sample Title")
+        self.assertEqual(media.description, "Sample description")
+        self.assertEqual(media.thumbnail, "http://example.com/thumb.jpg")
+        self.assertEqual(media.published_at.year, 2021)
+        self.assertEqual(media.status, "finished")
