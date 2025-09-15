@@ -1,10 +1,9 @@
 from django.contrib import admin
 
-from .models import TopicMedia
+from .models import TopicYoutubeVideo
 
 
-@admin.register(TopicMedia)
-class TopicMediaAdmin(admin.ModelAdmin):
-    list_display = ("topic", "media_type", "url", "created_at")
-    search_fields = ("topic__title", "url")
-    list_filter = ("media_type",)
+@admin.register(TopicYoutubeVideo)
+class TopicYoutubeVideoAdmin(admin.ModelAdmin):
+    list_display = ("topic", "url", "title", "created_at")
+    search_fields = ("topic__title", "url", "title")
