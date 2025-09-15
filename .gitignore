@@ -4,4 +4,6 @@
 *.pyc
 media/
 !semanticnews/topics/utils/media/
+!semanticnews/topics/utils/media/**
+__pycache__/
 !.env.example
