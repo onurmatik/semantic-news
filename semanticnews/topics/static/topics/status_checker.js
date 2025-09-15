@@ -14,6 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const seenInProgress = Object.create(null);
 
+  const neutralizeStaleInitial = () => {
+    for (const key of KEYS_TO_CHECK) {
+      const buttonId = mapping[key];
+      if (!buttonId) continue;
+      const btn = document.getElementById(buttonId);
+      if (btn && btn.dataset.status === 'in_progress') {
+        const ctrl = window.generationControllers && window.generationControllers[buttonId];
+        if (ctrl && ctrl.setState) ctrl.setState({status: 'finished'}); // neutral
+      }
+    }
+  };
+
   const renderMarkdownLite = (md) => {
     if (!md) return '';
     let html = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -134,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  neutralizeStaleInitial();
   fetchStatus();
   intervalId = setInterval(fetchStatus, 3000);
 });
