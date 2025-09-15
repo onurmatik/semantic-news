@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from ...models import Topic
-from .models import TopicMedia
+from .models import TopicYoutubeVideo
 
 
 class TopicMediaAPITests(TestCase):
@@ -23,6 +23,7 @@ class TopicMediaAPITests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(TopicMedia.objects.count(), 1)
-        media = TopicMedia.objects.first()
+        self.assertEqual(TopicYoutubeVideo.objects.count(), 1)
+        media = TopicYoutubeVideo.objects.first()
         self.assertEqual(media.url, payload["url"])
+        self.assertEqual(media.video_id, "dQw4w9WgXcQ")
