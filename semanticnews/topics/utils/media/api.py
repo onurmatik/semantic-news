@@ -1,13 +1,12 @@
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, Any
 from datetime import datetime, timezone as datetime_timezone
-
 from django.utils import timezone as django_timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 import yt_dlp
 
 from ...models import Topic
-from .models import TopicYoutubeVideo
+from .models import TopicYoutubeVideo, TopicVimeoVideo
 
 router = Router()
 
@@ -25,6 +24,19 @@ def _extract_youtube_id(url: str) -> Optional[str]:
         qs = parse_qs(parsed.query)
         if "v" in qs:
             return qs["v"][0]
+    return None
+
+
+def _extract_vimeo_id(url: str) -> Optional[str]:
+    """Extract Vimeo video ID from a URL."""
+    from urllib.parse import urlparse
+    import re
+
+    parsed = urlparse(url)
+    if parsed.hostname and "vimeo.com" in parsed.hostname:
+        match = re.search(r"/(\d+)", parsed.path)
+        if match:
+            return match.group(1)
     return None
 
 
@@ -68,8 +80,37 @@ def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
     )
 
 
-_HANDLERS: Dict[str, Callable[[Topic, str], TopicYoutubeVideo]] = {
+def _add_vimeo_video(topic: Topic, url: str) -> TopicVimeoVideo:
+    video_id = _extract_vimeo_id(url)
+    if not video_id:
+        raise HttpError(400, "Invalid Vimeo URL")
+
+    try:
+        ydl = yt_dlp.YoutubeDL({"quiet": True})
+        info = ydl.extract_info(url, download=False)
+    except Exception as exc:  # pragma: no cover - network errors
+        raise HttpError(400, "Failed to fetch video details") from exc
+
+    published_at = django_timezone.now()
+    timestamp = info.get("timestamp")
+    if timestamp:
+        published_at = datetime.fromtimestamp(timestamp, tz=datetime_timezone.utc)
+
+    return TopicVimeoVideo.objects.create(
+        topic=topic,
+        url=url,
+        video_id=video_id,
+        title=info.get("title", video_id),
+        description=info.get("description", ""),
+        thumbnail=info.get("thumbnail"),
+        published_at=published_at,
+        status="finished",
+    )
+
+
+_HANDLERS: Dict[str, Callable[[Topic, str], Any]] = {
     "youtube": _add_youtube_video,
+    "vimeo": _add_vimeo_video,
 }
 
 

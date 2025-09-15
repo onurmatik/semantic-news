@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="card my-3" id="topicMediaContainer"{% if not youtube_video %} style="display: none;"{% endif %}>
+<div class="card my-3" id="topicMediaContainer"{% if not youtube_video and not vimeo_video %} style="display: none;"{% endif %}>
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fs-5 mb-0">{% trans "Media" %}</h6>
@@ -7,6 +7,10 @@
         {% if youtube_video %}
         <div class="ratio ratio-16x9">
             <iframe src="https://www.youtube.com/embed/{{ youtube_video.video_id }}" title="{{ youtube_video.title }}" allowfullscreen></iframe>
+        </div>
+        {% elif vimeo_video %}
+        <div class="ratio ratio-16x9">
+            <iframe src="https://player.vimeo.com/video/{{ vimeo_video.video_id }}" title="{{ vimeo_video.title }}" allowfullscreen></iframe>
         </div>
         {% endif %}
     </div>

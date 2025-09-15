@@ -19,6 +19,30 @@
           <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
         </div>
       </form>
+</div>
+</div>
+</div>
+
+<div class="modal fade" id="vimeoVideoModal" tabindex="-1" aria-labelledby="vimeoVideoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="vimeoVideoForm">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="vimeoVideoModalLabel">{% trans "Add Vimeo video" %}</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+          <div class="mb-3">
+            <label for="vimeoUrl" class="form-label">{% trans "Video URL" %}</label>
+            <input type="url" class="form-control" id="vimeoUrl" name="url" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
