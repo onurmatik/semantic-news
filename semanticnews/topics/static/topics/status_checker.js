@@ -3,16 +3,71 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation', 'image'];
+  const KEYS_TO_CHECK = ['recap'];
 
   const mapping = {
     recap: 'recapButton',
-    narrative: 'narrativeButton',
-    relation: 'relationButton',
-    image: 'imageButton',
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
+  let intervalId = null;
+
+  const seenInProgress = Object.create(null);
+
+  const renderMarkdownLite = (md) => {
+    if (!md) return '';
+    let html = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.split(/\n{2,}/).map(p => `<p class="mb-2">${p.replace(/\n/g, '<br>')}</p>`).join('');
+    return html;
+  };
+
+  const applyRecapFallback = (text, createdAtIso) => {
+    const card = document.getElementById('topicRecapContainer');
+    const cardText = document.getElementById('topicRecapText');
+    if (card && cardText) {
+      card.style.display = '';
+      cardText.innerHTML = renderMarkdownLite(text || '');
+    }
+    const textarea = document.getElementById('recapText');
+    if (textarea) {
+      const mde = textarea._easyMDE;
+      if (mde && mde.value) mde.value(text || '');
+      else textarea.value = text || '';
+      const form = document.getElementById('recapForm');
+      const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+      if (submitBtn) submitBtn.disabled = true;
+      const createdAtEl = document.getElementById('recapCreatedAt');
+      if (createdAtEl && createdAtIso) {
+        const d = new Date(createdAtIso);
+        createdAtEl.textContent = d.toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+      }
+    }
+  };
+
+  const updateRecapFromServer = async () => {
+    try {
+      const res = await fetch(`/api/topics/recap/${topicUuid}/list`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = data.items || [];
+      if (!items.length) return;
+      const latest = items[items.length - 1];
+      if (typeof window.__recapExternalApply === 'function') {
+        window.__recapExternalApply(latest.recap, latest.created_at);
+      } else {
+        applyRecapFallback(latest.recap, latest.created_at);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const setController = (buttonId, status) => {
+    const ctrl = window.generationControllers && window.generationControllers[buttonId];
+    if (ctrl && ctrl.setState) ctrl.setState({ status });
+  };
 
   const fetchStatus = async () => {
     try {
@@ -22,35 +77,57 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       let anyStillInProgress = false;
 
-      const currentTime = data.current ? new Date(data.current) : new Date();
+      const now = data.current ? new Date(data.current) : new Date();
 
-      KEYS_TO_CHECK.forEach((key) => {
+      for (const key of KEYS_TO_CHECK) {
         const info = data[key];
-        const controller = window.generationControllers[mapping[key]];
-        if (!info || !controller) return;
+        const buttonId = mapping[key];
+        if (!info || !buttonId) continue;
 
-        // Only care about in_progress; ignore finished/error
-        if (info.status !== 'in_progress') return;
+        const status = info.status; // "in_progress" | "finished" | "error"
+        const createdAt = info.created_at ? new Date(info.created_at) : null;
 
-        if (info.created_at) {
-          const createdAt = new Date(info.created_at);
-          const age = currentTime - createdAt;
-
-          if (age > INPROGRESS_TIMEOUT_MS) {
-            // Too old — neutralize and stop tracking
+        if (status === 'in_progress') {
+          seenInProgress[key] = true; // mark that we saw it running in this session
+          if (createdAt && (now - createdAt) > INPROGRESS_TIMEOUT_MS) {
+            setController(buttonId, 'finished'); // neutralize too-old spinners
             // TODO change status to error in db
-            controller.setState({ status: 'finished' }); // neutral/stateless in button code
-            return;
+          } else {
+            setController(buttonId, 'in_progress');
+            anyStillInProgress = true;
           }
+          continue;
         }
 
-        // Still in progress and within timeout window -> keep spinner on
-        controller.setState({ status: 'in_progress' });
-        anyStillInProgress = true;
-      });
+        if (status === 'finished') {
+          if (seenInProgress[key]) {
+            setController(buttonId, 'success');
+          } else {
+            setController(buttonId, 'finished'); // neutral (no icon/color)
+          }
 
-      if (!anyStillInProgress) {
+          if (key === 'recap') {
+            // Always refresh content AND counts/pager.
+            if (typeof window.__recapReloadAndJump === 'function') {
+              await window.__recapReloadAndJump();     // updates list, counts, baseline
+            } else {
+              await updateRecapFromServer();           // fallback: updates content only
+            }
+          }
+          continue;
+        }
+
+        if (status === 'error') {
+          setController(buttonId, 'error');
+          continue;
+        }
+
+        setController(buttonId, 'finished'); // neutral/default
+      }
+
+      if (!anyStillInProgress && intervalId) {
         clearInterval(intervalId);
+        intervalId = null;
       }
     } catch (err) {
       console.error(err);
@@ -58,5 +135,5 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   fetchStatus();
-  const intervalId = setInterval(fetchStatus, 3000);
+  intervalId = setInterval(fetchStatus, 3000);
 });

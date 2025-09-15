@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const suggestionBtn = document.getElementById('fetchRecapSuggestion');
   const recapTextarea = document.getElementById('recapText');
   const recapMDE = recapTextarea && window.EasyMDE ? new EasyMDE({ element: recapTextarea }) : null;
+  // expose the MDE instance on the textarea so status checker can find it
+  if (recapTextarea && recapMDE) recapTextarea._easyMDE = recapMDE;
   const getRecapValue = () => recapMDE ? recapMDE.value() : (recapTextarea ? recapTextarea.value : '');
   const recapCardContainer = document.getElementById('topicRecapContainer');
   const recapCardText = document.getElementById('topicRecapText');
@@ -31,6 +33,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const container = document.querySelector('[data-topic-uuid]');
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
+
+   // External hook so status_checker can apply a newly finished recap and reset baseline like success flow
+   window.__recapExternalApply = (text, createdAtIso) => {
+     // Update card (same lite render you use)
+     const card = document.getElementById('topicRecapContainer');
+     const cardText = document.getElementById('topicRecapText');
+     if (card && cardText) {
+       card.style.display = '';
+       const renderMarkdownLite = (md) => {
+         if (!md) return '';
+         let html = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+         html = html.split(/\n{2,}/).map(p => `<p class="mb-2">${p.replace(/\n/g, '<br>')}</p>`).join('');
+         return html;
+       };
+       cardText.innerHTML = renderMarkdownLite(text || '');
+     }
+
+     // Update editor
+     if (recapMDE) recapMDE.value(text || '');
+     else if (recapTextarea) recapTextarea.value = text || '';
+
+     // Reset baseline & disable Update button
+     latestRecapBaseline = norm(getRecapValue());
+     updateSubmitButtonState();
+
+     // Update created_at label if present (edit page)
+     const createdAtEl = document.getElementById('recapCreatedAt');
+     if (createdAtEl && createdAtIso) {
+       const d = new Date(createdAtIso);
+       createdAtEl.textContent = d.toLocaleString(undefined, {
+         year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+       });
+     }
+   };
 
   // ---- Helper: normalize text for equality checks
   const norm = (s) => (s || '')
@@ -138,6 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error(e);
       }
     };
+
+    // Expose a safe reload hook so status_checker can refresh list, counts, and baseline.
+    window.__recapReloadAndJump = reloadRecapsAndJumpToLatest;
 
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
     nextBtn && nextBtn.addEventListener('click', () => applyIndex(currentIndex + 1));
