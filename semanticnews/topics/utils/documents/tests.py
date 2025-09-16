@@ -77,6 +77,29 @@ class TopicDocumentTests(TestCase):
 
         self.assertEqual(link.document_type, 'other')
 
+    @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
+    def test_file_name_property_returns_url_basename(self, _mock_embedding):
+        user = get_user_model().objects.create_user('user3', 'user3@example.com', 'password')
+        topic = Topic.objects.create(title='Topic for filenames', created_by=user)
+
+        link = TopicDocument.objects.create(
+            topic=topic,
+            url='https://example.com/documents/Annual%20Report.pdf',
+            title='',
+        )
+
+        self.assertEqual(link.file_name, 'Annual Report.pdf')
+        self.assertEqual(link.display_title, 'Annual Report.pdf')
+
+        trailing = TopicDocument.objects.create(
+            topic=topic,
+            url='https://example.com/',
+            title='',
+        )
+
+        self.assertEqual(trailing.file_name, 'example.com')
+        self.assertEqual(trailing.display_title, 'example.com')
+
 
 class TopicWebpageTests(TestCase):
     """Tests for the TopicWebpage model."""
@@ -209,6 +232,21 @@ class TopicDocumentAPITests(TestCase):
         self.assertEqual(data['total'], 2)
         urls = {item['url'] for item in data['items']}
         self.assertEqual(urls, {'https://example.com/report.pdf', 'https://example.com/brief.docx'})
+
+    def test_list_documents_uses_file_name_when_title_missing(self):
+        TopicDocument.objects.create(
+            topic=self.topic,
+            url='https://example.com/files/report-final.pdf',
+            title='',
+            created_by=self.user,
+        )
+
+        response = self.client.get(f'/api/topics/document/{self.topic.uuid}/list')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['total'], 1)
+        self.assertEqual(data['items'][0]['title'], 'report-final.pdf')
 
     def test_delete_document(self):
         document = TopicDocument.objects.create(

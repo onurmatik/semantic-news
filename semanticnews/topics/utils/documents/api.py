@@ -208,7 +208,7 @@ def create_document(request, payload: TopicDocumentCreateRequest):
 
     return TopicDocumentResponse(
         id=document.id,
-        title=document.title or None,
+        title=document.display_title,
         url=document.url,
         description=document.description or None,
         document_type=document.document_type,
@@ -238,7 +238,7 @@ def list_documents(request, topic_uuid: str):
     items = [
         TopicDocumentResponse(
             id=document.id,
-            title=document.title or None,
+            title=document.display_title,
             url=document.url,
             description=document.description or None,
             document_type=document.document_type,
