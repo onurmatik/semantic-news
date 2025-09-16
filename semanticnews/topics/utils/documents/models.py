@@ -6,10 +6,14 @@ from django.conf import settings
 from django.db import models
 
 
-class TopicLinkBase(models.Model):
-    """Abstract base model for links associated with a topic."""
+class TopicDocument(models.Model):
+    """Link to an external document relevant to the topic."""
 
-    topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        'topics.Topic',
+        on_delete=models.CASCADE,
+        related_name='documents',
+    )
     title = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=1000)
     description = models.TextField(blank=True)
@@ -21,23 +25,6 @@ class TopicLinkBase(models.Model):
         on_delete=models.SET_NULL,
         related_name='+',
     )
-
-    class Meta:
-        abstract = True
-        ordering = ['-created_at']
-
-    def __str__(self) -> str:  # pragma: no cover - trivial string representation
-        return self.title or self.url
-
-    @property
-    def domain(self) -> str:
-        """Return the hostname for the stored URL."""
-
-        return urlparse(self.url).netloc
-
-
-class TopicDocumentLink(TopicLinkBase):
-    """Link to an external document relevant to the topic."""
 
     DOCUMENT_TYPES = [
         ("pdf", "PDF"),
@@ -68,14 +55,22 @@ class TopicDocumentLink(TopicLinkBase):
 
     class Meta:
         app_label = 'topics'
-        default_related_name = 'document_links'
-        verbose_name = 'Document link'
-        verbose_name_plural = 'Document links'
+        verbose_name = 'Document'
+        verbose_name_plural = 'Documents'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['topic']),
             models.Index(fields=['document_type']),
         ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial string representation
+        return self.title or self.url
+
+    @property
+    def domain(self) -> str:
+        """Return the hostname for the stored URL."""
+
+        return urlparse(self.url).netloc
 
     def save(self, *args, **kwargs):
         """Guess the document type from the URL before saving."""
@@ -93,16 +88,41 @@ class TopicDocumentLink(TopicLinkBase):
         return 'other'
 
 
-class TopicWebpageLink(TopicLinkBase):
+class TopicWebpage(models.Model):
     """Link to an external webpage relevant to the topic."""
+
+    topic = models.ForeignKey(
+        'topics.Topic',
+        on_delete=models.CASCADE,
+        related_name='webpages',
+    )
+    title = models.CharField(max_length=255, blank=True)
+    url = models.URLField(max_length=1000)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+    )
 
     class Meta:
         app_label = 'topics'
-        default_related_name = 'webpage_links'
-        verbose_name = 'Webpage link'
-        verbose_name_plural = 'Webpage links'
+        verbose_name = 'Webpage'
+        verbose_name_plural = 'Webpages'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['topic']),
             models.Index(fields=['created_at']),
         ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial string representation
+        return self.title or self.url
+
+    @property
+    def domain(self) -> str:
+        """Return the hostname for the stored URL."""
+
+        return urlparse(self.url).netloc

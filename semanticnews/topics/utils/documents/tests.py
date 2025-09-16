@@ -5,18 +5,18 @@ from django.test import TestCase
 
 from semanticnews.topics.models import Topic
 
-from .models import TopicDocumentLink, TopicWebpageLink
+from .models import TopicDocument, TopicWebpage
 
 
-class TopicDocumentLinkTests(TestCase):
-    """Tests for the TopicDocumentLink model."""
+class TopicDocumentTests(TestCase):
+    """Tests for the TopicDocument model."""
 
     @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
     def test_document_type_is_inferred_from_url(self, _mock_embedding):
         user = get_user_model().objects.create_user('user', 'user@example.com', 'password')
         topic = Topic.objects.create(title='Test topic', created_by=user)
 
-        link = TopicDocumentLink.objects.create(
+        link = TopicDocument.objects.create(
             topic=topic,
             url='https://example.com/files/report.PDF',
             title='Quarterly report',
@@ -29,7 +29,7 @@ class TopicDocumentLinkTests(TestCase):
         user = get_user_model().objects.create_user('user2', 'user2@example.com', 'password')
         topic = Topic.objects.create(title='Another topic', created_by=user)
 
-        link = TopicDocumentLink.objects.create(
+        link = TopicDocument.objects.create(
             topic=topic,
             url='https://example.com/files/summary',
         )
@@ -37,15 +37,15 @@ class TopicDocumentLinkTests(TestCase):
         self.assertEqual(link.document_type, 'other')
 
 
-class TopicWebpageLinkTests(TestCase):
-    """Tests for the TopicWebpageLink model."""
+class TopicWebpageTests(TestCase):
+    """Tests for the TopicWebpage model."""
 
     @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
     def test_domain_property_returns_hostname(self, _mock_embedding):
         user = get_user_model().objects.create_user('viewer', 'viewer@example.com', 'password')
         topic = Topic.objects.create(title='Topic with webpage', created_by=user)
 
-        link = TopicWebpageLink.objects.create(
+        link = TopicWebpage.objects.create(
             topic=topic,
             url='https://example.com/articles/interesting-story',
         )

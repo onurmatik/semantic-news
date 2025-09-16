@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="TopicDocumentLink",
+            name="TopicDocument",
             fields=[
                 (
                     "id",
@@ -58,27 +58,28 @@ class Migration(migrations.Migration):
                 (
                     "topic",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="topics.topic"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="documents",
+                        to="topics.topic",
                     ),
                 ),
             ],
             options={
-                "verbose_name": "Document link",
-                "verbose_name_plural": "Document links",
-                "default_related_name": "document_links",
+                "verbose_name": "Document",
+                "verbose_name_plural": "Documents",
                 "ordering": ["-created_at"],
                 "indexes": [
                     models.Index(
-                        fields=["topic"], name="topics_topi_topic_i_850b2b_idx"
+                        fields=["topic"], name="topics_topi_topic_i_e00806_idx"
                     ),
                     models.Index(
-                        fields=["document_type"], name="topics_topi_documen_01ea6a_idx"
+                        fields=["document_type"], name="topics_topi_documen_eeb3ff_idx"
                     ),
                 ],
             },
         ),
         migrations.CreateModel(
-            name="TopicWebpageLink",
+            name="TopicWebpage",
             fields=[
                 (
                     "id",
@@ -106,21 +107,22 @@ class Migration(migrations.Migration):
                 (
                     "topic",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="topics.topic"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="webpages",
+                        to="topics.topic",
                     ),
                 ),
             ],
             options={
-                "verbose_name": "Webpage link",
-                "verbose_name_plural": "Webpage links",
-                "default_related_name": "webpage_links",
+                "verbose_name": "Webpage",
+                "verbose_name_plural": "Webpages",
                 "ordering": ["-created_at"],
                 "indexes": [
                     models.Index(
-                        fields=["topic"], name="topics_topi_topic_i_905507_idx"
+                        fields=["topic"], name="topics_topi_topic_i_e5a6e5_idx"
                     ),
                     models.Index(
-                        fields=["created_at"], name="topics_topi_created_d1aac9_idx"
+                        fields=["created_at"], name="topics_topi_created_a10f6b_idx"
                     ),
                 ],
             },

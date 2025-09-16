@@ -2,11 +2,11 @@
 
 from django.contrib import admin
 
-from .models import TopicDocumentLink, TopicWebpageLink
+from .models import TopicDocument, TopicWebpage
 
 
-@admin.register(TopicDocumentLink)
-class TopicDocumentLinkAdmin(admin.ModelAdmin):
+@admin.register(TopicDocument)
+class TopicDocumentAdmin(admin.ModelAdmin):
     list_display = (
         'title',
         'topic',
@@ -21,8 +21,8 @@ class TopicDocumentLinkAdmin(admin.ModelAdmin):
     raw_id_fields = ('topic', 'created_by')
 
 
-@admin.register(TopicWebpageLink)
-class TopicWebpageLinkAdmin(admin.ModelAdmin):
+@admin.register(TopicWebpage)
+class TopicWebpageAdmin(admin.ModelAdmin):
     list_display = (
         'title',
         'topic',
