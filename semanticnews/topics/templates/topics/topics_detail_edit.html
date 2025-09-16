@@ -95,7 +95,7 @@
             {% include "topics/data/button.html" %}
             {% include "topics/narratives/button.html" %}
             {% include "topics/images/button.html" %}
-            {% include "topics/media/button.html" %}
+            {% include "topics/embeds/button.html" %}
             {% include "topics/relations/button.html" %}
             {% include "topics/timeline/button.html" %}
             {% include "topics/mcps/button.html" %}
@@ -127,7 +127,7 @@
         {% include "topics/narratives/card.html" with edit_mode=True %}
         {% include "topics/narratives/confirm_delete.html" %}
 
-        {% include "topics/media/card.html" with edit_mode=True %}
+        {% include "topics/embeds/card.html" with edit_mode=True %}
 
         {% include "topics/relations/card.html" with edit_mode=True %}
         {% include "topics/relations/confirm_delete.html" %}
@@ -212,7 +212,7 @@
 {% include "topics/data/visualize_modal.html" %}
 {% include "topics/narratives/modal.html" %}
 {% include "topics/images/modal.html" %}
-{% include "topics/media/modal.html" %}
+{% include "topics/embeds/modal.html" %}
 {% include "topics/relations/modal.html" %}
 {% include "topics/timeline/modal.html" %}
 {% include "topics/create_topic_modal.html" %}
@@ -230,7 +230,7 @@
     {% include "topics/data/scripts.html" %}
     {% include "topics/narratives/scripts.html" %}
     {% include "topics/images/scripts.html" %}
-    {% include "topics/media/scripts.html" %}
+    {% include "topics/embeds/scripts.html" %}
     {% include "topics/relations/scripts.html" %}
     {% include "topics/timeline/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}

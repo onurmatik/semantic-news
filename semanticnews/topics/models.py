@@ -13,7 +13,7 @@ from ..utils import get_relevance
 from .utils.recaps.models import TopicRecap
 from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
-from .utils.media.models import TopicYoutubeVideo
+from .utils.embeds.models import TopicYoutubeVideo
 from .utils.relations.models import TopicEntityRelation
 from .utils.timeline.models import TopicEvent
 

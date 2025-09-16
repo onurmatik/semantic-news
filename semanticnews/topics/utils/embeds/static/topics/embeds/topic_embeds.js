@@ -13,11 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const formData = new FormData(form);
       const payload = {
         topic_uuid: formData.get('topic_uuid'),
-        media_type: 'youtube',
         url: formData.get('url')
       };
       try {
-        const res = await fetch('/api/topics/media/add', {
+        const res = await fetch('/api/topics/embed/video/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
