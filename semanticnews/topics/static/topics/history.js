@@ -38,6 +38,7 @@ window.setupTopicHistory = function (options) {
   const pagerLabel = document.getElementById(`${key}PagerLabel`);
   const createdAtEl = document.getElementById(`${key}CreatedAt`);
   const deleteBtn = document.getElementById(`${key}DeleteBtn`);
+  const hideWhenSingleEls = pagerEl ? Array.from(pagerEl.querySelectorAll('[data-hide-when-single]')) : [];
 
   const confirmModalEl = document.getElementById(`confirmDelete${capitalize(key)}Modal`);
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
@@ -97,6 +98,14 @@ window.setupTopicHistory = function (options) {
     // Pager/UI
     pagerEl && (pagerEl.style.display = '');
     pagerLabel && (pagerLabel.textContent = `${currentIndex + 1}/${recs.length}`);
+    const hasMultiple = recs.length > 1;
+    hideWhenSingleEls.forEach((el) => {
+      if (hasMultiple) {
+        el.classList.remove('d-none');
+      } else {
+        el.classList.add('d-none');
+      }
+    });
     prevBtn && (prevBtn.disabled = currentIndex <= 0);
     nextBtn && (nextBtn.disabled = currentIndex >= recs.length - 1);
     createdAtEl && (createdAtEl.textContent = formatDateTime(item.created_at));
