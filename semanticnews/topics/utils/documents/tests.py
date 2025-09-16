@@ -1,11 +1,52 @@
 from unittest.mock import patch
 
+import requests
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from semanticnews.topics.models import Topic
 
 from .models import TopicDocument, TopicWebpage
+
+
+class MockResponse:
+    """Simple mock response for simulating ``requests.get`` calls."""
+
+    def __init__(self, *, status_code=200, text="", headers=None, content_type="text/html; charset=utf-8"):
+        self.status_code = status_code
+        self._text = text
+        self.headers = {"Content-Type": content_type}
+        if headers:
+            self.headers.update(headers)
+        self.encoding = "utf-8"
+
+    def iter_content(self, chunk_size=2048, decode_unicode=False):
+        if decode_unicode:
+            data = self._text
+        else:
+            data = self._text.encode(self.encoding)
+
+        if not data:
+            return
+
+        for index in range(0, len(data), chunk_size):
+            yield data[index : index + chunk_size]
+
+    def close(self):  # pragma: no cover - included for API compatibility
+        return None
+
+
+def build_mock_html_response(title="Fetched Title", description="Fetched description") -> MockResponse:
+    """Create a mocked HTML response containing metadata."""
+
+    html = (
+        "<html><head>"
+        f"<title>{title}</title>"
+        f"<meta name=\"description\" content=\"{description}\"/>"
+        "</head><body></body></html>"
+    )
+    return MockResponse(text=html)
 
 
 class TopicDocumentTests(TestCase):
@@ -64,6 +105,11 @@ class TopicDocumentAPITests(TestCase):
         self.embedding_patcher.start()
         self.addCleanup(self.embedding_patcher.stop)
 
+        self.requests_patcher = patch('semanticnews.topics.utils.documents.api.requests.get')
+        self.mock_requests_get = self.requests_patcher.start()
+        self.addCleanup(self.requests_patcher.stop)
+        self.mock_requests_get.return_value = build_mock_html_response()
+
         self.user = get_user_model().objects.create_user('docuser', 'doc@example.com', 'password')
         self.client.force_login(self.user)
         self.topic = Topic.objects.create(title='Doc Topic', created_by=self.user)
@@ -88,6 +134,44 @@ class TopicDocumentAPITests(TestCase):
         self.assertEqual(TopicDocument.objects.count(), 1)
         document = TopicDocument.objects.first()
         self.assertEqual(document.created_by, self.user)
+
+    def test_create_document_populates_metadata(self):
+        self.mock_requests_get.return_value = build_mock_html_response(
+            title='Fetched Document Title', description='Fetched document description'
+        )
+
+        payload = {
+            'topic_uuid': str(self.topic.uuid),
+            'url': 'https://example.com/report.html',
+        }
+
+        response = self.client.post(
+            '/api/topics/document/create', payload, content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['title'], 'Fetched Document Title')
+        self.assertEqual(data['description'], 'Fetched document description')
+
+    def test_create_document_rejects_unreachable_url(self):
+        self.mock_requests_get.side_effect = requests.RequestException('boom')
+
+        try:
+            payload = {
+                'topic_uuid': str(self.topic.uuid),
+                'url': 'https://example.com/missing-report',
+            }
+
+            response = self.client.post(
+                '/api/topics/document/create', payload, content_type='application/json'
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()['detail'], 'Unable to fetch URL')
+        finally:
+            self.mock_requests_get.side_effect = None
+            self.mock_requests_get.return_value = build_mock_html_response()
 
     def test_create_document_requires_authentication(self):
         self.client.logout()
@@ -151,6 +235,11 @@ class TopicWebpageAPITests(TestCase):
         self.embedding_patcher.start()
         self.addCleanup(self.embedding_patcher.stop)
 
+        self.requests_patcher = patch('semanticnews.topics.utils.documents.api.requests.get')
+        self.mock_requests_get = self.requests_patcher.start()
+        self.addCleanup(self.requests_patcher.stop)
+        self.mock_requests_get.return_value = build_mock_html_response()
+
         self.user = get_user_model().objects.create_user('webuser', 'web@example.com', 'password')
         self.client.force_login(self.user)
         self.topic = Topic.objects.create(title='Web Topic', created_by=self.user)
@@ -171,6 +260,44 @@ class TopicWebpageAPITests(TestCase):
         self.assertEqual(data['title'], 'Interesting article')
         self.assertEqual(data['domain'], 'example.com')
         self.assertEqual(TopicWebpage.objects.count(), 1)
+
+    def test_create_webpage_populates_metadata(self):
+        self.mock_requests_get.return_value = build_mock_html_response(
+            title='Fetched Webpage Title', description='Fetched webpage description'
+        )
+
+        payload = {
+            'topic_uuid': str(self.topic.uuid),
+            'url': 'https://example.com/another-article',
+        }
+
+        response = self.client.post(
+            '/api/topics/document/webpage/create', payload, content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['title'], 'Fetched Webpage Title')
+        self.assertEqual(data['description'], 'Fetched webpage description')
+
+    def test_create_webpage_rejects_unreachable_url(self):
+        self.mock_requests_get.side_effect = requests.RequestException('boom')
+
+        try:
+            payload = {
+                'topic_uuid': str(self.topic.uuid),
+                'url': 'https://example.com/missing-page',
+            }
+
+            response = self.client.post(
+                '/api/topics/document/webpage/create', payload, content_type='application/json'
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()['detail'], 'Unable to fetch URL')
+        finally:
+            self.mock_requests_get.side_effect = None
+            self.mock_requests_get.return_value = build_mock_html_response()
 
     def test_list_webpages(self):
         TopicWebpage.objects.create(
