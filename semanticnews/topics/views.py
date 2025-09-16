@@ -21,6 +21,8 @@ def topics_detail(request, slug, username):
             "recaps",
             "narratives",
             "images",
+            "documents",
+            "webpages",
             "youtube_videos",
             "tweets",
             "entity_relations",
@@ -47,6 +49,8 @@ def topics_detail(request, slug, username):
         .order_by("-created_at")
         .first()
     )
+    documents = list(topic.documents.all())
+    webpages = list(topic.webpages.all())
     latest_data = topic.datas.order_by("-created_at").first()
     datas = topic.datas.order_by("-created_at")
     data_insights = topic.data_insights.order_by("-created_at")
@@ -92,6 +96,8 @@ def topics_detail(request, slug, username):
         "data_visualizations": data_visualizations,
         "youtube_video": youtube_video,
         "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
@@ -110,6 +116,8 @@ def topics_detail_edit(request, slug, username):
             "recaps",
             "narratives",
             "images",
+            "documents",
+            "webpages",
             "youtube_videos",
             "tweets",
             "entity_relations",
@@ -139,6 +147,8 @@ def topics_detail_edit(request, slug, username):
         .order_by("-created_at")
         .first()
     )
+    documents = list(topic.documents.all())
+    webpages = list(topic.webpages.all())
     latest_data = topic.datas.order_by("-created_at").first()
     datas = topic.datas.order_by("-created_at")
     data_insights = topic.data_insights.order_by("-created_at")
@@ -184,6 +194,8 @@ def topics_detail_edit(request, slug, username):
         "data_visualizations": data_visualizations,
         "youtube_video": youtube_video,
         "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(

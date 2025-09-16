@@ -1,0 +1,58 @@
+{% load i18n %}
+<div class="card mt-3" id="topicResourcesCard">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fs-5 mb-0">{% trans "Documents & Webpages" %}</h6>
+        </div>
+        {% if documents or webpages %}
+            {% if documents %}
+                <h6 class="text-uppercase text-secondary small fw-semibold mb-2">{% trans "Documents" %}</h6>
+                {% for document in documents %}
+                    <div class="d-flex align-items-start{% if not forloop.last or webpages %} mb-3{% endif %}">
+                        <i class="bi bi-file-earmark-text text-secondary me-2 mt-1"></i>
+                        <div>
+                            <a href="{{ document.url }}" class="text-info-emphasis text-decoration-none" target="_blank" rel="noopener noreferrer">
+                                {{ document.title|default:document.url }}
+                            </a>
+                            {% if document.description %}
+                                <p class="small text-secondary mb-1">{{ document.description }}</p>
+                            {% endif %}
+                            <div class="small text-secondary">
+                                {{ document.domain }}
+                                {% if document.document_type and document.document_type != 'other' %}
+                                    &middot; {{ document.get_document_type_display }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if documents and webpages %}
+                <hr class="text-body-secondary opacity-10 my-3">
+            {% endif %}
+
+            {% if webpages %}
+                <h6 class="text-uppercase text-secondary small fw-semibold mb-2">{% trans "Webpages" %}</h6>
+                {% for webpage in webpages %}
+                    <div class="d-flex align-items-start{% if not forloop.last %} mb-3{% endif %}">
+                        <i class="bi bi-globe text-secondary me-2 mt-1"></i>
+                        <div>
+                            <a href="{{ webpage.url }}" class="text-info-emphasis text-decoration-none" target="_blank" rel="noopener noreferrer">
+                                {{ webpage.title|default:webpage.url }}
+                            </a>
+                            {% if webpage.description %}
+                                <p class="small text-secondary mb-1">{{ webpage.description }}</p>
+                            {% endif %}
+                            <div class="small text-secondary">
+                                {{ webpage.domain }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% else %}
+            <p class="small text-secondary mb-0">{% trans "No documents or webpages yet." %}</p>
+        {% endif %}
+    </div>
+</div>
