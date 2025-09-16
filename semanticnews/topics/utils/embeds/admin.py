@@ -1,11 +1,11 @@
 from django.contrib import admin
 
-from .models import TopicSocialEmbed, TopicYoutubeVideo
+from .models import TopicTweet, TopicYoutubeVideo
 
 
-@admin.register(TopicSocialEmbed)
-class TopicSocialEmbedAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'provider', 'url', 'created_at')
+@admin.register(TopicTweet)
+class TopicTweetAdmin(admin.ModelAdmin):
+    list_display = ('topic', 'tweet_id', 'url', 'created_at')
     search_fields = ('url',)
 
 
