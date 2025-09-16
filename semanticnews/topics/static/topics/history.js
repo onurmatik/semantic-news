@@ -16,11 +16,15 @@ window.setupTopicHistory = function (options) {
   const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`);
   const textarea = document.getElementById(`${key}Text`);
   const easyMDE = useMarkdown && textarea && window.EasyMDE ? new EasyMDE({ element: textarea }) : null;
+  // expose MDE handle so other scripts can access it (status checker / fallbacks)
+  if (textarea && easyMDE) textarea._easyMDE = easyMDE;
+
   const getValue = () => easyMDE ? easyMDE.value() : (textarea ? textarea.value : '');
   const setValue = (v) => { if (easyMDE) easyMDE.value(v); else if (textarea) textarea.value = v; };
   const cardContainer = document.getElementById(`topic${capitalize(key)}Container`);
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
   const modalEl = document.getElementById(`${key}Modal`);
+  const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
 
   if (easyMDE && modalEl) {
     modalEl.addEventListener('shown.bs.modal', () => {
@@ -46,6 +50,7 @@ window.setupTopicHistory = function (options) {
   const norm = (s) => (s || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   let baseline = textarea ? norm(getValue()) : '';
 
+  // Submit button enable/disable based on diff from baseline
   const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   const updateSubmitButtonState = () => {
     if (!submitBtn || !textarea) return;
@@ -58,6 +63,7 @@ window.setupTopicHistory = function (options) {
   }
   updateSubmitButtonState();
 
+  // list + pager
   const recs = [];
   let currentIndex = -1;
   const current = () => (currentIndex >= 0 ? recs[currentIndex] : null);
@@ -78,12 +84,17 @@ window.setupTopicHistory = function (options) {
     currentIndex = Math.max(0, Math.min(i, recs.length - 1));
     const item = recs[currentIndex];
 
-    if (textarea) setValue(getItemText(item));
-    cardContainer && (cardContainer.style.display = '');
-    renderItem && renderItem(item, cardContent);
+    // Fill editor
+    setValue(getItemText(item));
+    // Show card
+    if (cardContainer) cardContainer.style.display = '';
+    renderItem && cardContent && renderItem(item, cardContent);
+
+    // Reset baseline & update submit disabled
     baseline = norm(getValue());
     updateSubmitButtonState();
 
+    // Pager/UI
     pagerEl && (pagerEl.style.display = '');
     pagerLabel && (pagerLabel.textContent = `${currentIndex + 1}/${recs.length}`);
     prevBtn && (prevBtn.disabled = currentIndex <= 0);
@@ -117,9 +128,44 @@ window.setupTopicHistory = function (options) {
       }
     };
 
+    // expose generic hooks for status checker (e.g., __narrativeReloadAndJump / __narrativeExternalApply)
+    try {
+      const lower = key;
+      window[`__${lower}ReloadAndJump`] = reload;
+      window[`__${lower}ExternalApply`] = (text, createdAtIso) => {
+        // card
+        if (cardContainer) cardContainer.style.display = '';
+        if (renderItem && cardContent) {
+          const fakeItem = { [field]: text || '', created_at: createdAtIso || null, id: -1 };
+          renderItem(fakeItem, cardContent);
+        } else if (cardContent) {
+          cardContent.textContent = text || '';
+        }
+        // editor
+        setValue(text || '');
+        // reset baseline & disable Update
+        baseline = norm(getValue());
+        updateSubmitButtonState();
+        // created at label
+        if (createdAtEl && createdAtIso) {
+          const d = new Date(createdAtIso);
+          createdAtEl.textContent = d.toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+          });
+        }
+      };
+    } catch (err) {
+      console.error('history hooks expose failed:', err);
+    }
+
+    // initial load (only when pager exists = edit mode)
+    reload();
+
+    // pager controls
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
     nextBtn && nextBtn.addEventListener('click', () => applyIndex(currentIndex + 1));
 
+    // delete flow
     deleteBtn && deleteBtn.addEventListener('click', () => {
       if (!current()) return;
       confirmModal && confirmModal.show();
@@ -133,7 +179,7 @@ window.setupTopicHistory = function (options) {
       try {
         const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
         if (!res.ok && res.status !== 204) throw new Error('Delete failed');
-        window.location.reload();
+        window.location.reload(); // per requirement
       } catch (e) {
         console.error(e);
         confirmModal && confirmModal.hide();
@@ -142,18 +188,22 @@ window.setupTopicHistory = function (options) {
         deleteSpinner && deleteSpinner.classList.add('d-none');
       }
     });
-
-    reload();
   }
 
+  // ----- Suggest + Update flows (modal behavior unified for all keys) -----
+
   const afterPersistedChange = async () => {
+    // After AI suggestion or manual Update, ensure list/card/editor/baseline are correct
     await reload();
   };
 
+  // Suggest flow
   if (suggestionBtn && textarea && form) {
     suggestionBtn.addEventListener('click', async () => {
-      suggestionBtn.disabled = true;
       controller && controller.showLoading();
+      modal && modal.hide();
+      suggestionBtn.disabled = true;
+
       try {
         const res = await fetch(createUrl, {
           method: 'POST',
@@ -162,6 +212,7 @@ window.setupTopicHistory = function (options) {
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
+
         controller && controller.showSuccess();
         await afterPersistedChange();
       } catch (err) {
@@ -173,11 +224,14 @@ window.setupTopicHistory = function (options) {
     });
   }
 
+  // Manual update flow
   if (form && textarea) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn && (submitBtn.disabled = true);
       controller && controller.showLoading();
+      modal && modal.hide();
+
       try {
         const payload = { topic_uuid: topicUuid };
         Object.assign(payload, parseInput(getValue()));
@@ -188,16 +242,19 @@ window.setupTopicHistory = function (options) {
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
+
+        // Manual update -> neutral (same as recap flow)
         controller && controller.reset();
         await afterPersistedChange();
       } catch (err) {
         console.error(err);
         controller && controller.showError();
       } finally {
+        // keep disabled if no diff from baseline
         submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);
       }
     });
   }
 };
 
-function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);} 
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
