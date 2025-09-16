@@ -15,6 +15,7 @@ from .utils.narratives.models import TopicNarrative
 from .utils.images.models import TopicImage
 from .utils.embeds.models import TopicYoutubeVideo
 from .utils.relations.models import TopicEntityRelation
+from .utils.documents.models import TopicDocumentLink, TopicWebpageLink
 from .utils.timeline.models import TopicEvent
 
 
@@ -201,6 +202,25 @@ class Topic(models.Model):
                 topic=cloned,
                 image=image.image,
                 thumbnail=image.thumbnail,
+            )
+
+        for document_link in self.document_links.all():
+            TopicDocumentLink.objects.create(
+                topic=cloned,
+                title=document_link.title,
+                url=document_link.url,
+                description=document_link.description,
+                document_type=document_link.document_type,
+                created_by=user,
+            )
+
+        for webpage_link in self.webpage_links.all():
+            TopicWebpageLink.objects.create(
+                topic=cloned,
+                title=webpage_link.title,
+                url=webpage_link.url,
+                description=webpage_link.description,
+                created_by=user,
             )
 
         for entity in TopicEntity.objects.filter(topic=self):
