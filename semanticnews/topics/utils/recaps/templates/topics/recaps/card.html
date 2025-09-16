@@ -9,11 +9,11 @@
             {% if edit_mode %}
                 <div class="d-flex align-items-center gap-2" id="recapPager" style="display:none;">
                     <span class="small text-secondary me-2" id="recapCreatedAt"></span>
-                    <button class="btn btn-sm btn-outline-secondary" id="recapPrev"
+                    <button class="btn btn-sm btn-outline-secondary" id="recapPrev" data-hide-when-single
                             aria-label="{% trans 'Previous recap' %}">&lt;
                     </button>
                     <span class="small text-secondary" id="recapPagerLabel">0/0</span>
-                    <button class="btn btn-sm btn-outline-secondary" id="recapNext"
+                    <button class="btn btn-sm btn-outline-secondary" id="recapNext" data-hide-when-single
                             aria-label="{% trans 'Next recap' %}">&gt;
                     </button>
                     <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
