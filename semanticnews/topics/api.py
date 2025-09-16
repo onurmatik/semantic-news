@@ -17,6 +17,7 @@ from .utils.images.api import router as images_router
 from .utils.embeds.api import router as embeds_router
 from .utils.relations.api import router as relations_router
 from .utils.data.api import router as data_router
+from .utils.documents.api import router as documents_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
@@ -26,6 +27,7 @@ api.add_router("/image", images_router)
 api.add_router("/embed", embeds_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
+api.add_router("/document", documents_router)
 api.add_router("/timeline", timeline_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
