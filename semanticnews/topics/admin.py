@@ -4,6 +4,7 @@ from .models import Topic, TopicContent, TopicEntity
 from .utils.recaps import admin as recaps_admin  # noqa: F401
 from .utils.narratives import admin as narratives_admin  # noqa: F401
 from .utils.relations import admin as relations_admin  # noqa: F401
+from .utils.documents import admin as documents_admin  # noqa: F401
 from .utils.timeline import admin as timeline_admin  # noqa: F401
 
 
