@@ -1,18 +1,26 @@
 from django.db import models
 
 
-class TopicSocialEmbed(models.Model):
-    topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE, related_name='social_embeds')
-    provider = models.CharField(max_length=50)
+class TopicTweet(models.Model):
+    topic = models.ForeignKey(
+        'topics.Topic', on_delete=models.CASCADE, related_name='tweets'
+    )
+    tweet_id = models.CharField(max_length=50, db_index=True)
     url = models.URLField()
     html = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         app_label = 'topics'
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("topic", "tweet_id"), name="unique_topic_tweet"
+            )
+        ]
 
     def __str__(self):
-        return f"{self.provider} embed for {self.topic.title}"
+        return f"Tweet {self.tweet_id} for {self.topic.title}"
 
 
 class TopicYoutubeVideo(models.Model):

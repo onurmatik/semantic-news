@@ -1,26 +1,29 @@
 from datetime import datetime, timezone as datetime_timezone
 from typing import Optional
+from urllib.parse import urlparse
+import re
 
 import requests
 import yt_dlp
+from django.db import IntegrityError
 from django.utils import timezone as django_timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from ...models import Topic
-from .models import TopicSocialEmbed, TopicYoutubeVideo
+from .models import TopicTweet, TopicYoutubeVideo
 
 router = Router()
 
 
-class SocialEmbedCreateRequest(Schema):
+class TweetCreateRequest(Schema):
     topic_uuid: str
     url: str
 
 
-class SocialEmbedCreateResponse(Schema):
+class TweetCreateResponse(Schema):
     id: int
-    provider: str
+    tweet_id: str
     url: str
     html: str
 
@@ -37,17 +40,28 @@ class VideoEmbedCreateResponse(Schema):
     title: str
 
 
-def _detect_provider(url: str) -> str:
-    if 'twitter.com' in url or 'x.com' in url:
-        return 'twitter'
-    return ''
-
-
 def _fetch_twitter_embed(url: str) -> str:
     res = requests.get('https://publish.twitter.com/oembed', params={'url': url, 'dnt': 'true'})
     res.raise_for_status()
     data = res.json()
     return data.get('html', '')
+
+
+_TWEET_HOSTS = {'twitter.com', 'mobile.twitter.com', 'x.com'}
+_TWEET_PATH_RE = re.compile(r"/status(?:es)?/(?P<id>\d+)")
+
+
+def _extract_tweet_id(url: str) -> Optional[str]:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or '').lower()
+    if hostname.startswith('www.'):
+        hostname = hostname[4:]
+    if hostname not in _TWEET_HOSTS:
+        return None
+    match = _TWEET_PATH_RE.search(parsed.path or '')
+    if not match:
+        return None
+    return match.group('id')
 
 
 def _extract_youtube_id(url: str) -> Optional[str]:
@@ -94,8 +108,8 @@ def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
     )
 
 
-@router.post('/create', response=SocialEmbedCreateResponse)
-def create_embed(request, payload: SocialEmbedCreateRequest):
+@router.post('/tweet/add', response=TweetCreateResponse)
+def add_tweet_embed(request, payload: TweetCreateRequest):
     user = getattr(request, 'user', None)
     if not user or not user.is_authenticated:
         raise HttpError(401, 'Unauthorized')
@@ -108,22 +122,28 @@ def create_embed(request, payload: SocialEmbedCreateRequest):
     if topic.created_by_id != user.id:
         raise HttpError(403, 'Forbidden')
 
-    provider = _detect_provider(payload.url)
-    if provider != 'twitter':
-        raise HttpError(400, 'Unsupported provider')
+    tweet_id = _extract_tweet_id(payload.url)
+    if not tweet_id:
+        raise HttpError(400, 'Invalid tweet URL')
+
+    if TopicTweet.objects.filter(topic=topic, tweet_id=tweet_id).exists():
+        raise HttpError(400, 'Tweet already added')
 
     try:
         html = _fetch_twitter_embed(payload.url)
     except Exception as exc:  # pragma: no cover - network errors
         raise HttpError(502, 'Embed fetch failed') from exc
 
-    embed = TopicSocialEmbed.objects.create(
-        topic=topic,
-        provider=provider,
-        url=payload.url,
-        html=html,
-    )
-    return SocialEmbedCreateResponse(id=embed.id, provider=provider, url=embed.url, html=embed.html)
+    try:
+        tweet = TopicTweet.objects.create(
+            topic=topic,
+            tweet_id=tweet_id,
+            url=payload.url,
+            html=html,
+        )
+    except IntegrityError:
+        raise HttpError(400, 'Tweet already added')
+    return TweetCreateResponse(id=tweet.id, tweet_id=tweet.tweet_id, url=tweet.url, html=tweet.html)
 
 
 @router.post('/video/add', response=VideoEmbedCreateResponse)

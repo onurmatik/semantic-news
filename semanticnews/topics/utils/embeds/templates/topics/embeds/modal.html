@@ -22,3 +22,27 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="tweetEmbedModal" tabindex="-1" aria-labelledby="tweetEmbedModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="tweetEmbedForm">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="tweetEmbedModalLabel">{% trans "Add Tweet" %}</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+          <div class="mb-3">
+            <label for="tweetUrl" class="form-label">{% trans "Tweet URL" %}</label>
+            <input type="url" class="form-control" id="tweetUrl" name="url" required placeholder="https://twitter.com/user/status/123">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
