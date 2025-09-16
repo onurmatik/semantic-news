@@ -38,7 +38,7 @@ window.setupTopicHistory = function (options) {
   const pagerLabel = document.getElementById(`${key}PagerLabel`);
   const createdAtEl = document.getElementById(`${key}CreatedAt`);
   const deleteBtn = document.getElementById(`${key}DeleteBtn`);
-  const hideWhenSingleEls = pagerEl ? Array.from(pagerEl.querySelectorAll('[data-hide-when-single]')) : [];
+  const showWhenMultipleEls = pagerEl ? Array.from(pagerEl.querySelectorAll('[data-show-when-multiple]')) : [];
 
   const confirmModalEl = document.getElementById(`confirmDelete${capitalize(key)}Modal`);
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
@@ -99,7 +99,7 @@ window.setupTopicHistory = function (options) {
     pagerEl && (pagerEl.style.display = '');
     pagerLabel && (pagerLabel.textContent = `${currentIndex + 1}/${recs.length}`);
     const hasMultiple = recs.length > 1;
-    hideWhenSingleEls.forEach((el) => {
+    showWhenMultipleEls.forEach((el) => {
       if (hasMultiple) {
         el.classList.remove('d-none');
       } else {
