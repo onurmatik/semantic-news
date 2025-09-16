@@ -1,6 +1,7 @@
 """Models for storing topic document and webpage links."""
 
-from urllib.parse import urlparse
+from pathlib import PurePosixPath
+from urllib.parse import unquote, urlparse
 
 from django.conf import settings
 from django.db import models
@@ -71,6 +72,22 @@ class TopicDocument(models.Model):
         """Return the hostname for the stored URL."""
 
         return urlparse(self.url).netloc
+
+    @property
+    def file_name(self) -> str:
+        """Return the trailing file name component of the URL for display."""
+
+        parsed = urlparse(self.url)
+        file_name = unquote(PurePosixPath(parsed.path).name)
+        if file_name:
+            return file_name
+        return parsed.netloc or self.url
+
+    @property
+    def display_title(self) -> str:
+        """Return a user-friendly name for the document."""
+
+        return self.title or self.file_name
 
     def save(self, *args, **kwargs):
         """Guess the document type from the URL before saving."""
