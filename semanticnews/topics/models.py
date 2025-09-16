@@ -91,15 +91,23 @@ class Topic(models.Model):
 
     @cached_property
     def image(self):
-        img = self.images.last()
-        if img:
-            return img.image
+        latest = (
+            self.images
+            .filter(status="finished")
+            .order_by("-created_at")
+            .first()
+        )
+        return latest.image if latest else None
 
     @cached_property
     def thumbnail(self):
-        img = self.images.last()
-        if img:
-            return img.thumbnail
+        latest = (
+            self.images
+            .filter(status="finished")
+            .order_by("-created_at")
+            .first()
+        )
+        return latest.thumbnail if latest else None
 
     def build_context(self):
         content_md = f"# {self.title}\n\n"

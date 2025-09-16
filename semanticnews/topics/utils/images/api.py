@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import Optional, List, Literal
+
+from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 import base64
@@ -11,11 +15,14 @@ from ....openai import OpenAI
 
 router = Router()
 
+StatusLiteral = Literal["finished", "error"]
+
 
 class TopicImageCreateRequest(Schema):
     """Request body for generating an image for a topic."""
 
     topic_uuid: str
+    style: Optional[str] = None     # "default" | "photo" | "illustration"
 
 
 class TopicImageCreateResponse(Schema):
@@ -23,6 +30,9 @@ class TopicImageCreateResponse(Schema):
 
     image_url: str
     thumbnail_url: str
+    status: StatusLiteral
+    error_message: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 @router.post("/create", response=TopicImageCreateResponse)
@@ -38,12 +48,20 @@ def create_image(request, payload: TopicImageCreateRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    chosen_style = (payload.style or "default").lower()
+    style_hint = ""
+    if chosen_style == "photo":
+        style_hint = "- photorealistic editorial photo, natural lighting\n"
+    elif chosen_style == "illustration":
+        style_hint = "- clean vector illustration\n"
+
     prompt = (
         "Create an illustration based on the abstract description of the content in the news item.\n"
-        "- flat‑illustration style, muted teal/terracotta palette and simple shapes\n"
+        "- flat-illustration style, muted teal/terracotta palette and simple shapes\n"
         "- avoid explicit logos\n"
         "- the image’s job is to cue, not tell the whole story\n"
-        "- symbolic, not partisan without extremist branding\n\n"
+        "- symbolic, not partisan without extremist branding\n"
+        f"{style_hint}\n"
         f"{topic.build_context()}"
     )
 
@@ -76,14 +94,83 @@ def create_image(request, payload: TopicImageCreateRequest):
         topic_image.image.save(main_file.name, main_file, save=False)
         topic_image.thumbnail.save(thumb_file.name, thumb_file, save=False)
         topic_image.status = "finished"
+        topic_image.error_message = None
+        topic_image.error_code = None
         topic_image.save()
+
+        return TopicImageCreateResponse(
+            image_url=topic_image.image.url,
+            thumbnail_url=topic_image.thumbnail.url if topic_image.thumbnail else "",
+            status="finished",
+        )
     except Exception as e:
         topic_image.status = "error"
         topic_image.error_message = str(e)
-        topic_image.save(update_fields=["status", "error_message"])
-        raise
+        topic_image.error_code = getattr(e, "code", None) or "openai_error"
+        topic_image.save(update_fields=["status", "error_message", "error_code"])
 
-    return TopicImageCreateResponse(
-        image_url=topic_image.image.url,
-        thumbnail_url=topic_image.thumbnail.url if topic_image.thumbnail else "",
-    )
+        return TopicImageCreateResponse(
+            image_url="",
+            thumbnail_url="",
+            status="error",
+            error_message=topic_image.error_message,
+            error_code=topic_image.error_code,
+        )
+
+
+class TopicImageItem(Schema):
+    id: int
+    image_url: str
+    thumbnail_url: str
+    created_at: datetime
+
+
+class TopicImageListResponse(Schema):
+    total: int
+    items: List[TopicImageItem]
+
+
+@router.get("/{topic_uuid}/list", response=TopicImageListResponse)
+def list_images(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    images = TopicImage.objects.filter(topic=topic, status="finished").order_by("created_at")
+
+    items = [
+        TopicImageItem(
+            id=img.id,
+            image_url=img.image.url,
+            thumbnail_url=img.thumbnail.url if img.thumbnail else "",
+            created_at=make_naive(img.created_at),
+        )
+        for img in images
+    ]
+    return TopicImageListResponse(total=len(items), items=items)
+
+
+@router.delete("/{image_id}", response={204: None})
+def delete_image(request, image_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        obj = TopicImage.objects.select_related("topic").get(id=image_id)
+    except TopicImage.DoesNotExist:
+        raise HttpError(404, "Image not found")
+
+    if obj.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    obj.delete()
+    return 204, None

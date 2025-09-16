@@ -225,16 +225,21 @@ window.setupTopicHistory = function (options) {
   }
 
   // Manual update flow
-  if (form && textarea) {
+  if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn && (submitBtn.disabled = true);
       controller && controller.showLoading();
+      // Close modal if present
+      const modalEl = document.getElementById(`${key}Modal`);
+      const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
       modal && modal.hide();
 
       try {
         const payload = { topic_uuid: topicUuid };
-        Object.assign(payload, parseInput(getValue()));
+        // Pass current text if textarea exists; otherwise an empty string
+        const currentText = textarea ? getValue() : '';
+        Object.assign(payload, parseInput(currentText));
         const res = await fetch(createUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -250,8 +255,11 @@ window.setupTopicHistory = function (options) {
         console.error(err);
         controller && controller.showError();
       } finally {
-        // keep disabled if no diff from baseline
-        submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);
+        if (textarea) {
+          submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);
+        } else {
+          submitBtn && (submitBtn.disabled = false);
+        }
       }
     });
   }

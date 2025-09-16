@@ -1,0 +1,73 @@
+{% load i18n %}
+<style>
+    .img-card-wrap {
+        position: relative;
+    }
+
+    .img-card-overlay {
+        position: absolute;
+        top: .5rem;
+        right: .5rem;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .25rem .5rem;
+        border-radius: .5rem;
+        background: rgba(0, 0, 0, 0.0);
+        color: #fff;
+        transition: background .15s ease, opacity .15s ease;
+        opacity: 0;
+    }
+
+    .img-card-wrap:hover .img-card-overlay {
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 1;
+    }
+
+    .img-card-overlay .btn {
+        --bs-btn-padding-y: .15rem;
+        --bs-btn-padding-x: .35rem;
+    }
+
+    .img-thumb {
+        max-width: 100%;
+        border-radius: .5rem;
+    }
+</style>
+
+<div class="card my-3" id="topicImageContainer"{% if not topic.image %} style="display:none"{% endif %}
+     data-topic-image-card>
+    <div class="card-body">
+        <div class="img-card-wrap">
+            <img
+                    id="topicImageLatest"
+                    data-topic-latest-image
+                    class="img-fluid img-thumb"
+                    src="{% if topic.image %}{{ topic.image.image.url }}{% endif %}"
+                    alt="{{ topic.title }}"
+            />
+
+            {% if edit_mode %}
+            <div class="img-card-overlay">
+                <span class="small" id="imageCreatedAt">
+                  {% if topic.image %}{{ topic.image.created_at|date:"M d, Y H:i" }}{% endif %}
+                </span>
+                <div id="imagePager" style="display:none;">
+                    <button class="btn btn-sm btn-outline-light" id="imagePrev"
+                            aria-label="{% trans 'Previous image' %}">&lt;
+                    </button>
+                    <span class="small" id="imagePagerLabel">0/0</span>
+                    <button class="btn btn-sm btn-outline-light" id="imageNext" aria-label="{% trans 'Next image' %}">
+                        &gt;
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" id="imageDeleteBtn"
+                            aria-label="{% trans 'Delete image' %}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>

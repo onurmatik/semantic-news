@@ -3,12 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation'];
+  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation', 'image'];
 
   const mapping = {
     recap: 'recapButton',
     narrative: 'narrativeButton',
     relation: 'relationButton',
+    image: 'imageButton',
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
@@ -93,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const listUrl =
       key === 'recap'      ? `/api/topics/recap/${topicUuid}/list` :
       key === 'narrative'  ? `/api/topics/narrative/${topicUuid}/list` :
-                             `/api/topics/relation/${topicUuid}/list`; // relation
+      key === 'relation'   ? `/api/topics/relation/${topicUuid}/list` :
+                             `/api/topics/image/${topicUuid}/list`;
 
     try {
       const res = await fetch(listUrl);
