@@ -21,6 +21,10 @@ def topics_detail(request, slug, username):
             "recaps",
             "narratives",
             "images",
+            "documents",
+            "webpages",
+            "youtube_videos",
+            "tweets",
             "entity_relations",
             "datas",
             "data_insights__sources",
@@ -45,10 +49,14 @@ def topics_detail(request, slug, username):
         .order_by("-created_at")
         .first()
     )
+    documents = list(topic.documents.all())
+    webpages = list(topic.webpages.all())
     latest_data = topic.datas.order_by("-created_at").first()
     datas = topic.datas.order_by("-created_at")
     data_insights = topic.data_insights.order_by("-created_at")
     data_visualizations = topic.data_visualizations.order_by("-created_at")
+    youtube_video = topic.youtube_videos.order_by("-created_at").first()
+    tweets = topic.tweets.order_by("-created_at")
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -86,6 +94,10 @@ def topics_detail(request, slug, username):
         "datas": datas,
         "data_insights": data_insights,
         "data_visualizations": data_visualizations,
+        "youtube_video": youtube_video,
+        "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
@@ -104,6 +116,10 @@ def topics_detail_edit(request, slug, username):
             "recaps",
             "narratives",
             "images",
+            "documents",
+            "webpages",
+            "youtube_videos",
+            "tweets",
             "entity_relations",
             "datas",
             "data_insights__sources",
@@ -131,10 +147,14 @@ def topics_detail_edit(request, slug, username):
         .order_by("-created_at")
         .first()
     )
+    documents = list(topic.documents.all())
+    webpages = list(topic.webpages.all())
     latest_data = topic.datas.order_by("-created_at").first()
     datas = topic.datas.order_by("-created_at")
     data_insights = topic.data_insights.order_by("-created_at")
     data_visualizations = topic.data_visualizations.order_by("-created_at")
+    youtube_video = topic.youtube_videos.order_by("-created_at").first()
+    tweets = topic.tweets.order_by("-created_at")
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -172,6 +192,10 @@ def topics_detail_edit(request, slug, username):
         "datas": datas,
         "data_insights": data_insights,
         "data_visualizations": data_visualizations,
+        "youtube_video": youtube_video,
+        "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(

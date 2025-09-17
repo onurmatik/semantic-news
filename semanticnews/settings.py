@@ -49,8 +49,10 @@ INSTALLED_APPS = [
     'semanticnews.topics.utils.narratives',
     'semanticnews.topics.utils.mcps',
     'semanticnews.topics.utils.images',
+    'semanticnews.topics.utils.embeds',
     'semanticnews.topics.utils.relations',
     'semanticnews.topics.utils.data',
+    'semanticnews.topics.utils.documents',
     'semanticnews.topics.utils.timeline',
 ]
 

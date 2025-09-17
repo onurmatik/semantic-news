@@ -3,4 +3,5 @@
 !.env.example
 *.pyc
 media/
+__pycache__/
 !.env.example
