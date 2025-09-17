@@ -5,7 +5,7 @@ from .models import TopicEntityRelation
 
 @admin.register(TopicEntityRelation)
 class TopicEntityRelationAdmin(admin.ModelAdmin):
-    list_display = ("topic", "created_at", "short_relations")
+    list_display = ("topic", "created_at", "short_relations", "status")
     search_fields = ("topic__title",)
     readonly_fields = ("created_at",)
 

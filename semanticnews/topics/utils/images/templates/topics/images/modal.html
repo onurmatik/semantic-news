@@ -4,19 +4,11 @@
         <div class="modal-content">
             <form id="imageForm">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="imageModalLabel">{% trans "Create image" %}</h1>
+                    <h1 class="modal-title fs-5" id="imageModalLabel">{% trans "Create cover illustration" %}</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
-                    <div class="mb-3">
-                        <label for="imageSize" class="form-label">{% trans "Size" %}</label>
-                        <select class="form-select" name="size" id="imageSize">
-                            <option value="512x512">{% trans "Small" %}</option>
-                            <option value="1024x1024">{% trans "Medium" %}</option>
-                            <option value="1536x1024" selected>{% trans "Large" %}</option>
-                        </select>
-                    </div>
                     <div class="mb-3">
                         <label for="imageStyle" class="form-label">{% trans "Style" %}</label>
                         <select class="form-select" name="style" id="imageStyle">

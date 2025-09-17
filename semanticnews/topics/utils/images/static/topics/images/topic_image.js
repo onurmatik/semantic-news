@@ -6,39 +6,37 @@ document.addEventListener('DOMContentLoaded', () => {
     successIconId: 'imageSuccessIcon',
   });
 
-  const form = document.getElementById('imageForm');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      controller.showLoading();
-      const imageModal = document.getElementById('imageModal');
-      if (imageModal && window.bootstrap) {
-        const modal = window.bootstrap.Modal.getInstance(imageModal);
-        if (modal) modal.hide();
-      }
-      const formData = new FormData(form);
-      const payload = {
-        topic_uuid: formData.get('topic_uuid'),
-        size: formData.get('size'),
-        style: formData.get('style'),
-      };
-      try {
-        const res = await fetch('/api/topics/image/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
-        controller.showSuccess();
-        window.location.reload();
-      } catch (err) {
-        console.error(err);
-        submitBtn.disabled = false;
-        controller.showError();
-      }
-    });
-  }
+  window.setupTopicHistory({
+    key: 'image',
+    field: 'image_url',                       // used only for getItemText; safe when no textarea
+    listUrl: (uuid) => `/api/topics/image/${uuid}/list`,
+    createUrl: '/api/topics/image/create',
+    deleteUrl: (id) => `/api/topics/image/${id}`,
+    cardSuffix: 'Container',                  // we will render into the whole container’s image
+    renderItem: (item) => {
+      const img = document.getElementById('topicImageLatest');
+      if (img) img.src = item.image_url || item.thumbnail_url || img.src;
+    },
+    parseInput: () => {
+      const styleSel = document.getElementById('imageStyle');
+      return { style: styleSel ? styleSel.value : undefined };
+    },
+    controller,
+    useMarkdown: false,
+  });
+
+  // Override/extend the exposed hooks for image so status_checker can paint without reload
+  window.__imageExternalApply = (imageUrl, thumbUrl, createdAtIso) => {
+    const img = document.getElementById('topicImageLatest');
+    if (img) img.src = imageUrl || thumbUrl || img.src;
+    const card = document.getElementById('topicImageContainer');
+    if (card) card.style.display = '';
+    const createdAtEl = document.getElementById('imageCreatedAt');
+    if (createdAtEl && createdAtIso) {
+      const d = new Date(createdAtIso);
+      createdAtEl.textContent = d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+    }
+  };
 });

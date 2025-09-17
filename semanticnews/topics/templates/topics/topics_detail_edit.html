@@ -112,9 +112,8 @@
 
     <div class="col-12 col-lg-8">
 
-        {% if topic.image %}
-            <img src="{{ topic.image.url }}" class="img-fluid rounded mt-3 mb-3" alt="{{ topic.title }}">
-        {% endif %}
+        {% include "topics/images/card.html" with edit_mode=True %}
+        {% include "topics/images/confirm_delete.html" %}
 
         {% include "topics/recaps/card.html" with edit_mode=True %}
         {% include "topics/recaps/confirm_delete.html" %}
@@ -128,6 +127,8 @@
 
         {% include "topics/relations/card.html" with edit_mode=True %}
         {% include "topics/relations/confirm_delete.html" %}
+
+        {% include "topics/timeline/confirm_delete.html" %}
 
     </div>
 

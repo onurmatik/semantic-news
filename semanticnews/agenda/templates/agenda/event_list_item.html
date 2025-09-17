@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="event-item mb-3"
+<div class="event-item mb-3 position-relative pe-4"
      data-event-uuid="{{ event.uuid }}"
      data-categories="{% for category in event.categories.all %}{% if not forloop.first %} {% endif %}{{ category.name|slugify }}{% endfor %}"
      data-domains="{% for source in event.sources.all %}{% if not forloop.first %} {% endif %}{{ source.domain }}{% endfor %}">
@@ -73,8 +73,9 @@
     {# Remove button (only when requested by parent) #}
     {% if show_remove|default:False and request.user.is_authenticated %}
         <button type="button"
-                class="btn btn-sm btn-outline-danger remove-event-btn">
-            {% trans "Remove" %}
+                class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 remove-event-btn"
+                aria-label="{% trans 'Delete event' %}">
+            <i class="bi bi-trash"></i>
         </button>
     {% endif %}
 </div>
