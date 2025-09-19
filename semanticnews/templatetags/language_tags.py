@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from django import template
-from django.urls import NoReverseMatch
-from django.utils.translation import translate_url
+from django.urls import NoReverseMatch, translate_url
 
 register = template.Library()
 
