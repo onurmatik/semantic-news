@@ -4,3 +4,4 @@
 *.pyc
 media/
 __pycache__/
+static/logo.png
