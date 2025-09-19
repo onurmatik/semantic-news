@@ -1,9 +1,8 @@
-import json
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from django.utils.translation import gettext_lazy as _, get_language_info, to_language
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,11 +18,10 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = 'django-insecure-w7h0dw4!8vjodxdnovwd7j9qhn^$f#t%%%u^4lt5k51k9-f1y+'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', True)
+DEBUG = True
 
-HOST = os.getenv('HOST', 'localhost')
 
-ALLOWED_HOSTS = [HOST]
+ALLOWED_HOSTS = ['localhost']
 
 # Site branding
 SITE_TITLE = os.getenv("SITE_TITLE", "Semantic.news")
@@ -132,107 +130,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-
-def _normalize_language_code(code: str) -> str:
-    """Return a normalized Django language code."""
-
-    if not code:
-        return ""
-
-    return to_language(code.replace("_", "-"))
-
-
-def _parse_supported_languages(value: str) -> list[str]:
-    """Parse SUPPORTED_LANGUAGES from the environment."""
-
-    if not value:
-        return []
-
-    value = value.strip()
-    if not value:
-        return []
-
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        parsed = [item.strip() for item in value.split(",")]
-    else:
-        if isinstance(parsed, str):
-            parsed = [parsed]
-        elif isinstance(parsed, dict):
-            parsed = list(parsed.keys())
-        elif not isinstance(parsed, (list, tuple)):
-            parsed = []
-
-    languages = []
-    for item in parsed:
-        if isinstance(item, str):
-            normalized = _normalize_language_code(item)
-            if normalized:
-                languages.append(normalized)
-
-    return languages
-
-
-DEFAULT_LANGUAGE = _normalize_language_code(os.getenv("DEFAULT_LANGUAGE"))
-SUPPORTED_LANGUAGES = _parse_supported_languages(os.getenv("SUPPORTED_LANGUAGES"))
-
-if not SUPPORTED_LANGUAGES:
-    SUPPORTED_LANGUAGES = [
-        _normalize_language_code(code)
-        for code in ("en", "tr")
-    ]
-
-SUPPORTED_LANGUAGES = [code for code in SUPPORTED_LANGUAGES if code]
-
-if not DEFAULT_LANGUAGE:
-    DEFAULT_LANGUAGE = SUPPORTED_LANGUAGES[0] if SUPPORTED_LANGUAGES else "en"
-
-DEFAULT_LANGUAGE = _normalize_language_code(DEFAULT_LANGUAGE) or "en"
-
-if DEFAULT_LANGUAGE not in SUPPORTED_LANGUAGES:
-    SUPPORTED_LANGUAGES.insert(0, DEFAULT_LANGUAGE)
-
-# Ensure ordering is preserved while removing duplicates
-seen_languages: list[str] = []
-for lang_code in SUPPORTED_LANGUAGES:
-    if lang_code and lang_code not in seen_languages:
-        seen_languages.append(lang_code)
-
-SUPPORTED_LANGUAGES = tuple(seen_languages)
-
-DEFAULT_LANGUAGE = seen_languages[0] if seen_languages else "en"
-LANGUAGE_CODE = DEFAULT_LANGUAGE
-
-
-def _get_language_name(code: str) -> str:
-    """Return a localized display name for the language."""
-
-    try:
-        info = get_language_info(code)
-    except KeyError:
-        base_code = code.split("-", 1)[0]
-        if base_code and base_code != code:
-            try:
-                info = get_language_info(base_code)
-            except KeyError:
-                info = None
-        else:
-            info = None
-
-    if info:
-        return info.get("name_local") or info.get("name") or code
-
-    return code
-
-
-LANGUAGES = tuple((code, _(_get_language_name(code))) for code in SUPPORTED_LANGUAGES)
+LANGUAGE_CODE = 'en'
 
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
 USE_TZ = True
+
+LANGUAGES = [
+    ("en", _("English")),
+]
 
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
@@ -298,3 +206,9 @@ LOGGING = {
 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+
+try:
+    from .settings_local import *
+except ImportError:
+    pass
