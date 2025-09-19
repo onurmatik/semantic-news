@@ -86,6 +86,9 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'semanticnews.context_processors.branding',
             ],
+            'libraries': {
+                'language_tags': 'semanticnews.templatetags.language_tags',
+            },
         },
     },
 ]
