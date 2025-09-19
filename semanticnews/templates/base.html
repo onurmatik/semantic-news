@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-{% load static i18n %}
+{% load static i18n language_tags %}
 
 {% get_current_language as CURRENT_LANGUAGE %}
 
@@ -83,25 +83,17 @@
                     </a>
 
                     <ul class="dropdown-menu">
+                        {% for language_code, language_name in LANGUAGES %}
                         <li>
                             <form action="{% url 'set_language' %}" method="post">
                                 {% csrf_token %}
-                                <input name="next" type="hidden"
-                                       value="{% if request.get_full_path == '/nedir/' %}/en/nedir/{% elif request.get_full_path == '/cerezler/' %}/en/cerezler/{% elif request.get_full_path == '/gizlilik/' %}/en/gizlilik/{% else %}{{ request.get_full_path }}{% endif %}">
-                                <button name="language" type="submit" value="en" class="dropdown-item">
-                                    English
+                                <input name="next" type="hidden" value="{% switch_language_url language_code %}">
+                                <button name="language" type="submit" value="{{ language_code }}" class="dropdown-item">
+                                    {{ language_name }}
                                 </button>
                             </form>
                         </li>
-                        <li>
-                            <form action="{% url 'set_language' %}" method="post">
-                                {% csrf_token %}
-                                <input name="next" type="hidden" value="{% if request.get_full_path|slice:':4' == '/en/' %}{{ request.get_full_path|slice:'3:' }}{% endif %}">
-                                <button name="language" type="submit" value="tr" class="dropdown-item">
-                                    Türkçe
-                                </button>
-                            </form>
-                        </li>
+                        {% endfor %}
                     </ul>
 
                 </li>
@@ -109,10 +101,10 @@
                 <!-- About Page -->
                 <li class="nav-item mx-2">
                     <a class="nav-link p-0 active"
-                    {% if CURRENT_LANGUAGE == "en" %}
-                       href="/en/nedir/"
-                    {% else %}
+                    {% if CURRENT_LANGUAGE == DEFAULT_LANGUAGE_CODE %}
                        href="/nedir/"
+                    {% else %}
+                       href="/{{ CURRENT_LANGUAGE }}/nedir/"
                     {% endif %}
                     >
                         <i class="bi bi-info-circle"></i>
