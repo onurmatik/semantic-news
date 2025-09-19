@@ -30,6 +30,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function resetDomainUI() {
+    domainOptions.forEach(opt => {
+      if (!opt.dataset.domain) {
+        opt.classList.add('active');
+      } else {
+        opt.classList.remove('active');
+      }
+    });
+    domainButton.textContent = defaultLabel;
+  }
+
   domainOptions.forEach(option => {
     option.addEventListener('click', e => {
       e.preventDefault();
@@ -48,8 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hash.startsWith('domain:')) {
       const domain = hash.slice(7);
       applyFilter(domain);
-    } else {
+    } else if (!hash || !categoryLinks.length) {
       applyFilter('');
+    } else {
+      resetDomainUI();
     }
   });
 
