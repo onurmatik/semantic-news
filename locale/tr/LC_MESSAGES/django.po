@@ -1,0 +1,901 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Semantic.news\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-19 08:25+0000\n"
+"PO-Revision-Date: 2025-09-19 00:00+0000\n"
+"Last-Translator: ChatGPT <noreply@example.com>\n"
+"Language-Team: Turkish\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: semanticnews/agenda/templates/admin/agenda/event/suggest.html:5
+msgid "Suggest events"
+msgstr "Etkinlik öner"
+
+#: semanticnews/agenda/templates/admin/agenda/event/suggest.html:11
+#: semanticnews/topics/templates/topics/create_topic_modal.html:20
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:24
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:74
+msgid "Get suggestions"
+msgstr "Öneri al"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:25
+#: semanticnews/topics/templates/topics/topics_detail.html:141
+#: semanticnews/topics/templates/topics/topics_detail.html:159
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:147
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:165
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/button.html:7
+msgid "Timeline"
+msgstr "Zaman çizelgesi"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:39
+#: semanticnews/agenda/templates/agenda/event_detail.html:41
+#: semanticnews/agenda/templates/agenda/event_list.html:53
+#: semanticnews/agenda/templates/agenda/event_list.html:55
+msgid "All sources"
+msgstr "Tüm kaynaklar"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:54
+#: semanticnews/topics/templates/topics/topics_detail.html:138
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:144
+msgid "No related events"
+msgstr "İlgili etkinlik yok"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:62
+#: semanticnews/templates/home.html:15
+#: semanticnews/templates/search_results.html:12
+msgid "Topics"
+msgstr "Konular"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:64
+#: semanticnews/templates/home.html:17
+msgid "Add topic"
+msgstr "Konu ekle"
+
+#: semanticnews/agenda/templates/agenda/event_detail.html:74
+msgid "No topics"
+msgstr "Konu yok"
+
+#: semanticnews/agenda/templates/agenda/event_list.html:32
+msgid "Previous"
+msgstr "Önceki"
+
+#: semanticnews/agenda/templates/agenda/event_list.html:35
+msgid "Next"
+msgstr "Sonraki"
+
+#: semanticnews/agenda/templates/agenda/event_list.html:53
+msgid "All source"
+msgstr "Tüm kaynak"
+
+#: semanticnews/agenda/templates/agenda/event_list.html:68
+msgid "No events"
+msgstr "Etkinlik yok"
+
+#: semanticnews/agenda/templates/agenda/event_list_item.html:28
+#: semanticnews/topics/utils/data/templates/topics/data/button.html:8
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:28
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:61
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:19
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:43
+msgid "Add"
+msgstr "Ekle"
+
+#: semanticnews/agenda/templates/agenda/event_list_item.html:39
+msgid "This topic"
+msgstr "Bu konu"
+
+#: semanticnews/agenda/templates/agenda/event_list_item.html:48
+msgid "Your topics"
+msgstr "Konularınız"
+
+#: semanticnews/agenda/templates/agenda/event_list_item.html:66
+#: semanticnews/topics/templates/topics/create_topic_modal.html:6
+msgid "Create new topic"
+msgstr "Yeni konu oluştur"
+
+#: semanticnews/agenda/templates/agenda/event_list_item.html:77
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/confirm_delete.html:6
+msgid "Delete event"
+msgstr "Etkinliği sil"
+
+#: semanticnews/contents/sources/youtube/templates/youtube/video_chunk_item.html:31
+#: semanticnews/contents/sources/youtube/templates/youtube/video_chunk_item.html:37
+msgid "Add to topic"
+msgstr "Konuya ekle"
+
+#: semanticnews/contents/sources/youtube/templates/youtube/video_chunk_item.html:35
+msgid "Login to add content"
+msgstr "İçerik eklemek için giriş yapın"
+
+#: semanticnews/contents/sources/youtube/utils.py:32
+msgid "This video has no subtitles available."
+msgstr "Bu video için altyazı mevcut değil."
+
+#: semanticnews/contents/sources/youtube/utils.py:34
+msgid "No transcript found for this video."
+msgstr "Bu video için metin bulunamadı."
+
+#: semanticnews/contents/sources/youtube/utils.py:36
+msgid "Transcript translation is not available for this language."
+msgstr "Bu dil için metin çevirisi mevcut değil."
+
+#: semanticnews/contents/sources/youtube/utils.py:38
+msgid "This video is age-restricted. Transcript cannot be retrieved."
+msgstr "Bu video yaş sınırlıdır. Metin alınamıyor."
+
+#: semanticnews/contents/sources/youtube/utils.py:40
+msgid "This video is unavailable or cannot be played."
+msgstr "Bu video kullanılamıyor veya oynatılamıyor."
+
+#: semanticnews/contents/sources/youtube/utils.py:42
+msgid "Invalid YouTube video ID."
+msgstr "Geçersiz YouTube video kimliği."
+
+#: semanticnews/contents/sources/youtube/utils.py:44
+msgid "YouTube is blocking requests from our IP. Please try again later."
+msgstr ""
+"YouTube IP adresimizden gelen istekleri engelliyor. Lütfen daha sonra tekrar"
+" deneyin."
+
+#: semanticnews/contents/sources/youtube/utils.py:46
+msgid "YouTube request failed. Please try again later."
+msgstr "YouTube isteği başarısız oldu. Lütfen daha sonra tekrar deneyin."
+
+#: semanticnews/contents/sources/youtube/utils.py:48
+msgid "Unable to fetch transcript due to cookie/consent issue."
+msgstr "Çerez/onay sorunu nedeniyle metin alınamadı."
+
+#: semanticnews/contents/sources/youtube/utils.py:51
+msgid "Could not retrieve transcript for this video."
+msgstr "Bu video için metin alınamadı."
+
+#: semanticnews/contents/sources/youtube/utils.py:53
+msgid "An unknown error occurred when fetching transcript."
+msgstr "Metin alınırken bilinmeyen bir hata oluştu."
+
+#: semanticnews/profiles/forms.py:9
+msgid "Email"
+msgstr "E-posta"
+
+#: semanticnews/profiles/forms.py:19
+msgid "Display name"
+msgstr "Görünen ad"
+
+#: semanticnews/profiles/forms.py:24
+msgid "Display name cannot be empty."
+msgstr "Görünen ad boş olamaz."
+
+#: semanticnews/profiles/forms.py:32
+msgid "This display name is already taken."
+msgstr "Bu görünen ad zaten kullanılıyor."
+
+#: semanticnews/profiles/templates/profiles/profile_settings.html:10
+#: semanticnews/templates/users/profile_settings.html:10
+msgid "Profile settings"
+msgstr "Profil ayarları"
+
+#: semanticnews/profiles/templates/profiles/profile_settings.html:41
+#: semanticnews/templates/users/profile_settings.html:41
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:31
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:42
+msgid "Save"
+msgstr "Kaydet"
+
+#: semanticnews/profiles/templates/profiles/user_profile.html:28
+#: semanticnews/templates/users/user_profile.html:28
+#: semanticnews/templates/users/user_profile.html:111
+msgid "No topic created yet."
+msgstr "Henüz konu oluşturulmadı."
+
+#: semanticnews/profiles/views.py:46
+msgid "Your display name has been updated."
+msgstr "Görünen adınız güncellendi."
+
+#: semanticnews/templates/base.html:154
+msgid "Profile"
+msgstr "Profil"
+
+#: semanticnews/templates/base.html:157
+msgid "Settings"
+msgstr "Ayarlar"
+
+#: semanticnews/templates/base.html:165
+msgid "Logout"
+msgstr "Çıkış yap"
+
+#: semanticnews/templates/base.html:175
+msgid "Login"
+msgstr "Giriş yap"
+
+#: semanticnews/templates/base.html:209
+#: semanticnews/templates/search_results.html:4
+msgid "Search"
+msgstr "Ara"
+
+#: semanticnews/templates/base.html:237
+msgid "Bookmarks"
+msgstr "Yer imleri"
+
+#: semanticnews/templates/home.html:33
+#: semanticnews/templates/search_results.html:20
+msgid "Agenda"
+msgstr "Ajanda"
+
+#: semanticnews/templates/home.html:38
+msgid "No recent events"
+msgstr "Son etkinlik yok"
+
+#: semanticnews/templates/registration/login.html:11
+msgid "Your username and password didn't match. Please try again."
+msgstr "Kullanıcı adınız ve şifreniz eşleşmedi. Lütfen tekrar deneyin."
+
+#: semanticnews/templates/registration/login.html:21
+#: semanticnews/templates/registration/password_reset_form.html:24
+msgid "Username"
+msgstr "Kullanıcı adı"
+
+#: semanticnews/templates/registration/login.html:26
+#: semanticnews/templates/registration/password_reset_form.html:29
+#: semanticnews/templates/registration/registration_form.html:20
+msgid "Password"
+msgstr "Şifre"
+
+#: semanticnews/templates/registration/login.html:37
+#: semanticnews/templates/registration/password_reset_form.html:38
+msgid "Forgot password?"
+msgstr "Şifrenizi mi unuttunuz?"
+
+#: semanticnews/templates/registration/password_reset_complete.html:5
+#: semanticnews/templates/registration/password_reset_complete.html:11
+msgid "Password reset complete"
+msgstr "Şifre sıfırlama tamamlandı"
+
+#: semanticnews/templates/registration/password_reset_complete.html:14
+msgid "Your new password has been set. You may go ahead and login now."
+msgstr "Yeni şifreniz ayarlandı. Şimdi giriş yapabilirsiniz."
+
+#: semanticnews/templates/registration/password_reset_confirm.html:5
+msgid "Enter new password"
+msgstr "Yeni şifre girin"
+
+#: semanticnews/templates/registration/password_reset_confirm.html:18
+msgid "New password"
+msgstr "Yeni şifre"
+
+#: semanticnews/templates/registration/password_reset_confirm.html:26
+#: semanticnews/templates/registration/registration_form.html:28
+msgid "Confirm password"
+msgstr "Şifreyi doğrulayın"
+
+#: semanticnews/templates/registration/password_reset_done.html:5
+msgid "Password reset email sent"
+msgstr "Şifre sıfırlama e-postası gönderildi"
+
+#: semanticnews/templates/registration/password_reset_done.html:12
+msgid "Password reset sent"
+msgstr "Şifre sıfırlama gönderildi"
+
+#: semanticnews/templates/registration/password_reset_done.html:15
+msgid ""
+"We've emailed you instructions for setting your password, if an account "
+"exists with the email you entered. You should receive them shortly."
+msgstr ""
+"Girdiğiniz e-posta ile bir hesabınız varsa, şifrenizi belirlemeniz için "
+"talimatları e-posta ile gönderdik. Kısa süre içinde ulaşacaktır."
+
+#: semanticnews/templates/registration/password_reset_done.html:19
+msgid ""
+"If you don't receive an email, please make sure you've entered the address "
+"you registered with, and check your spam folder."
+msgstr ""
+"E-posta almazsanız, kayıt olduğunuz adresi girdiğinizden emin olun ve spam "
+"klasörünü kontrol edin."
+
+#: semanticnews/templates/registration/password_reset_form.html:5
+msgid "Forgot Your Password?"
+msgstr "Şifrenizi mi unuttunuz?"
+
+#: semanticnews/templates/registration/registration_form.html:12
+msgid "Email address"
+msgstr "E-posta adresi"
+
+#: semanticnews/templates/registration/registration_form.html:40
+msgid "Already have an account?"
+msgstr "Zaten bir hesabınız var mı?"
+
+#: semanticnews/templates/registration/registration_form.html:41
+msgid "Login here"
+msgstr "Buradan giriş yapın"
+
+#: semanticnews/templates/search_results.html:8
+#, python-format
+msgid "Search results for \"%(search_query)s\""
+msgstr "\"%(search_query)s\" için arama sonuçları"
+
+#: semanticnews/templates/search_results.html:16
+msgid "No topics found"
+msgstr "Konu bulunamadı"
+
+#: semanticnews/templates/search_results.html:24
+msgid "No events found"
+msgstr "Etkinlik bulunamadı"
+
+#: semanticnews/templates/users/email_login.html:38
+msgid "Send login link"
+msgstr "Giriş bağlantısı gönder"
+
+#: semanticnews/templates/users/user_profile.html:42
+#, python-format
+msgid "Added by %(profile)s"
+msgstr "%(profile)s tarafından eklendi"
+
+#: semanticnews/templates/users/user_profile.html:58
+msgid "No content added yet."
+msgstr "Henüz içerik eklenmedi."
+
+#: semanticnews/templates/users/user_profile.html:87
+msgid "Are you sure you want to delete this draft?"
+msgstr "Bu taslağı silmek istediğinizden emin misiniz?"
+
+#: semanticnews/templates/users/user_profile.html:100
+msgid "Success!"
+msgstr "Başarılı!"
+
+#: semanticnews/templates/users/user_profile.html:114
+msgid "Error!"
+msgstr "Hata!"
+
+#: semanticnews/topics/templates/topics/create_topic_modal.html:11
+msgid "Current agenda"
+msgstr "Güncel ajanda"
+
+#: semanticnews/topics/templates/topics/create_topic_modal.html:13
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:18
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:51
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:43
+msgid "Title"
+msgstr "Başlık"
+
+#: semanticnews/topics/templates/topics/create_topic_modal.html:23
+msgid "Create topic"
+msgstr "Konu oluştur"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:37
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:37
+#: semanticnews/topics/templates/topics/topics_list_item.html:13
+msgid "Bookmark this topic"
+msgstr "Bu konuyu yer imlerine ekle"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:41
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:41
+#: semanticnews/topics/templates/topics/topics_list_item.html:17
+msgid "Copy link"
+msgstr "Bağlantıyı kopyala"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:56
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:56
+#, python-format
+msgid ""
+"Created by <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a> on %(created_date)s; updated"
+" %(modified_ago)s ago; based on <a class=\"text-info-emphasis\" "
+"href=\"%(based_on_url)s\">%(based_on_user)s's version</a>."
+msgstr ""
+"%(created_date)s tarihinde <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a> tarafından oluşturuldu; "
+"%(modified_ago)s önce güncellendi; <a class=\"text-info-emphasis\" "
+"href=\"%(based_on_url)s\">%(based_on_user)s sürümü</a> temel alınmıştır."
+
+#: semanticnews/topics/templates/topics/topics_detail.html:58
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:58
+#, python-format
+msgid ""
+"Created by <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a> on %(created_date)s; updated"
+" %(modified_ago)s ago."
+msgstr ""
+"%(created_date)s tarihinde <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a> tarafından oluşturuldu; "
+"%(modified_ago)s önce güncellendi."
+
+#: semanticnews/topics/templates/topics/topics_detail.html:62
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:62
+#: semanticnews/topics/templates/topics/topics_list_item.html:39
+msgid "Draft"
+msgstr "Taslak"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:64
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:64
+#: semanticnews/topics/templates/topics/topics_list_item.html:41
+msgid "Archived"
+msgstr "Arşivlendi"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:78
+msgid "Clone topic"
+msgstr "Konuyu klonla"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:79
+msgid "Clone"
+msgstr "Klonla"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:84
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:77
+msgid "Publish"
+msgstr "Yayınla"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:88
+msgid "Archive"
+msgstr "Arşivle"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:92
+msgid "Unarchive"
+msgstr "Arşivden çıkar"
+
+#: semanticnews/topics/templates/topics/topics_detail.html:98
+#: semanticnews/topics/templates/topics/topics_detail.html:102
+msgid "Edit"
+msgstr "Düzenle"
+
+#: semanticnews/topics/templates/topics/topics_detail_edit.html:82
+msgid "Exit"
+msgstr "Çık"
+
+#: semanticnews/topics/templates/topics/topics_list_item.html:29
+#, python-format
+msgid ""
+"Created on %(created_date)s by <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a>; updated %(modified_ago)s "
+"ago."
+msgstr ""
+"%(created_date)s tarihinde <a class=\"text-info-emphasis\" "
+"href=\"%(user_topics_url)s\">%(created_by)s</a> tarafından oluşturuldu; "
+"%(modified_ago)s önce güncellendi."
+
+#: semanticnews/topics/templates/topics/topics_list_item.html:33
+#, python-format
+msgid "%(item_count)s item"
+msgid_plural "%(item_count)s items"
+msgstr[0] "%(item_count)s öğe"
+msgstr[1] "%(item_count)s öğe"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:6
+msgid "Analyze data"
+msgstr "Verileri analiz et"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:7
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:7
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:7
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:8
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:41
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:8
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:32
+#: semanticnews/topics/utils/images/templates/topics/images/confirm_delete.html:8
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:8
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/modal.html:7
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/modal.html:14
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/confirm_delete.html:7
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/modal.html:7
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/confirm_delete.html:8
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/modal.html:7
+#: semanticnews/topics/utils/relations/templates/topics/relations/confirm_delete.html:7
+#: semanticnews/topics/utils/relations/templates/topics/relations/modal.html:7
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/confirm_delete.html:8
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:7
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:33
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:49
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:81
+msgid "Close"
+msgstr "Kapat"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:21
+msgid "No data tables available"
+msgstr "Kullanılabilir veri tablosu yok"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:25
+msgid "Additional instructions"
+msgstr "Ek talimatlar"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:26
+msgid "e.g., Focus on anomalies"
+msgstr "ör. Anormalliklere odaklan"
+
+#: semanticnews/topics/utils/data/templates/topics/data/analyze_modal.html:30
+#: semanticnews/topics/utils/data/templates/topics/data/button.html:11
+msgid "Analyze"
+msgstr "Analiz et"
+
+#: semanticnews/topics/utils/data/templates/topics/data/button.html:4
+#: semanticnews/topics/utils/data/templates/topics/data/card.html:5
+msgid "Data"
+msgstr "Veri"
+
+#: semanticnews/topics/utils/data/templates/topics/data/button.html:14
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:37
+msgid "Visualize"
+msgstr "Görselleştir"
+
+#: semanticnews/topics/utils/data/templates/topics/data/card.html:48
+msgid "Source"
+msgstr "Kaynak"
+
+#: semanticnews/topics/utils/data/templates/topics/data/card.html:57
+msgid "Insights"
+msgstr "İçgörüler"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:6
+msgid "Add data"
+msgstr "Veri ekle"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:15
+msgid "Fetch from URL"
+msgstr "URL'den getir"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:22
+msgid "Describe data"
+msgstr "Veriyi açıkla"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:23
+msgid "Describe the data you need"
+msgstr "İhtiyacınız olan veriyi açıklayın"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:27
+msgid "Data name"
+msgstr "Veri adı"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:33
+msgid "Sources"
+msgstr "Kaynaklar"
+
+#: semanticnews/topics/utils/data/templates/topics/data/modal.html:40
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/modal.html:15
+msgid "Fetch"
+msgstr "Getir"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualization_card.html:5
+msgid "Visualizations"
+msgstr "Görselleştirmeler"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:6
+msgid "Visualize data"
+msgstr "Veriyi görselleştir"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:19
+msgid "No insights available"
+msgstr "İçgörü mevcut değil"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:23
+msgid "Other"
+msgstr "Diğer"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:25
+msgid "Enter your insight"
+msgstr "İçgörünüzü girin"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:28
+msgid "Chart type"
+msgstr "Grafik türü"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:30
+msgid "Let AI decide"
+msgstr "Yapay zekâ karar versin"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:31
+msgid "Bar"
+msgstr "Çubuk"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:32
+msgid "Line"
+msgstr "Çizgi"
+
+#: semanticnews/topics/utils/data/templates/topics/data/visualize_modal.html:33
+msgid "Pie"
+msgstr "Pasta"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/button.html:8
+#: semanticnews/topics/utils/documents/templates/topics/documents/card.html:9
+msgid "Documents"
+msgstr "Belgeler"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/button.html:18
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:7
+msgid "Add document"
+msgstr "Belge ekle"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/button.html:28
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:40
+msgid "Add webpage"
+msgstr "Web sayfası ekle"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/card.html:5
+msgid "Documents & Webpages"
+msgstr "Belgeler ve Web Sayfaları"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/card.html:36
+msgid "Webpages"
+msgstr "Web sayfaları"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/card.html:55
+msgid "No documents or webpages yet."
+msgstr "Henüz belge veya web sayfası yok."
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:13
+msgid "Document URL"
+msgstr "Belge URL'si"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:15
+msgid "Link to the file or online document you want to reference."
+msgstr "Başvurmak istediğiniz dosyaya veya çevrimiçi belgeye bağlantı."
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:18
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:22
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:51
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:55
+msgid "(optional)"
+msgstr "(isteğe bağlı)"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:22
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:55
+msgid "Description"
+msgstr "Açıklama"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:27
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:60
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:18
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:42
+#: semanticnews/topics/utils/images/templates/topics/images/confirm_delete.html:15
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:22
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/confirm_delete.html:13
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/confirm_delete.html:15
+#: semanticnews/topics/utils/relations/templates/topics/relations/confirm_delete.html:13
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/confirm_delete.html:15
+msgid "Cancel"
+msgstr "İptal"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:46
+msgid "Webpage URL"
+msgstr "Web sayfası URL'si"
+
+#: semanticnews/topics/utils/documents/templates/topics/documents/modal.html:48
+msgid "Link to the article or webpage you want to include."
+msgstr "Dahil etmek istediğiniz makale veya web sayfasının bağlantısı."
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/button.html:4
+msgid "Embed"
+msgstr "Göm"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/button.html:8
+msgid "Tweet"
+msgstr "Tweet"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/button.html:11
+msgid "Youtube video"
+msgstr "YouTube videosu"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/card.html:5
+msgid "Media"
+msgstr "Medya"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:7
+msgid "Add Youtube video"
+msgstr "YouTube videosu ekle"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:13
+msgid "Video URL"
+msgstr "Video URL'si"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:31
+msgid "Add Tweet"
+msgstr "Tweet ekle"
+
+#: semanticnews/topics/utils/embeds/templates/topics/embeds/modal.html:37
+msgid "Tweet URL"
+msgstr "Tweet URL'si"
+
+#: semanticnews/topics/utils/images/templates/topics/images/button.html:12
+msgid "Cover"
+msgstr "Kapak"
+
+#: semanticnews/topics/utils/images/templates/topics/images/card.html:57
+msgid "Previous image"
+msgstr "Önceki görsel"
+
+#: semanticnews/topics/utils/images/templates/topics/images/card.html:60
+msgid "Next image"
+msgstr "Sonraki görsel"
+
+#: semanticnews/topics/utils/images/templates/topics/images/card.html:64
+#: semanticnews/topics/utils/images/templates/topics/images/confirm_delete.html:6
+msgid "Delete image"
+msgstr "Görseli sil"
+
+#: semanticnews/topics/utils/images/templates/topics/images/confirm_delete.html:11
+msgid "Are you sure you want to delete this image?"
+msgstr "Bu görseli silmek istediğinize emin misiniz?"
+
+#: semanticnews/topics/utils/images/templates/topics/images/confirm_delete.html:19
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/confirm_delete.html:16
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/confirm_delete.html:19
+#: semanticnews/topics/utils/relations/templates/topics/relations/confirm_delete.html:16
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/confirm_delete.html:20
+msgid "Delete"
+msgstr "Sil"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:7
+msgid "Create cover illustration"
+msgstr "Kapak görseli oluştur"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:13
+msgid "Style"
+msgstr "Stil"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:15
+msgid "Default"
+msgstr "Varsayılan"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:16
+msgid "Photo"
+msgstr "Fotoğraf"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:17
+msgid "Illustration"
+msgstr "İllüstrasyon"
+
+#: semanticnews/topics/utils/images/templates/topics/images/modal.html:23
+#: semanticnews/topics/utils/relations/templates/topics/relations/modal.html:21
+msgid "Create"
+msgstr "Oluştur"
+
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/button.html:4
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/modal.html:6
+msgid "Context"
+msgstr "Bağlam"
+
+#: semanticnews/topics/utils/mcps/templates/topics/mcps/button.html:12
+msgid "No MCP servers"
+msgstr "MCP sunucusu yok"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/button.html:13
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/card.html:5
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/modal.html:6
+msgid "Narrative"
+msgstr "Anlatı"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/card.html:10
+msgid "Previous narrative"
+msgstr "Önceki anlatı"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/card.html:12
+msgid "Next narrative"
+msgstr "Sonraki anlatı"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/card.html:13
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/confirm_delete.html:6
+msgid "Delete narrative"
+msgstr "Anlatıyı sil"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/confirm_delete.html:10
+msgid "Are you sure you want to delete this narrative?"
+msgstr "Bu anlatıyı silmek istediğinize emin misiniz?"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/modal.html:18
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/modal.html:18
+#: semanticnews/topics/utils/relations/templates/topics/relations/modal.html:19
+msgid "Get AI suggestions"
+msgstr "Yapay zekâ önerileri al"
+
+#: semanticnews/topics/utils/narratives/templates/topics/narratives/modal.html:20
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/modal.html:20
+msgid "Update"
+msgstr "Güncelle"
+
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/button.html:13
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/card.html:6
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/modal.html:6
+msgid "Recap"
+msgstr "Özet"
+
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/card.html:13
+msgid "Previous recap"
+msgstr "Önceki özet"
+
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/card.html:17
+msgid "Next recap"
+msgstr "Sonraki özet"
+
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/card.html:20
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/confirm_delete.html:6
+msgid "Delete recap"
+msgstr "Özeti sil"
+
+#: semanticnews/topics/utils/recaps/templates/topics/recaps/confirm_delete.html:11
+msgid "Are you sure you want to delete this recap?"
+msgstr "Bu özeti silmek istediğinize emin misiniz?"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/button.html:13
+#: semanticnews/topics/utils/relations/templates/topics/relations/card.html:5
+#: semanticnews/topics/utils/relations/templates/topics/relations/modal.html:13
+msgid "Relations"
+msgstr "İlişkiler"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/card.html:10
+msgid "Previous relations"
+msgstr "Önceki ilişkiler"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/card.html:12
+msgid "Next relations"
+msgstr "Sonraki ilişkiler"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/card.html:13
+#: semanticnews/topics/utils/relations/templates/topics/relations/confirm_delete.html:6
+msgid "Delete relations"
+msgstr "İlişkileri sil"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/confirm_delete.html:10
+msgid "Are you sure you want to delete these relations?"
+msgstr "Bu ilişkileri silmek istediğinize emin misiniz?"
+
+#: semanticnews/topics/utils/relations/templates/topics/relations/modal.html:6
+msgid "Entity relations"
+msgstr "Varlık ilişkileri"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/confirm_delete.html:11
+msgid "Are you sure you want to remove this event from the topic?"
+msgstr "Bu etkinliği konudan kaldırmak istediğinize emin misiniz?"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:6
+msgid "Add event to topic"
+msgstr "Konuya etkinlik ekle"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:13
+msgid "Add known"
+msgstr "Bilinen ekle"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:18
+msgid "Add new"
+msgstr "Yeni ekle"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:32
+msgid "Add selected"
+msgstr "Seçilenleri ekle"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:39
+msgid "Date"
+msgstr "Tarih"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:48
+msgid "Submit"
+msgstr "Gönder"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:56
+msgid "Locality"
+msgstr "Yerellik"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:58
+msgid "Global"
+msgstr "Küresel"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:67
+msgid "Start date"
+msgstr "Başlangıç tarihi"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:71
+msgid "End date"
+msgstr "Bitiş tarihi"
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:77
+msgid "Loading suggestions..."
+msgstr "Öneriler yükleniyor..."
+
+#: semanticnews/topics/utils/timeline/templates/topics/timeline/modal.html:80
+msgid "Publish selected"
+msgstr "Seçilenleri yayınla"
