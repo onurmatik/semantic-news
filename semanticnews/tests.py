@@ -1,10 +1,11 @@
 from unittest.mock import MagicMock, patch
-import tempfile
 import shutil
+import tempfile
 
+from django.conf import settings
 from django.test import TestCase
-from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
 
 from semanticnews.topics.models import Topic
 from semanticnews.agenda.models import Event
@@ -82,8 +83,17 @@ class HomeViewTopicListItemTests(TestCase):
 
 
 class LocaleRoutingTests(TestCase):
-    def test_homepage_available_with_turkish_prefix(self):
-        response = self.client.get("/tr/")
+    def test_homepage_available_for_supported_languages(self):
+        response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.resolver_match.url_name, "home")
+
+        for language_code, _ in settings.LANGUAGES:
+            if language_code == settings.LANGUAGE_CODE:
+                continue
+
+            response = self.client.get(f"/{language_code}/")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.resolver_match.url_name, "home")
