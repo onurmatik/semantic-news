@@ -69,20 +69,11 @@
 
             <ul class="navbar-nav me-auto">
 
+                {% if SITE_LOGO %}
                 <li class="nav-item">
-                    <a class="nav-link p-0 active" role="button" href="/">
-                        {{ SITE_TITLE }}
-                    </a>
+                    <img src="{% static SITE_LOGO %}" alt="{{ SITE_TITLE }}" style="max-height: 18px"></img>
                 </li>
-
-                {% comment %}
-                <li class="nav-item">
-                    <div class="form-check form-switch text-light shadow-none mb-0">
-                        <input class="form-check-input shadow-none" type="checkbox" role="switch" id="flexSwitchCheckDefault">
-                        <label class="form-check-label" for="flexSwitchCheckDefault">{% trans "Enable notifications" %}</label>
-                    </div>
-                </li>
-                {% endcomment %}
+                {% endif %}
 
                 <li class="nav-item dropdown mx-2">
 
