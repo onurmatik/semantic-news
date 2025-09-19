@@ -76,14 +76,20 @@ class Topic(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """Save the topic and refresh its embedding."""
+        """
+        Save the topic and refresh its embedding *after* the row exists.
+        """
         if not self.slug:
             self.slug = slugify(self.title)
 
-        # Always recompute the embedding so it reflects the latest topic data
-        self.embedding = self.get_embedding(force=True)
-
         super().save(*args, **kwargs)
+
+        emb = self.get_embedding(force=True)
+        if emb is not None:
+            # Avoid triggering full save logic again (and recursion)
+            type(self).objects.filter(pk=self.pk).update(embedding=emb)
+            # Keep in-memory instance consistent
+            self.embedding = emb
 
     def get_absolute_url(self):
         return reverse('topics_detail', kwargs={
@@ -114,16 +120,20 @@ class Topic(models.Model):
     def build_context(self):
         content_md = f"# {self.title}\n\n"
 
-        events = self.events.all()
-        if events:
+        # If not saved yet, do not touch M2M relations
+        if not self.pk:
+            return content_md
+
+        events_qs = self.events.all().order_by("date")
+        if events_qs.exists():
             content_md += "## Events\n\n"
-            for event in events:
+            for event in events_qs:
                 content_md += f"- {event.title} ({event.date})\n"
 
-        contents = self.contents.all()
-        if contents:
+        contents_qs = self.contents.all()
+        if contents_qs.exists():
             content_md += "\n## Contents\n\n"
-            for c in contents:
+            for c in contents_qs:
                 title = c.title or ""
                 text = c.markdown or ""
                 content_md += f"### {title}\n{text}\n\n"
@@ -133,19 +143,19 @@ class Topic(models.Model):
         return content_md
 
     def get_embedding(self, force: bool = False):
-        """Return an embedding vector for the topic.
-
-        Args:
-            force: If ``True``, generate a new embedding even if one already
-                exists. Otherwise, reuse the current embedding when available.
         """
-        if force or self.embedding is None or len(self.embedding) == 0:
-            client = OpenAI()
-            embedding = client.embeddings.create(
-                input=self.build_context(),
-                model='text-embedding-3-small'
-            ).data[0].embedding
-            return embedding
+        Return an embedding vector for the topic.
+        If not forcing and we already have one, reuse it.
+        """
+        if not force and self.embedding is not None and len(self.embedding) > 0:
+            return self.embedding
+
+        client = OpenAI()
+        embedding = client.embeddings.create(
+            input=self.build_context(),
+            model='text-embedding-3-small'
+        ).data[0].embedding
+        return embedding
 
     @cached_property
     def get_similar_topics(self, limit=5):
