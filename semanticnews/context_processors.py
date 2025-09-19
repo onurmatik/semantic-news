@@ -6,5 +6,6 @@ def branding(request):
     return {
         "SITE_TITLE": settings.SITE_TITLE,
         "SITE_LOGO": settings.SITE_LOGO,
+        "DEFAULT_LANGUAGE_CODE": settings.LANGUAGE_CODE,
     }
 
