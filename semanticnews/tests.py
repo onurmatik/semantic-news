@@ -79,3 +79,11 @@ class HomeViewTopicListItemTests(TestCase):
 
         self.assertContains(response, "My recap")
         self.assertContains(response, topic.thumbnail.url)
+
+
+class LocaleRoutingTests(TestCase):
+    def test_homepage_available_with_turkish_prefix(self):
+        response = self.client.get("/tr/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.resolver_match.url_name, "home")
