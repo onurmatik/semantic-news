@@ -13,6 +13,11 @@ class Migration(migrations.Migration):
 
     initial = True
 
+    # Creating the "vector" extension must happen outside of a transaction;
+    # otherwise PostgreSQL can't see the new type when the model is created
+    # later in this migration.
+    atomic = False
+
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
