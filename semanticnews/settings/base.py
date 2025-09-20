@@ -1,14 +1,26 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+BASE_DIR = PACKAGE_ROOT.parent
 
-# Load environment variables from .env for local development
-load_dotenv(BASE_DIR / '.env')
+
+def _load_local_env() -> None:
+    """Load environment variables from a local .env file if present."""
+
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        env_path = PACKAGE_ROOT / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+
+
+_load_local_env()
 
 
 # Quick-start development settings - unsuitable for production
@@ -73,7 +85,7 @@ ROOT_URLCONF = 'semanticnews.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'semanticnews/templates')],
+        'DIRS': [PACKAGE_ROOT / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -142,7 +154,7 @@ LANGUAGES = [
     ("en", _("English")),
 ]
 
-LOCALE_PATHS = [BASE_DIR / 'locale']
+LOCALE_PATHS = [PACKAGE_ROOT / 'locale']
 
 
 # Static files (CSS, JavaScript, Images)
@@ -179,13 +191,14 @@ if AWS_STORAGE_BUCKET_NAME:
 else:
     # Local dev setup
     STATIC_URL = "/static/"
-    STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+    STATIC_ROOT = BASE_DIR / "staticfiles"
 
     MEDIA_URL = "/media/"
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # Static files directory for development
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
+_static_dirs = [BASE_DIR / 'static', PACKAGE_ROOT / 'static']
+STATICFILES_DIRS = tuple(str(path) for path in _static_dirs if path.exists())
 
 
 # Default primary key field type
