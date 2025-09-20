@@ -1,0 +1,2 @@
+include README.md
+recursive-include semanticnews *.html *.txt *.json *.svg *.css *.js *.png *.jpg *.jpeg *.gif *.ico *.woff *.woff2 *.ttf *.otf *.eot *.po *.mo

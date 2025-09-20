@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semantic-news"
+version = "0.1.0"
+description = "Semantic news aggregation platform built with Django"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Onur Matik" }
+]
+keywords = ["django", "news", "semantic"]
+dependencies = [
+    "boto3",
+    "celery",
+    "django",
+    "django-ninja",
+    "django-recaptcha",
+    "django-storages",
+    "django-widget-tweaks",
+    "feedparser",
+    "google-api-python-client",
+    "gunicorn",
+    "httpx",
+    "markdown",
+    "numpy",
+    "openai",
+    "openai-agents",
+    "pgvector",
+    "pillow",
+    "pydantic",
+    "psycopg2-binary",
+    "python-dotenv",
+    "python-slugify",
+    "requests",
+    "uvicorn[standard]",
+    "youtube-transcript-api",
+    "yt-dlp"
+]
+
+[project.urls]
+Homepage = "https://github.com/onurmatik/semantic-news"
+Repository = "https://github.com/onurmatik/semantic-news"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["semanticnews*"]
+
+[tool.setuptools.package-data]
+"semanticnews" = [
+    "**/*.html",
+    "**/*.txt",
+    "**/*.json",
+    "**/*.svg",
+    "**/*.css",
+    "**/*.js",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.gif",
+    "**/*.ico",
+    "**/*.woff",
+    "**/*.woff2",
+    "**/*.ttf",
+    "**/*.otf",
+    "**/*.eot",
+    "**/*.po",
+    "**/*.mo"
+]
