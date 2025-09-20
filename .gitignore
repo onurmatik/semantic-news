@@ -5,4 +5,3 @@
 media/
 __pycache__/
 static/logo.png
-settings_local.py

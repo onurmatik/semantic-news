@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Load environment variables from .env for local development
 load_dotenv(BASE_DIR / '.env')
@@ -208,7 +208,16 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
 
+# Load env specific settings
+# Equivalent of "from .ENV_NAME import *"
+
+from importlib import import_module
+
+ENV_NAME = os.getenv("ENV_NAME", "local")
+
 try:
-    from .settings_local import *
+    module = import_module(f".{ENV_NAME}", package=__package__)
 except ImportError:
     pass
+else:
+    globals().update(vars(module))
