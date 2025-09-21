@@ -12,7 +12,7 @@
 
     <link rel="icon" type="image/x-icon" href="{% static SITE_LOGO %}">
 
-    <title>{% block title %}{{ SITE_TITLE }}{% endblock %}</title>
+    <title>{% block title %}Semantic News{% endblock %}</title>
 
     <!-- Bootstrap CSS -->
     <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -27,9 +27,6 @@
 
     <!-- Chart.js -->
     <script src="https://fastly.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Mustache.js -->
-    <script src="https://fastly.jsdelivr.net/npm/mustache@4.2.0/mustache.min.js"></script>
 
 
     <style>
@@ -71,7 +68,7 @@
 
                 {% if SITE_LOGO %}
                 <li class="nav-item">
-                    <img src="{% static SITE_LOGO %}" alt="{{ SITE_TITLE }}" style="max-height: 18px"></img>
+                    <img src="{% static 'logo.png' %}" alt="Semantic News" style="max-height: 18px"></img>
                 </li>
                 {% endif %}
 
