@@ -59,13 +59,14 @@ class EventManager(models.Manager):
         return obj, True
 
     def find_major_events(
-            self,
-            year: int,
-            month: int,
-            *,
-            locality: str | None = None,
-            categories: str | None = None,
-            limit: int = 1,
+        self,
+        year: int,
+        month: int,
+        *,
+        locality: str | None = None,
+        categories: str | None = None,
+        limit: int = 1,
+        distance_threshold: float = 0.15,
     ) -> list["Event"]:
         from semanticnews.agenda.api import suggest_events, AgendaEventResponse
         import calendar
@@ -82,24 +83,23 @@ class EventManager(models.Manager):
         # Resolve locality object (if provided)
         locality_obj = None
         if locality:
-            # Locality is a FK; resolve by name (create if not present)
             locality_obj, _ = Locality.objects.get_or_create(name=locality)
 
-        # Prepare exclusion list from already existing events
+        # Build exclude list from existing events in that month
         existing_qs = (
             self.filter(date__year=year, date__month=month)
             .prefetch_related("categories", "sources")
             .order_by("date")
         )
         exclude = [
-                      AgendaEventResponse(
-                          title=e.title,
-                          date=e.date,
-                          categories=[c.name for c in e.categories.all()],
-                          sources=[s.url for s in e.sources.all()],
-                      )
-                      for e in existing_qs
-                  ] or None
+            AgendaEventResponse(
+                title=e.title,
+                date=e.date,
+                categories=[c.name for c in e.categories.all()],
+                sources=[s.url for s in e.sources.all()],
+            )
+            for e in existing_qs
+        ] or None
 
         suggestions = suggest_events(
             start_date=start_date,
@@ -114,10 +114,19 @@ class EventManager(models.Manager):
         if not suggestions:
             return created_events
 
+        # Reuse one OpenAI client for all suggestions
+        client = OpenAI()
+
         for suggestion in suggestions:
             with transaction.atomic():
-                event, created = self.get_or_create(
-                    title=suggestion.title,
+                embed_text = f"{suggestion.title} - {suggestion.date}\n{', '.join(suggestion.categories or [])}"
+                embedding = client.embeddings.create(
+                    input=embed_text,
+                    model="text-embedding-3-small",
+                ).data[0].embedding
+
+                # Semantic de-dup on SAME DATE using L2 distance
+                event, created = self.get_or_create_semantic(
                     date=suggestion.date,
                     defaults={
                         "confidence": None,
