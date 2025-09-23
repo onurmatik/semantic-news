@@ -79,6 +79,12 @@ class EventManager(models.Manager):
         _, last_day = calendar.monthrange(year, month)
         end_date = date(year, month, last_day)
 
+        # Resolve locality object (if provided)
+        locality_obj = None
+        if locality:
+            # Locality is a FK; resolve by name (create if not present)
+            locality_obj, _ = Locality.objects.get_or_create(name=locality)
+
         # Prepare exclusion list from already existing events
         existing_qs = (
             self.filter(date__year=year, date__month=month)
@@ -110,20 +116,32 @@ class EventManager(models.Manager):
 
         for suggestion in suggestions:
             with transaction.atomic():
-                event, _ = self.get_or_create(
+                event, created = self.get_or_create(
                     title=suggestion.title,
                     date=suggestion.date,
-                    defaults={"confidence": None, "status": "draft"},
+                    defaults={
+                        "confidence": None,
+                        "status": "draft",
+                        "locality": locality_obj,   # set on initial create
+                    },
                 )
 
+                # If event existed and has no locality yet, attach it once.
+                if not created and locality_obj and event.locality_id is None:
+                    event.locality = locality_obj
+                    event.save(update_fields=["locality"])
+
+                # Attach categories
                 for name in suggestion.categories or []:
                     cat, _ = Category.objects.get_or_create(name=name)
                     event.categories.add(cat)
 
+                # Attach sources
                 for url in suggestion.sources or []:
                     src, _ = Source.objects.get_or_create(url=url)
                     event.sources.add(src)
 
+                # Recompute embedding (after m2m set)
                 event.embedding = event.get_embedding()
                 if event.embedding is not None:
                     event.save(update_fields=["embedding"])
