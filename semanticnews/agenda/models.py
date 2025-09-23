@@ -128,14 +128,17 @@ class EventManager(models.Manager):
                 # Semantic de-dup on SAME DATE using L2 distance
                 event, created = self.get_or_create_semantic(
                     date=suggestion.date,
+                    embedding=embedding,
                     defaults={
+                        "title": suggestion.title,
                         "confidence": None,
                         "status": "draft",
-                        "locality": locality_obj,   # set on initial create
+                        "locality": locality_obj,  # set on initial create
                     },
+                    distance_threshold=distance_threshold,
                 )
 
-                # If event existed and has no locality yet, attach it once.
+                # If matched existing and it lacks locality, attach it (don’t override if set)
                 if not created and locality_obj and event.locality_id is None:
                     event.locality = locality_obj
                     event.save(update_fields=["locality"])
@@ -150,9 +153,10 @@ class EventManager(models.Manager):
                     src, _ = Source.objects.get_or_create(url=url)
                     event.sources.add(src)
 
-                # Recompute embedding (after m2m set)
-                event.embedding = event.get_embedding()
-                if event.embedding is not None:
+                # Recompute embedding after M2M changes to keep it fresh
+                new_emb = event.get_embedding()
+                if new_emb is not None:
+                    event.embedding = new_emb
                     event.save(update_fields=["embedding"])
 
                 created_events.append(event)
