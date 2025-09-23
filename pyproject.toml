@@ -9,8 +9,8 @@ description = "Semantic news aggregation platform built with Django"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Onur Mat", url = "https://github.com/onurmatik" },
-    { name = "Kemal Soylu", url = "https://github.com/kemalbsoylu" }
+    { name = "Onur Mat" },
+    { name = "Kemal Soylu" }
 ]
 keywords = ["django", "news", "semantic"]
 dependencies = [
@@ -44,6 +44,8 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/onurmatik/semantic-news"
 Repository = "https://github.com/onurmatik/semantic-news"
+"Onur Mat – GitHub" = "https://github.com/onurmatik"
+"Kemal Soylu – GitHub" = "https://github.com/kemalbsoylu"
 
 [tool.setuptools]
 include-package-data = true
