@@ -58,6 +58,111 @@ class EventManager(models.Manager):
         obj = self.create(**params)
         return obj, True
 
+    def find_major_events(
+        self,
+        year: int,
+        month: int,
+        *,
+        locality: str | None = None,
+        categories: str | None = None,
+        limit: int = 1,
+        distance_threshold: float = 0.15,
+    ) -> list["Event"]:
+        from semanticnews.agenda.api import suggest_events, AgendaEventResponse
+        import calendar
+        from datetime import date
+        from django.db import transaction
+
+        if month < 1 or month > 12:
+            raise ValueError("Month must be between 1 and 12")
+
+        start_date = date(year, month, 1)
+        _, last_day = calendar.monthrange(year, month)
+        end_date = date(year, month, last_day)
+
+        # Resolve locality object (if provided)
+        locality_obj = None
+        if locality:
+            locality_obj, _ = Locality.objects.get_or_create(name=locality)
+
+        # Build exclude list from existing events in that month
+        existing_qs = (
+            self.filter(date__year=year, date__month=month)
+            .prefetch_related("categories", "sources")
+            .order_by("date")
+        )
+        exclude = [
+            AgendaEventResponse(
+                title=e.title,
+                date=e.date,
+                categories=[c.name for c in e.categories.all()],
+                sources=[s.url for s in e.sources.all()],
+            )
+            for e in existing_qs
+        ] or None
+
+        suggestions = suggest_events(
+            start_date=start_date,
+            end_date=end_date,
+            locality=locality,
+            categories=categories,
+            limit=limit,
+            exclude=exclude,
+        )
+
+        created_events: list[Event] = []
+        if not suggestions:
+            return created_events
+
+        # Reuse one OpenAI client for all suggestions
+        client = OpenAI()
+
+        for suggestion in suggestions:
+            with transaction.atomic():
+                embed_text = f"{suggestion.title} - {suggestion.date}\n{', '.join(suggestion.categories or [])}"
+                embedding = client.embeddings.create(
+                    input=embed_text,
+                    model="text-embedding-3-small",
+                ).data[0].embedding
+
+                # Semantic de-dup on SAME DATE using L2 distance
+                event, created = self.get_or_create_semantic(
+                    date=suggestion.date,
+                    embedding=embedding,
+                    defaults={
+                        "title": suggestion.title,
+                        "confidence": None,
+                        "status": "draft",
+                        "locality": locality_obj,  # set on initial create
+                    },
+                    distance_threshold=distance_threshold,
+                )
+
+                # If matched existing and it lacks locality, attach it (don’t override if set)
+                if not created and locality_obj and event.locality_id is None:
+                    event.locality = locality_obj
+                    event.save(update_fields=["locality"])
+
+                # Attach categories
+                for name in suggestion.categories or []:
+                    cat, _ = Category.objects.get_or_create(name=name)
+                    event.categories.add(cat)
+
+                # Attach sources
+                for url in suggestion.sources or []:
+                    src, _ = Source.objects.get_or_create(url=url)
+                    event.sources.add(src)
+
+                # Recompute embedding after M2M changes to keep it fresh
+                new_emb = event.get_embedding()
+                if new_emb is not None:
+                    event.embedding = new_emb
+                    event.save(update_fields=["embedding"])
+
+                created_events.append(event)
+
+        return created_events
+
 
 class Event(models.Model):
     objects = EventManager()
