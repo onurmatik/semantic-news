@@ -58,6 +58,80 @@ class EventManager(models.Manager):
         obj = self.create(**params)
         return obj, True
 
+    def find_major_events(
+            self,
+            year: int,
+            month: int,
+            *,
+            locality: str | None = None,
+            categories: str | None = None,
+            limit: int = 1,
+    ) -> list["Event"]:
+        from semanticnews.agenda.api import suggest_events, AgendaEventResponse
+        import calendar
+        from datetime import date
+        from django.db import transaction
+
+        if month < 1 or month > 12:
+            raise ValueError("Month must be between 1 and 12")
+
+        start_date = date(year, month, 1)
+        _, last_day = calendar.monthrange(year, month)
+        end_date = date(year, month, last_day)
+
+        # Prepare exclusion list from already existing events
+        existing_qs = (
+            self.filter(date__year=year, date__month=month)
+            .prefetch_related("categories", "sources")
+            .order_by("date")
+        )
+        exclude = [
+                      AgendaEventResponse(
+                          title=e.title,
+                          date=e.date,
+                          categories=[c.name for c in e.categories.all()],
+                          sources=[s.url for s in e.sources.all()],
+                      )
+                      for e in existing_qs
+                  ] or None
+
+        suggestions = suggest_events(
+            start_date=start_date,
+            end_date=end_date,
+            locality=locality,
+            categories=categories,
+            limit=limit,
+            exclude=exclude,
+        )
+
+        created_events: list[Event] = []
+        if not suggestions:
+            return created_events
+
+        for suggestion in suggestions:
+            with transaction.atomic():
+                event, _ = self.get_or_create(
+                    title=suggestion.title,
+                    date=suggestion.date,
+                    defaults={"confidence": None, "status": "draft"},
+                )
+
+                for name in suggestion.categories or []:
+                    cat, _ = Category.objects.get_or_create(name=name)
+                    event.categories.add(cat)
+
+                for url in suggestion.sources or []:
+                    src, _ = Source.objects.get_or_create(url=url)
+                    event.sources.add(src)
+
+                event.embedding = event.get_embedding()
+                if event.embedding is not None:
+                    event.save(update_fields=["embedding"])
+
+                created_events.append(event)
+
+        return created_events
+
 
 class Event(models.Model):
     objects = EventManager()
