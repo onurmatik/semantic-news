@@ -3,14 +3,44 @@ import shutil
 import tempfile
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
 from semanticnews.agenda.models import Event
 from semanticnews.topics.utils.images.models import TopicImage
 from semanticnews.topics.utils.recaps.models import TopicRecap
+
+
+class PromptingInstructionTests(SimpleTestCase):
+    def test_default_instruction_uses_english(self):
+        self.assertEqual(
+            get_default_language_instruction(),
+            "Respond in English.",
+        )
+
+    @override_settings(LANGUAGE_CODE="tr", LANGUAGES=[("tr", "Turkish")])
+    def test_instruction_uses_configured_language_name(self):
+        self.assertEqual(
+            get_default_language_instruction(),
+            "Respond in Turkish.",
+        )
+
+    @override_settings(LANGUAGE_CODE="fr", LANGUAGES=[("en", "English")])
+    def test_instruction_falls_back_to_language_info(self):
+        self.assertEqual(
+            get_default_language_instruction(),
+            "Respond in French.",
+        )
+
+    @override_settings(LANGUAGE_CODE="pt-br", LANGUAGES=[("pt", "Portuguese")])
+    def test_instruction_supports_language_variants(self):
+        self.assertEqual(
+            get_default_language_instruction(),
+            "Respond in Portuguese.",
+        )
 
 
 class SearchViewTests(TestCase):

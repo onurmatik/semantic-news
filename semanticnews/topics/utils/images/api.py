@@ -12,6 +12,7 @@ from django.core.files.base import ContentFile
 from ...models import Topic
 from .models import TopicImage
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
 
@@ -55,6 +56,7 @@ def create_image(request, payload: TopicImageCreateRequest):
     elif chosen_style == "illustration":
         style_hint = "- clean vector illustration\n"
 
+    context = topic.build_context()
     prompt = (
         "Create an illustration based on the abstract description of the content in the news item.\n"
         "- flat-illustration style, muted teal/terracotta palette and simple shapes\n"
@@ -62,8 +64,9 @@ def create_image(request, payload: TopicImageCreateRequest):
         "- the image’s job is to cue, not tell the whole story\n"
         "- symbolic, not partisan without extremist branding\n"
         f"{style_hint}\n"
-        f"{topic.build_context()}"
     )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{context}"
 
     topic_image = TopicImage.objects.create(topic=topic)
     try:

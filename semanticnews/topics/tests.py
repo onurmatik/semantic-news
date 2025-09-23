@@ -15,6 +15,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
+from semanticnews.prompting import get_default_language_instruction
 
 from .models import Topic, TopicContent, TopicKeyword
 from .utils.timeline.models import TopicEvent
@@ -310,6 +311,7 @@ class AnalyzeDataAPITests(TestCase):
 
         args, kwargs = mock_client.responses.parse.call_args
         self.assertIn("Focus on anomalies", kwargs["input"])
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     @patch("semanticnews.topics.utils.data.api.OpenAI")
     @patch(

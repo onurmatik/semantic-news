@@ -7,6 +7,7 @@ from pydantic import ConfigDict
 from ...models import Topic
 from .models import TopicData, TopicDataInsight, TopicDataVisualization
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
 
@@ -122,6 +123,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
     prompt = (
         f"Fetch the tabular data from {payload.url} and return it as JSON with keys 'headers', 'rows', and optionally 'name' representing a concise title for the dataset."
     )
+    prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
         response = client.responses.parse(
@@ -156,6 +158,7 @@ def search_data(request, payload: TopicDataSearchRequest):
         "Description: "
         f"{payload.description}"
     )
+    prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
         response = client.responses.parse(
@@ -240,6 +243,7 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     )
     if payload.instructions:
         prompt += f" Please consider the following user instructions: {payload.instructions}"
+    prompt = append_default_language_instruction(prompt)
     prompt += f"\n\n{tables_text}"
 
     with OpenAI() as client:
@@ -286,21 +290,22 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
         rows = [", ".join(row) for row in data.data.get("rows", [])]
         tables_text += f"{name}\n{headers}\n" + "\n".join(rows) + "\n\n"
 
+    tables_section = f"Insight: {insight_text}\n\n{tables_text}"
     if payload.chart_type:
         prompt = (
             "Given the following insight and data tables, provide the chart data for a "
             f"{payload.chart_type} chart in JSON with keys 'chart_type' and 'data'. "
-            "The 'data' should include 'labels' and 'datasets' formatted for Chart.js.\n\n"
-            f"Insight: {insight_text}\n\n{tables_text}"
+            "The 'data' should include 'labels' and 'datasets' formatted for Chart.js."
         )
     else:
         prompt = (
             "Given the following insight and data tables, choose an appropriate basic chart "
             "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
             "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
-            "formatted for Chart.js.\n\n"
-            f"Insight: {insight_text}\n\n{tables_text}"
+            "formatted for Chart.js."
         )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{tables_section}"
 
     with OpenAI() as client:
         response = client.responses.parse(

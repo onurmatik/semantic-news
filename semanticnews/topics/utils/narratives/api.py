@@ -8,6 +8,7 @@ from ninja.errors import HttpError
 from ...models import Topic
 from .models import TopicNarrative
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
 
@@ -55,8 +56,9 @@ def create_narrative(request, payload: TopicNarrativeCreateRequest):
         "Write a detailed narrative that explains the full context and connections between them. "
         "Respond in Markdown and highlight key entities by making them **bold**. "
         "Use paragraphs where appropriate. "
-        f"\n\n{content_md}"
     )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{content_md}"
 
     narrative_obj = TopicNarrative.objects.create(topic=topic, narrative="")
     try:

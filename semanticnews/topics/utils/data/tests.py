@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from unittest.mock import MagicMock, patch
 
+from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
 
 
@@ -49,6 +50,8 @@ class TopicDataSearchAPITests(TestCase):
         )
         self.assertNotIn("explanation", response.json())
         mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     @patch("semanticnews.topics.utils.data.api.OpenAI")
     def test_search_data_returns_explanation_when_needed(self, mock_openai):
@@ -90,6 +93,8 @@ class TopicDataSearchAPITests(TestCase):
             },
         )
         mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     def test_search_requires_authentication(self):
         User = get_user_model()
