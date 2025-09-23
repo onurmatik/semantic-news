@@ -4,6 +4,7 @@ import json
 from django.test import SimpleTestCase, TestCase
 from django.contrib.auth import get_user_model
 
+from semanticnews.prompting import get_default_language_instruction
 from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
 from .models import Event
 
@@ -56,6 +57,7 @@ class ValidateEventTests(SimpleTestCase):
             kwargs["response_format"]["json_schema"]["schema"],
             EventValidationResponse.model_json_schema(),
         )
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
 
 class SuggestEventsTests(SimpleTestCase):
@@ -97,6 +99,8 @@ class SuggestEventsTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), mock_events)
         mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_excludes_events(self, mock_openai):
@@ -160,6 +164,7 @@ class SuggestEventsTests(SimpleTestCase):
         _, kwargs = mock_client.responses.parse.call_args
         self.assertIn("Do not include the following events", kwargs["input"])
         self.assertIn("Event A on 2024-06-01", kwargs["input"])
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_post_accepts_exclude_list(self, mock_openai):

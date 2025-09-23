@@ -8,6 +8,7 @@ from ninja.errors import HttpError
 from ...models import Topic
 from .models import TopicRecap
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
 
@@ -66,8 +67,9 @@ def create_recap(request, payload: TopicRecapCreateRequest):
         " Provide a concise, coherent recap summarizing the essential narrative and main points. "
         "Respond in Markdown and highlight key entities by making them **bold**. "
         "Give paragraph breaks where appropriate. Do not use any other formatting such as lists, titles, etc. "
-        f"\n\n{content_md}"
     )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{content_md}"
 
     try:
         with OpenAI() as client:

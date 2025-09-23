@@ -2,6 +2,8 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
+from semanticnews.prompting import get_default_language_instruction
+
 
 class SuggestTopicsAPITests(SimpleTestCase):
     """Tests for the topics suggestion API endpoint."""
@@ -19,6 +21,8 @@ class SuggestTopicsAPITests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), ["Topic A", "Topic B"])
         mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
 
     @patch("semanticnews.topics.api.OpenAI")
     def test_suggest_topics_post(self, mock_openai):
@@ -38,3 +42,5 @@ class SuggestTopicsAPITests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), ["Topic X"])
         mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])

@@ -12,6 +12,7 @@ from ...models import Topic
 from ....agenda.models import Category, Event, Source
 from .models import TopicEvent
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 
 router = Router()
@@ -145,6 +146,7 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
         "State the core fact directly and neutrally. "
         "For each event, include a few source URLs as citations."
     )
+    prompt = append_default_language_instruction(prompt)
 
     context = topic.build_context()
     if context:

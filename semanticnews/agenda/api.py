@@ -6,6 +6,7 @@ from django.db.models import F, Value
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from semanticnews.openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 from pgvector.django import CosineDistance
 
 from .models import Event, Source, Category
@@ -193,6 +194,7 @@ def validate_event(request, payload: EventValidationRequest):
         f"Does the following describe an event or incident that occurred on {payload.date:%Y-%m-%d}?\n"
         f"Title: {payload.title}\n"
     )
+    prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
         response = client.responses.parse(
@@ -413,6 +415,7 @@ def suggest_events(
         "State the core fact directly and neutrally avoid newspaper-style headlines. "
         "For each event, include a few source URLs as citations. "
     )
+    prompt = append_default_language_instruction(prompt)
 
     if exclude:
         excluded_events = "\n".join(

@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 from .models import Topic
 from .utils.timeline.models import TopicEvent
@@ -341,6 +342,7 @@ def suggest_topics(about: str, limit: int = 3) -> List[str]:
         f"Avoid overly specific or literal restatements of the subject. "
         f"Make the {limit} suggestions vary in scope, but none too specific. "
     )
+    prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
         response = client.responses.parse(

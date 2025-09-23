@@ -7,6 +7,7 @@ from django.utils.timezone import make_naive
 from ...models import Topic
 from .models import TopicEntityRelation
 from ....openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
 
@@ -61,8 +62,9 @@ def extract_entity_relations(request, payload: TopicEntityRelationCreateRequest)
         "Identify the key entities and the relations between them. "
         "Respond with a JSON object containing a list 'relations' where each item has "
         "'source', 'relation', and 'target' fields. "
-        f"\n\n{content_md}"
     )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{content_md}"
 
     relation_obj = TopicEntityRelation.objects.create(topic=topic, relations=[])
     try:
