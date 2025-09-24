@@ -1,5 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from datetime import datetime, timezone as dt_timezone
+
+from django.conf import settings
+from django.db.models import Q, Count, Max, Value, DateTimeField
+from django.db.models.functions import Coalesce, Greatest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -8,6 +12,51 @@ from django.utils.translation import gettext as _
 from .forms import DisplayNameForm
 from .models import Profile
 from ..topics.models import Topic, TopicContent
+
+
+def user_list(request):
+    """Display active users ordered by their recent contributions."""
+
+    epoch = datetime(1970, 1, 1, tzinfo=dt_timezone.utc)
+    if not settings.USE_TZ:
+        epoch = epoch.replace(tzinfo=None)
+
+    users = (
+        User.objects.filter(is_active=True)
+        .annotate(
+            topics_count=Count(
+                "topics",
+                filter=Q(topics__status="published"),
+                distinct=True,
+            ),
+            events_count=Count("entries", distinct=True),
+            latest_topic_activity=Max("topics__updated_at"),
+            latest_event_activity=Max("entries__updated_at"),
+        )
+        .annotate(
+            last_activity=Greatest(
+                Coalesce(
+                    "latest_topic_activity",
+                    Value(epoch, output_field=DateTimeField()),
+                ),
+                Coalesce(
+                    "latest_event_activity",
+                    Value(epoch, output_field=DateTimeField()),
+                ),
+                Coalesce(
+                    "last_login",
+                    Value(epoch, output_field=DateTimeField()),
+                ),
+                Coalesce(
+                    "date_joined",
+                    Value(epoch, output_field=DateTimeField()),
+                ),
+            )
+        )
+        .order_by("-last_activity", "username")
+    )
+
+    return render(request, "profiles/user_list.html", {"users": users})
 
 
 def user_profile(request, username):
