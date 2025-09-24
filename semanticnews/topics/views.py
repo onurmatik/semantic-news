@@ -5,13 +5,9 @@ from pgvector.django import L2Distance
 import json
 
 from semanticnews.agenda.models import Event
-from .models import Topic, TopicContent, TopicEntity
+from .models import Topic
 from .utils.timeline.models import TopicEvent
-from .utils.recaps.models import TopicRecap
-from .utils.narratives.models import TopicNarrative
-from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
-from .utils.data.models import TopicData
 
 
 def topics_detail(request, slug, username):
@@ -35,61 +31,44 @@ def topics_detail(request, slug, username):
     )
 
     related_events = topic.events.all()
-    current_narrative = topic.narratives.order_by("-created_at").first()
+
+    # Only the “finished/latest” versions are used on the read-only page
     latest_narrative = (
         topic.narratives.filter(status="finished").order_by("-created_at").first()
     )
-    current_recap = topic.recaps.order_by("-created_at").first()
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
     )
-    current_relation = topic.entity_relations.order_by("-created_at").first()
     latest_relation = (
-        topic.entity_relations.filter(status="finished")
-        .order_by("-created_at")
-        .first()
+        topic.entity_relations.filter(status="finished").order_by("-created_at").first()
     )
+
     documents = list(topic.documents.all())
     webpages = list(topic.webpages.all())
+
     latest_data = topic.datas.order_by("-created_at").first()
-    datas = topic.datas.order_by("-created_at")
+    datas = topic.datas.order_by("-created_at")  # used by data card
     data_insights = topic.data_insights.order_by("-created_at")
     data_visualizations = topic.data_visualizations.order_by("-created_at")
+
     youtube_video = topic.youtube_videos.order_by("-created_at").first()
     tweets = topic.tweets.order_by("-created_at")
+
     if latest_relation:
-        relations_json = json.dumps(
-            latest_relation.relations, separators=(",", ":")
-        )
+        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
         relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
     else:
         relations_json = ""
         relations_json_pretty = ""
-    mcp_servers = MCPServer.objects.filter(active=True)
-
-    if topic.embedding is not None:
-        suggested_events = (
-            Event.objects.exclude(topics=topic)
-            .exclude(embedding__isnull=True)
-            .annotate(distance=L2Distance("embedding", topic.embedding))
-            .order_by("distance")[:5]
-        )
-    else:
-        suggested_events = Event.objects.none()
 
     context = {
         "topic": topic,
         "related_events": related_events,
-        "suggested_events": suggested_events,
-        "current_recap": current_recap,
         "latest_recap": latest_recap,
-        "current_relation": current_relation,
         "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "current_narrative": current_narrative,
         "latest_narrative": latest_narrative,
-        "mcp_servers": mcp_servers,
         "latest_data": latest_data,
         "datas": datas,
         "data_insights": data_insights,
@@ -99,13 +78,8 @@ def topics_detail(request, slug, username):
         "documents": documents,
         "webpages": webpages,
     }
-    if request.user.is_authenticated:
-        context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(uuid=topic.uuid)
-    return render(
-        request,
-        "topics/topics_detail.html",
-        context,
-    )
+
+    return render(request, "topics/topics_detail.html", context)
 
 
 @login_required
