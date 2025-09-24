@@ -99,7 +99,9 @@
             {% include "topics/embeds/button.html" %}
             {% include "topics/relations/button.html" %}
             {% include "topics/timeline/button.html" %}
-            {% include "topics/mcps/button.html" %}
+            {% if mcp_servers %}
+                {% include "topics/mcps/button.html" %}
+            {% endif %}
         </div>
 
         <div class="gap-2">
