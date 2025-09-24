@@ -9,7 +9,13 @@
   <li>
     <a href="{% url 'admin:agenda_event_find_major' %}{% if request.META.QUERY_STRING %}?{{ request.META.QUERY_STRING }}{% endif %}"
        class="addlink">
-      Find major events for this month
+      Find major events (quick)
+    </a>
+  </li>
+  <li>
+    <a href="{% url 'admin:agenda_event_find_major_form' %}{% if request.META.QUERY_STRING %}?{{ request.META.QUERY_STRING }}{% endif %}"
+       class="addlink">
+      Find major events (advanced)
     </a>
   </li>
   {{ block.super }}
