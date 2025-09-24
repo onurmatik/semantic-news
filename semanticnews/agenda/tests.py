@@ -3,6 +3,7 @@ import json
 
 from django.test import SimpleTestCase, TestCase
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from semanticnews.prompting import get_default_language_instruction
 from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
@@ -101,6 +102,35 @@ class SuggestEventsTests(SimpleTestCase):
         mock_client.responses.parse.assert_called_once()
         _, kwargs = mock_client.responses.parse.call_args
         self.assertIn(get_default_language_instruction(), kwargs["input"])
+
+
+class RecentEventListViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user("bob", "bob@example.com", "password")
+
+    def test_lists_only_published_events(self):
+        Event.objects.create(title="Draft", date="2024-01-01", status="draft")
+        published = Event.objects.create(
+            title="Published",
+            date="2024-01-02",
+            status="published",
+        )
+
+        response = self.client.get(reverse("events_recent_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, published.title)
+        self.assertNotContains(response, "Draft")
+
+    def test_includes_user_topics_for_authenticated_users(self):
+        Event.objects.create(title="Published", date="2024-01-02", status="published")
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("events_recent_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("user_topics", response.context)
 
     @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_excludes_events(self, mock_openai):

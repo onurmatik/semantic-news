@@ -27,6 +27,9 @@ urlpatterns = [
 urlpatterns += i18n_patterns(
     path('', core_views.home, name='home'),
     path('search/', core_views.search_results, name='search_results'),
+    path('topics/', topics_views.topics_list, name='topics_list'),
+    path('events/', agenda_views.recent_event_list, name='events_recent_list'),
+    path('users/', profiles_views.user_list, name='user_list'),
 
     re_path(
         r'^(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/(?P<slug>[-\w]+)/$',

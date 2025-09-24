@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 col-lg-8 mx-auto">
+            <h1 class="fs-3 mb-3">{% trans "Community activity" %}</h1>
+
+            {% if users %}
+                <ul class="list-unstyled mb-0">
+                    {% for person in users %}
+                        <li class="border-bottom pb-3 mb-3">
+                            <h2 class="fs-5 mb-1">
+                                <a class="text-decoration-none" href="{% url 'user_profile' username=person.username %}">
+                                    {{ person.get_full_name|default:person.username }}
+                                </a>
+                            </h2>
+                            <p class="small text-secondary mb-1">
+                                <span class="me-2">
+                                    {% blocktrans count topic_count=person.topics_count %}
+                                        {{ topic_count }} topic
+                                    {% plural %}
+                                        {{ topic_count }} topics
+                                    {% endblocktrans %}
+                                </span>
+                                <span>
+                                    {% blocktrans count event_count=person.events_count %}
+                                        {{ event_count }} event
+                                    {% plural %}
+                                        {{ event_count }} events
+                                    {% endblocktrans %}
+                                </span>
+                            </p>
+                            <p class="small text-secondary mb-0">
+                                {% blocktrans with timesince=person.last_activity|timesince %}
+                                    Active {{ timesince }} ago
+                                {% endblocktrans %}
+                            </p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-secondary">{% trans "No users have contributed yet." %}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

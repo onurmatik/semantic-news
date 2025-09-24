@@ -984,3 +984,32 @@ class TopicEmbeddingUpdateTests(TestCase):
 
         self.assertEqual(topic.embedding, [1.0] * 1536)
 
+
+class TopicListViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user("alice", "alice@example.com", "password")
+
+    def test_lists_only_published_topics(self):
+        Topic.objects.create(title="Draft Topic", created_by=self.user, status="draft")
+        published = Topic.objects.create(
+            title="Published Topic",
+            created_by=self.user,
+            status="published",
+        )
+
+        response = self.client.get(reverse("topics_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, published.title)
+        self.assertNotContains(response, "Draft Topic")
+
+    def test_includes_user_topics_for_authenticated_users(self):
+        Topic.objects.create(title="Mine", created_by=self.user, status="published")
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("topics_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("user_topics", response.context)
+

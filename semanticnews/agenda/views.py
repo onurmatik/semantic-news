@@ -14,6 +14,25 @@ from semanticnews.topics.models import Topic
 DISTANCE_THRESHOLD = 1
 
 
+def recent_event_list(request):
+    """Display the most recently updated published events."""
+
+    events = (
+        Event.objects.filter(status="published")
+        .select_related("created_by")
+        .prefetch_related("categories", "sources")
+        .order_by("-updated_at", "-date", "-created_at")
+    )
+
+    context = {"events": events}
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user).order_by(
+            "-updated_at"
+        )
+
+    return render(request, "agenda/event_recent_list.html", context)
+
+
 def event_detail(request, year, month, day, slug):
     obj = get_object_or_404(
         Event.objects.prefetch_related(
