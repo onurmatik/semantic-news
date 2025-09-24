@@ -2,12 +2,17 @@
 {% load i18n %}
 
 {% block content %}
-<h1>{% trans "Suggest events" %}</h1>
-<form method="post" novalidate>
+  <h1>{% trans "Suggest events" %}</h1>
+  <form method="post" novalidate>
     {% csrf_token %}
     <table>
-        {{ form.as_table }}
+      {{ form.as_table }}
     </table>
-    <input type="submit" value="{% trans 'Get suggestions' %}" class="default" />
-</form>
+    <div class="submit-row">
+      <input type="submit" value="{% trans 'Get suggestions' %}" class="default" />
+      <a href="{% url 'admin:agenda_event_changelist' %}" class="button cancel-link">
+        {% trans "Back" %}
+      </a>
+    </div>
+  </form>
 {% endblock %}

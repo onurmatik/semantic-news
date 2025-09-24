@@ -2,6 +2,7 @@ from datetime import date
 import calendar
 
 from django import forms
+from django.utils import timezone
 
 from .models import Locality, Category
 
@@ -24,3 +25,30 @@ class EventSuggestForm(forms.Form):
             last = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
             self.initial.setdefault('start_date', first)
             self.initial.setdefault('end_date', last)
+
+
+class FindMajorEventsForm(forms.Form):
+    now = timezone.now()
+    YEAR_CHOICES = [(y, y) for y in range(now.year - 5, now.year + 3)]
+    MONTH_CHOICES = [(m, f"{m:02d}") for m in range(1, 13)]
+
+    year = forms.ChoiceField(choices=YEAR_CHOICES, initial=now.year, label="Year")
+    month = forms.ChoiceField(choices=MONTH_CHOICES, initial=now.month, label="Month")
+
+    locality = forms.ModelChoiceField(
+        queryset=Locality.objects.all(), required=False, empty_label="(Any)", label="Locality"
+    )
+
+    categories = forms.ModelMultipleChoiceField(
+        queryset=Category.objects.all(), required=False, label="Categories"
+    )
+
+    limit = forms.IntegerField(min_value=1, initial=1, label="Max events to create")
+    distance_threshold = forms.FloatField(initial=0.15, min_value=0.0, label="Semantic distance threshold")
+
+    def clean_month(self):
+        # coerce to int
+        return int(self.cleaned_data["month"])
+
+    def clean_year(self):
+        return int(self.cleaned_data["year"])
