@@ -66,11 +66,9 @@
 
             <ul class="navbar-nav me-auto">
 
-                {% if SITE_LOGO %}
                 <li class="nav-item">
                     <img src="{% static 'logo.png' %}" alt="Semantic News" style="max-height: 18px"></img>
                 </li>
-                {% endif %}
 
                 <li class="nav-item dropdown mx-2">
 
@@ -174,8 +172,22 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
 
-                <ul class="navbar-nav mr-auto me-auto">
-
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item mx-2">
+                        <a class="nav-link" aria-current="page" href="{% url 'topics_list' %}">
+                            {% trans "Topics" %}
+                        </a>
+                    </li>
+                    <li class="nav-item mx-2">
+                        <a class="nav-link" aria-current="page" href="{% url 'events_recent_list' %}">
+                            {% trans "Agenda" %}
+                        </a>
+                    </li>
+                    <li class="nav-item mx-2">
+                        <a class="nav-link" aria-current="page" href="{% url 'user_list' %}">
+                            {% trans "Contributors" %}
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Search form -->
