@@ -219,7 +219,7 @@ class Event(models.Model):
         if not self.slug:
             self.slug = slugify(self.title)
 
-        if not self.embedding:
+        if self.embedding is None:
             self.embedding = self.get_embedding()
 
         super().save(*args, **kwargs)

@@ -46,6 +46,7 @@ class EventAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "slug",
+        "locality",
         "date",
         "status",
         "has_embedding_flag",
