@@ -1,7 +1,8 @@
 from django.contrib import admin, messages
 from django.db.models import Count, Q
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
-from django.urls import path
+from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
@@ -60,6 +61,8 @@ class EventAdmin(admin.ModelAdmin):
         HasEmbeddingFilter,
         "status",
         "created_by",
+        "locality",
+        ("categories", admin.RelatedOnlyFieldListFilter),
         ("date", admin.DateFieldListFilter),
         ("created_at", admin.DateFieldListFilter),
         ("updated_at", admin.DateFieldListFilter),
@@ -127,11 +130,25 @@ class EventAdmin(admin.ModelAdmin):
         updated = queryset.exclude(status="published").update(status="published")
         self.message_user(request, f"Published {updated} event(s).", messages.SUCCESS)
 
+    def _redirect_back(self, request):
+        base = reverse("admin:agenda_event_changelist")
+        qs = request.META.get("QUERY_STRING", "")
+        return HttpResponseRedirect(f"{base}?{qs}" if qs else base)
+
+    def _resolve_year_month(self, request):
+        try:
+            year = int(request.GET.get("date__year") or 0)
+            month = int(request.GET.get("date__month") or 0)
+        except ValueError:
+            return None, None
+        return (year, month) if (year > 0 and 1 <= month <= 12) else (None, None)
+
     # Custom URLs
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
             path("suggest/", self.admin_site.admin_view(self.suggest_view), name="agenda_event_suggest"),
+            path("find-major/", self.admin_site.admin_view(self.find_major_view), name="agenda_event_find_major"),
         ]
         return my_urls + urls
 
@@ -181,6 +198,52 @@ class EventAdmin(admin.ModelAdmin):
             "app_label": self.model._meta.app_label,
         }
         return render(request, "admin/agenda/event/suggest.html", context)
+
+    def find_major_view(self, request):
+        if not self.has_change_permission(request):
+            messages.error(request, "You don't have permission to do that.")
+            return self._redirect_back(request)
+
+        year, month = self._resolve_year_month(request)
+        if not (year and month):
+            messages.error(request, "Select a month first (use the Date filter or date hierarchy).")
+            return self._redirect_back(request)
+
+        # pass through current locality / single category filters if present
+        locality_name = None
+        loc_id = request.GET.get("locality__id__exact")
+        if loc_id:
+            loc = Locality.objects.filter(pk=loc_id).first()
+            locality_name = loc.name if loc else None
+
+        categories = None
+        cat_id = request.GET.get("categories__id__exact")
+        if cat_id:
+            cat = Category.objects.filter(pk=cat_id).first()
+            categories = cat.name if cat else None
+
+        try:
+            limit = int(request.GET.get("limit", "1"))
+        except ValueError:
+            limit = 1
+
+        try:
+            events = Event.objects.find_major_events(
+                year=year,
+                month=month,
+                locality=locality_name,
+                categories=categories,
+                limit=limit,
+            )
+        except Exception as exc:
+            messages.error(request, f"Couldn't fetch/create events: {exc}")
+            return self._redirect_back(request)
+
+        if events:
+            messages.success(request, f"Created/Found {len(events)} event(s) for {year}-{month:02d}.")
+        else:
+            messages.warning(request, f"No suggestions created for {year}-{month:02d}.")
+        return self._redirect_back(request)
 
 
 @admin.register(Locality)
