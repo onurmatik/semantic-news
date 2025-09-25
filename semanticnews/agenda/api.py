@@ -407,12 +407,17 @@ def suggest_events(
     descriptor_parts.append(timeframe)
     descriptor = " ".join(descriptor_parts)
 
-    prompt = f"List the top {limit} most significant events {descriptor}."
+    prompt = f"List the top {limit} most significant events {descriptor}. "
 
     # Style guide
     prompt += (
-        "Generate event titles as concise factual statements. "
-        "State the core fact directly and neutrally avoid newspaper-style headlines. "
+        "Event 'title' must be a concise, Wikipedia-style factual statement. "
+        "Rules for titles:\n"
+        "- State only the single core fact directly and neutrally.\n"
+        "- Do not include dates in title (use the 'date' field).\n"
+        "- Do not combine multiple events.\n"
+        "- Avoid newspaper or narrative style.\n"
+        "- Use past tense verbs.\n"
         "For each event, include a few source URLs as citations. "
     )
     prompt = append_default_language_instruction(prompt)
