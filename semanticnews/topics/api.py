@@ -3,6 +3,7 @@ from ninja.errors import HttpError
 from typing import Optional, List, Literal
 from datetime import datetime
 from django.utils import timezone
+from django.urls import reverse
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
@@ -133,6 +134,23 @@ class TopicStatusUpdateResponse(Schema):
     status: str
 
 
+class TopicTitleUpdateRequest(Schema):
+    """Request body for updating a topic's title."""
+
+    topic_uuid: str
+    title: Optional[str] = None
+
+
+class TopicTitleUpdateResponse(Schema):
+    """Response returned after updating a topic's title."""
+
+    topic_uuid: str
+    title: Optional[str] = None
+    slug: str
+    detail_url: str
+    edit_url: str
+
+
 @api.post("/set-status", response=TopicStatusUpdateResponse)
 def set_topic_status(request, payload: TopicStatusUpdateRequest):
     """Update the status of a topic owned by the authenticated user.
@@ -168,6 +186,47 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     topic.save(update_fields=["status"])
 
     return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
+
+
+@api.post("/set-title", response=TopicTitleUpdateResponse)
+def set_topic_title(request, payload: TopicTitleUpdateRequest):
+    """Update the title of a topic owned by the authenticated user."""
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by != user:
+        raise HttpError(403, "Forbidden")
+
+    new_title = (payload.title or "").strip()
+    topic.title = new_title or None
+    topic.save(update_fields=["title"])
+
+    if topic.title is None:
+        Topic.objects.filter(pk=topic.pk).update(slug=str(topic.uuid))
+        topic.slug = str(topic.uuid)
+
+    slug_value = topic.slug or str(topic.uuid)
+
+    return TopicTitleUpdateResponse(
+        topic_uuid=str(topic.uuid),
+        title=topic.title,
+        slug=slug_value,
+        detail_url=reverse(
+            "topics_detail",
+            kwargs={"slug": slug_value, "username": topic.created_by.username},
+        ),
+        edit_url=reverse(
+            "topics_detail_edit",
+            kwargs={"slug": slug_value, "username": topic.created_by.username},
+        ),
+    )
 
 
 class TopicEventAddRequest(Schema):

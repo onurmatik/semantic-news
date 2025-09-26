@@ -135,6 +135,93 @@ class TopicCreateViewTests(TestCase):
         self.assertIsNone(topic.title)
 
 
+class SetTopicTitleAPITests(TestCase):
+    """Tests for updating a topic title via the API."""
+
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user("user", "user@example.com", "password")
+
+    def test_requires_authentication(self):
+        """Unauthenticated requests should be rejected."""
+
+        with patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536):
+            topic = Topic.objects.create(created_by=self.user)
+
+        payload = {"topic_uuid": str(topic.uuid), "title": "Updated"}
+        response = self.client.post(
+            "/api/topics/set-title", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_updates_title_and_slug(self, mock_embedding):
+        """Owners can rename their topics."""
+
+        topic = Topic.objects.create(title="Original", created_by=self.user)
+        self.client.force_login(self.user)
+
+        payload = {"topic_uuid": str(topic.uuid), "title": "Updated Title"}
+        response = self.client.post(
+            "/api/topics/set-title", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        topic.refresh_from_db()
+        self.assertEqual(topic.title, "Updated Title")
+        self.assertEqual(topic.slug, "updated-title")
+
+        data = response.json()
+        self.assertEqual(data["slug"], topic.slug)
+        self.assertEqual(
+            data["edit_url"],
+            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": self.user.username}),
+        )
+        self.assertEqual(
+            data["detail_url"],
+            reverse("topics_detail", kwargs={"slug": topic.slug, "username": self.user.username}),
+        )
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_allows_clearing_title(self, mock_embedding):
+        """Clearing the title keeps the topic accessible via its UUID slug."""
+
+        topic = Topic.objects.create(title="Named", created_by=self.user)
+        self.client.force_login(self.user)
+
+        payload = {"topic_uuid": str(topic.uuid), "title": "   "}
+        response = self.client.post(
+            "/api/topics/set-title", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        topic.refresh_from_db()
+        self.assertIsNone(topic.title)
+        self.assertEqual(topic.slug, str(topic.uuid))
+
+        data = response.json()
+        self.assertEqual(data["slug"], str(topic.uuid))
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_forbids_updating_other_users_topic(self, mock_embedding):
+        """Users cannot rename topics they do not own."""
+
+        other_user = self.User.objects.create_user("other", "other@example.com", "password")
+        topic = Topic.objects.create(title="Original", created_by=other_user)
+
+        self.client.force_login(self.user)
+
+        payload = {"topic_uuid": str(topic.uuid), "title": "Updated"}
+        response = self.client.post(
+            "/api/topics/set-title", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
 class AddEventToTopicAPITests(TestCase):
     """Tests for the endpoint that relates events to topics."""
 

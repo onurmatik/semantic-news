@@ -2,7 +2,7 @@
 
 {% load static i18n humanize markdown_extras %}
 
-{% block title %}{{ topic.title }}{% endblock %}
+{% block title %}{{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -13,7 +13,11 @@
 
 <div class="d-flex justify-content-between pb-2 align-items-start">
 
-    <div data-topic-uuid="{{ topic.uuid }}">
+    <div
+        data-topic-uuid="{{ topic.uuid }}"
+        data-topic-slug="{{ topic.slug|default:topic.uuid }}"
+        data-topic-title="{{ topic.title|default_if_none:'' }}"
+    >
 
         <h3 class="fs-5 d-flex align-items-center">
 
@@ -28,21 +32,20 @@
 
         </h3>
 
-        <h1 class="fs-3">
+        <h1 class="fs-3 d-flex align-items-center">
 
-            {{ topic.title }}
+            <span id="topicTitleDisplay" data-untitled="{% trans "Untitled" %}">
+                {{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}
+            </span>
 
-            <small class="fs-5 ms-2">
-
-                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
-                   class="text-info-emphasis bi bi-bookmark"
-                ></a>
-
-                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Copy link" %}"
-                   class="text-info-emphasis bi bi-link copy-link ms-1"
-                   data-url="{{ topic.get_absolute_url }}"></a>
-
-            </small>
+            <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm ms-3"
+                data-bs-toggle="modal"
+                data-bs-target="#editTopicTitleModal"
+            >
+                {% trans "Edit" %}
+            </button>
 
         </h1>
 
@@ -211,6 +214,7 @@
 </div>
 
 
+{% include "topics/topic_title_modal.html" %}
 {% include "topics/mcps/modal.html" %}
 {% include "topics/documents/modal.html" %}
 {% include "topics/recaps/modal.html" %}
@@ -229,6 +233,7 @@
     <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
+    <script src="{% static 'topics/topic_title.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/data/scripts.html" %}
