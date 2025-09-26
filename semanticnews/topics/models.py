@@ -1,6 +1,7 @@
 import uuid
 
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
 from django.urls import reverse
@@ -21,7 +22,7 @@ from .utils.timeline.models import TopicEvent
 
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=200, blank=True, null=True)
     slug = models.SlugField(max_length=200, blank=True, null=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
     status = models.CharField(max_length=20, db_index=True, choices=(
@@ -59,7 +60,7 @@ class Topic(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.title}"
+        return f"{self.title or 'Topic'}"
 
     class Meta:
         constraints = [
@@ -75,12 +76,36 @@ class Topic(models.Model):
             )
         ]
 
+    def clean(self):
+        super().clean()
+        if self.status == "published" and not self.title:
+            raise ValidationError({"title": "A title is required to publish a topic."})
+
     def save(self, *args, **kwargs):
         """
         Save the topic and refresh its embedding *after* the row exists.
         """
-        if not self.slug:
-            self.slug = slugify(self.title)
+        if kwargs.get("raw"):
+            super().save(*args, **kwargs)
+            return
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            update_fields = set(update_fields)
+
+        previous_slug = self.slug
+
+        if self.title:
+            if not self.slug:
+                self.slug = slugify(self.title)
+        else:
+            self.slug = None
+
+        if update_fields is not None and self.slug != previous_slug:
+            update_fields.add("slug")
+            kwargs["update_fields"] = list(update_fields)
+
+        self.full_clean()
 
         super().save(*args, **kwargs)
 
@@ -118,7 +143,7 @@ class Topic(models.Model):
         return latest.thumbnail if latest else None
 
     def build_context(self):
-        content_md = f"# {self.title}\n\n"
+        content_md = f"# {self.title or ''}\n\n"
 
         # If not saved yet, do not touch M2M relations
         if not self.pk:
@@ -250,6 +275,8 @@ class Topic(models.Model):
             )
 
         return cloned
+
+
 class TopicContent(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
     content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
