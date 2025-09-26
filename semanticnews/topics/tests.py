@@ -32,10 +32,7 @@ class CreateTopicAPITests(TestCase):
     def test_requires_authentication(self):
         """Unauthenticated requests should be rejected."""
 
-        payload = {"title": "No Auth"}
-        response = self.client.post(
-            "/api/topics/create", payload, content_type="application/json"
-        )
+        response = self.client.post("/api/topics/create", {}, content_type="application/json")
         self.assertEqual(response.status_code, 401)
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
@@ -46,19 +43,39 @@ class CreateTopicAPITests(TestCase):
         user = User.objects.create_user("user", "user@example.com", "password")
         self.client.force_login(user)
 
-        payload = {"title": "My Topic"}
         response = self.client.post(
-            "/api/topics/create", payload, content_type="application/json"
+            "/api/topics/create", {}, content_type="application/json"
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["title"], "My Topic")
+        self.assertEqual(set(data.keys()), {"uuid"})
+        self.assertTrue(data["uuid"])
 
         self.assertEqual(Topic.objects.count(), 1)
         topic = Topic.objects.first()
         self.assertEqual(topic.created_by, user)
         self.assertEqual(str(topic.uuid), data["uuid"])
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_allows_creating_topic_without_title(self, mock_get_embedding):
+        """Users can create draft topics without providing a title."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        response = self.client.post(
+            "/api/topics/create", {}, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(set(data.keys()), {"uuid"})
+
+        topic = Topic.objects.get()
+        self.assertIsNone(topic.title)
+        self.assertEqual(topic.status, "draft")
         
 
 class AddEventToTopicAPITests(TestCase):
@@ -201,6 +218,25 @@ class SetTopicStatusAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         topic.refresh_from_db()
         self.assertEqual(topic.status, "published")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_cannot_publish_topic_without_title(self, mock_topic_embedding):
+        """Publishing a topic without a title should be rejected."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title=None, created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status", payload, content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        topic.refresh_from_db()
+        self.assertEqual(topic.status, "draft")
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_non_creator_cannot_publish_topic(self, mock_topic_embedding):

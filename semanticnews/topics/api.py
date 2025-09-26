@@ -79,37 +79,22 @@ def generation_status(request, topic_uuid: str):
     )
 
 
-class TopicCreateRequest(Schema):
-    """Request body for creating a topic.
-
-    Attributes:
-        title (str): Title of the topic.
-    """
-
-    title: str
-
-
 class TopicCreateResponse(Schema):
     """Response returned after creating a topic.
 
     Attributes:
         uuid (str): Unique identifier of the topic.
-        title (str): Title of the topic.
-        slug (str): Slug for the topic.
     """
 
     uuid: str
-    title: str
-    slug: str
 
 
 @api.post("/create", response=TopicCreateResponse)
-def create_topic(request, payload: TopicCreateRequest):
+def create_topic(request):
     """Create a new topic for the authenticated user.
 
     Args:
         request: The HTTP request instance.
-        payload: Data including the topic title.
 
     Returns:
         Data for the newly created topic.
@@ -119,9 +104,9 @@ def create_topic(request, payload: TopicCreateRequest):
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
 
-    topic = Topic.objects.create(title=payload.title, created_by=user)
+    topic = Topic.objects.create(created_by=user)
 
-    return TopicCreateResponse(uuid=str(topic.uuid), title=topic.title, slug=topic.slug)
+    return TopicCreateResponse(uuid=str(topic.uuid))
 
 
 class TopicStatusUpdateRequest(Schema):
@@ -175,6 +160,9 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     valid_statuses = {choice[0] for choice in Topic._meta.get_field("status").choices}
     if payload.status not in valid_statuses:
         raise HttpError(400, "Invalid status")
+
+    if payload.status == "published" and not topic.title:
+        raise HttpError(400, "A title is required to publish a topic.")
 
     topic.status = payload.status
     topic.save(update_fields=["status"])
