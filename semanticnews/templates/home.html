@@ -14,9 +14,9 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="fs-5 mb-0">{%  trans "Topics" %}</h2>
                 {% if user.is_authenticated %}
-                <button class="btn btn-sm btn-outline-secondary add-topic-btn" title="{% trans 'Add topic' %}">
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'topics_create' %}" title="{% trans 'Add topic' %}">
                     <i class="bi bi-plus-lg"></i>
-                </button>
+                </a>
                 {% endif %}
             </div>
 
@@ -43,11 +43,8 @@
 
 </div>
 
-{% include "topics/create_topic_modal.html" %}
-
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
-    {% include "topics/create_topic_js.html" %}
 {% endblock %}

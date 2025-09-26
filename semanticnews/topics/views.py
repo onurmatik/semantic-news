@@ -9,6 +9,42 @@ from .models import Topic
 from .utils.timeline.models import TopicEvent
 from .utils.mcps.models import MCPServer
 
+
+@login_required
+def topic_create(request):
+    """Create a draft topic and redirect the user to the edit page."""
+
+    title = request.GET.get("title")
+    event_uuid = request.GET.get("event")
+
+    topic = Topic.objects.create(created_by=request.user)
+
+    if title:
+        topic.title = title
+        topic.save(update_fields=["title"])
+
+    if not topic.slug:
+        Topic.objects.filter(pk=topic.pk).update(slug=str(topic.uuid))
+        topic.slug = str(topic.uuid)
+
+    if event_uuid:
+        try:
+            event = Event.objects.get(uuid=event_uuid)
+        except Event.DoesNotExist:
+            pass
+        else:
+            TopicEvent.objects.get_or_create(
+                topic=topic,
+                event=event,
+                defaults={"created_by": request.user},
+            )
+
+    return redirect(
+        "topics_detail_edit",
+        slug=topic.slug,
+        username=request.user.username,
+    )
+
 def topics_list(request):
     """Display the most recently updated published topics."""
 

@@ -69,18 +69,10 @@
     {% endfor %}
 
 </div>
-
-{% if user.is_authenticated %}
-{% include "topics/create_topic_modal.html" %}
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
     {{ block.super }}
-    {% if user.is_authenticated %}
-    {% include "topics/create_topic_js.html" %}
-    {% endif %}
     <script src="{% static 'agenda/category_filter.js' %}"></script>
     <script src="{% static 'agenda/domain_filter.js' %}"></script>
 {% endblock %}

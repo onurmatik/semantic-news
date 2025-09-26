@@ -201,9 +201,6 @@
     </div>
 
 </div>
-
-{% include "topics/create_topic_modal.html" %}
-
 {% endblock %}
 
 {% block extra_js %}
@@ -212,7 +209,6 @@
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
-    {% include "topics/create_topic_js.html" %}
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/data/scripts.html" %}
     {% include "topics/narratives/scripts.html" %}
