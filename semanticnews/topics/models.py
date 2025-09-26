@@ -81,6 +81,31 @@ class Topic(models.Model):
         if self.status == "published" and not self.title:
             raise ValidationError({"title": "A title is required to publish a topic."})
 
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        """Run validation while skipping the embedding field.
+
+        ``VectorField`` instances from ``pgvector`` can be backed by numpy
+        arrays. Django's model validation attempts to check whether blank
+        fields contain an "empty" value by evaluating ``raw_value in
+        field.empty_values``. When ``raw_value`` is a numpy array this raises
+        ``ValueError`` because numpy does not define a boolean truth value for
+        multi-element arrays. To avoid this, exclude the embedding field from
+        Django's generic ``blank`` handling while still allowing the rest of
+        the model (including our custom ``clean`` method) to run.
+        """
+
+        if exclude is None:
+            exclude = []
+        else:
+            exclude = list(exclude)
+        exclude.append("embedding")
+
+        super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
     def save(self, *args, **kwargs):
         """
         Save the topic and refresh its embedding *after* the row exists.
