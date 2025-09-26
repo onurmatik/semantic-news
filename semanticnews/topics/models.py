@@ -96,7 +96,7 @@ class Topic(models.Model):
         previous_slug = self.slug
 
         if self.title:
-            if not self.slug:
+            if not self.slug or self.slug == str(self.uuid):
                 self.slug = slugify(self.title)
         else:
             self.slug = None

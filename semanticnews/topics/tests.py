@@ -76,7 +76,64 @@ class CreateTopicAPITests(TestCase):
         topic = Topic.objects.get()
         self.assertIsNone(topic.title)
         self.assertEqual(topic.status, "draft")
-        
+
+
+class TopicCreateViewTests(TestCase):
+    """Tests for the view that creates topics via the UI flow."""
+
+    def setUp(self):
+        self.User = get_user_model()
+
+    def test_requires_authentication(self):
+        """Anonymous users are redirected to the login page."""
+
+        response = self.client.get(reverse("topics_create"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    def test_redirects_to_edit_page(self):
+        """Creating a topic sends the user to the edit page."""
+
+        user = self.User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        with patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536):
+            response = self.client.get(reverse("topics_create"), {"title": "My Draft Topic"})
+
+        topic = Topic.objects.get()
+
+        self.assertRedirects(
+            response,
+            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": user.username}),
+        )
+        self.assertEqual(topic.title, "My Draft Topic")
+
+    def test_links_event_when_query_parameter_provided(self):
+        """The selected event is attached to the new topic when provided."""
+
+        user = self.User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        with (
+            patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536),
+            patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536),
+        ):
+            event = Event.objects.create(title="An Event", date="2024-01-01")
+            response = self.client.get(
+                reverse("topics_create"),
+                {"event": str(event.uuid)},
+            )
+
+        topic = Topic.objects.get()
+
+        self.assertRedirects(
+            response,
+            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": user.username}),
+        )
+        self.assertTrue(topic.events.filter(pk=event.pk).exists())
+        self.assertIsNone(topic.title)
+
 
 class AddEventToTopicAPITests(TestCase):
     """Tests for the endpoint that relates events to topics."""
