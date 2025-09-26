@@ -19,7 +19,7 @@ const CONFIDENCE_THRESHOLD = 0.85;
 
   const suggestForm = document.getElementById('suggestEventsForm');
   const suggestedList = document.getElementById('suggestedEventsList');
-  const publishBtn = document.getElementById('publishSelectedEventsBtn');
+  const addSuggestedBtn = document.getElementById('addSuggestedEventsBtn');
   const titleField = document.getElementById('suggestRelatedEvent');
 
   let suggestions = [];
@@ -40,7 +40,8 @@ const CONFIDENCE_THRESHOLD = 0.85;
       suggestedList.classList.add('d-none');
       suggestedList.innerHTML = '';
     }
-    if (publishBtn) publishBtn.disabled = true;
+    if (addSuggestedBtn) addSuggestedBtn.disabled = true;
+    suggestions = [];
   }
 
   if (timelineBtn) {
@@ -154,13 +155,19 @@ const CONFIDENCE_THRESHOLD = 0.85;
   }
 
   // handle suggestion fetching
-  if (suggestForm && suggestedList && publishBtn) {
+  function updateSuggestedSelectionState() {
+    if (!addSuggestedBtn || !suggestedList) return;
+    const checked = suggestedList.querySelectorAll('input[type="checkbox"]:checked');
+    addSuggestedBtn.disabled = checked.length === 0;
+  }
+
+  if (suggestForm && suggestedList && addSuggestedBtn) {
     const fetchBtn = suggestForm.querySelector('button[type="submit"]');
     suggestForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       suggestedList.innerHTML = '<p>Loading suggestions...</p>';
       suggestedList.classList.remove('d-none');
-      publishBtn.disabled = true;
+      addSuggestedBtn.disabled = true;
       if (fetchBtn) fetchBtn.disabled = true;
       try {
         const payload = { topic_uuid: topicUuid };
@@ -189,6 +196,7 @@ const CONFIDENCE_THRESHOLD = 0.85;
             cb.className = 'form-check-input';
             cb.id = `suggest${idx}`;
             cb.value = idx;
+            cb.addEventListener('change', updateSuggestedSelectionState);
             const label = document.createElement('label');
             label.className = 'form-check-label';
             label.htmlFor = cb.id;
@@ -198,7 +206,7 @@ const CONFIDENCE_THRESHOLD = 0.85;
             wrapper.appendChild(label);
             suggestedList.appendChild(wrapper);
           });
-          publishBtn.disabled = false;
+          updateSuggestedSelectionState();
           suggestForm.classList.add('d-none');
         } else {
           suggestedList.innerHTML = '<p>No suggestions found.</p>';
@@ -210,14 +218,17 @@ const CONFIDENCE_THRESHOLD = 0.85;
       }
     });
 
-    publishBtn.addEventListener('click', async () => {
+    addSuggestedBtn.addEventListener('click', async () => {
       const checked = suggestedList.querySelectorAll('input[type="checkbox"]:checked');
-      const events = Array.from(checked).map(cb => suggestions[parseInt(cb.value, 10)]);
-      if (events.length) {
+      const eventUuids = Array.from(checked)
+        .map(cb => suggestions[parseInt(cb.value, 10)])
+        .filter(ev => ev && ev.uuid)
+        .map(ev => ev.uuid);
+      if (eventUuids.length) {
         await fetch('/api/topics/timeline/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid, events })
+          body: JSON.stringify({ topic_uuid: topicUuid, event_uuids: eventUuids })
         });
       }
       modal.hide();
