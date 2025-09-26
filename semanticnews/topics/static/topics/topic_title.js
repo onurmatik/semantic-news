@@ -14,12 +14,101 @@ document.addEventListener('DOMContentLoaded', () => {
   const errorEl = modalEl.querySelector('#editTopicTitleError');
   const displayEl = document.getElementById('topicTitleDisplay');
   const defaultTitle = displayEl?.dataset.untitled ?? '';
+  const suggestBtn = modalEl.querySelector('#topicTitleSuggestBtn');
+  const suggestionsContainer = modalEl.querySelector('#topicTitleSuggestions');
+  const suggestionsList = modalEl.querySelector('#topicTitleSuggestionsList');
 
-  modalEl.addEventListener('show.bs.modal', () => {
+  const clearError = () => {
     if (errorEl) {
       errorEl.classList.add('d-none');
       errorEl.textContent = '';
     }
+  };
+
+  const showError = (message) => {
+    if (errorEl && message) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('d-none');
+    }
+  };
+
+  const resetSuggestBtn = () => {
+    if (!suggestBtn) {
+      return;
+    }
+    suggestBtn.disabled = false;
+    const defaultLabel = suggestBtn.dataset.defaultLabel || suggestBtn.textContent || '';
+    if (defaultLabel) {
+      suggestBtn.textContent = defaultLabel;
+    }
+  };
+
+  const setSuggestBtnLoading = (isLoading) => {
+    if (!suggestBtn) {
+      return;
+    }
+    suggestBtn.disabled = isLoading;
+    const label = isLoading
+      ? suggestBtn.dataset.loadingLabel || suggestBtn.dataset.defaultLabel || ''
+      : suggestBtn.dataset.defaultLabel || '';
+    if (label) {
+      suggestBtn.textContent = label;
+    }
+  };
+
+  const hideSuggestions = () => {
+    if (suggestionsContainer) {
+      suggestionsContainer.classList.add('d-none');
+    }
+    if (suggestionsList) {
+      suggestionsList.innerHTML = '';
+    }
+  };
+
+  const renderSuggestions = (suggestions) => {
+    if (!suggestionsContainer || !suggestionsList) {
+      return;
+    }
+
+    suggestionsList.innerHTML = '';
+
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      const message = suggestionsContainer.dataset.noResultsMessage || '';
+      if (message) {
+        const item = document.createElement('div');
+        item.className = 'list-group-item text-body-secondary';
+        item.textContent = message;
+        suggestionsList.appendChild(item);
+        suggestionsContainer.classList.remove('d-none');
+      } else {
+        hideSuggestions();
+      }
+      return;
+    }
+
+    suggestions.forEach((suggestion) => {
+      if (typeof suggestion !== 'string' || !suggestion.trim()) {
+        return;
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'list-group-item list-group-item-action';
+      button.dataset.suggestion = suggestion;
+      button.textContent = suggestion;
+      suggestionsList.appendChild(button);
+    });
+
+    if (suggestionsList.childElementCount > 0) {
+      suggestionsContainer.classList.remove('d-none');
+    } else {
+      hideSuggestions();
+    }
+  };
+
+  modalEl.addEventListener('show.bs.modal', () => {
+    clearError();
+    hideSuggestions();
+    resetSuggestBtn();
     if (input) {
       input.value = topicEl.dataset.topicTitle ?? '';
       requestAnimationFrame(() => {
@@ -39,10 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (submitBtn) {
       submitBtn.disabled = true;
     }
-    if (errorEl) {
-      errorEl.classList.add('d-none');
-      errorEl.textContent = '';
-    }
+    clearError();
 
     const payload = {
       topic_uuid: topicEl.dataset.topicUuid,
@@ -112,4 +198,86 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  if (suggestionsList) {
+    suggestionsList.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const suggestion = target.dataset?.suggestion;
+      if (!suggestion || !input) {
+        return;
+      }
+
+      input.value = suggestion;
+      input.focus();
+      const length = suggestion.length;
+      if (typeof input.setSelectionRange === 'function') {
+        input.setSelectionRange(length, length);
+      }
+    });
+  }
+
+  if (suggestBtn && input) {
+    suggestBtn.addEventListener('click', async () => {
+      const about = input.value.trim();
+      if (!about) {
+        showError(suggestBtn.dataset.emptyInputMessage || '');
+        input.focus();
+        return;
+      }
+
+      clearError();
+      hideSuggestions();
+      setSuggestBtnLoading(true);
+
+      try {
+        const params = new URLSearchParams({
+          about,
+          limit: '5',
+        });
+        const response = await fetch(`/api/topics/suggest?${params.toString()}`);
+        if (!response.ok) {
+          let message = suggestBtn.dataset.genericErrorMessage || '';
+          try {
+            const raw = await response.text();
+            if (raw) {
+              try {
+                const data = JSON.parse(raw);
+                if (typeof data?.detail === 'string' && data.detail.trim()) {
+                  message = data.detail;
+                } else if (Array.isArray(data) && data.length > 0) {
+                  renderSuggestions(data);
+                  return;
+                }
+              } catch (parseError) {
+                if (raw.trim()) {
+                  message = raw;
+                }
+              }
+            }
+          } catch (readError) {
+            console.error(readError);
+          }
+          throw new Error(message || '');
+        }
+
+        const data = await response.json();
+        renderSuggestions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+        const message =
+          (error && typeof error.message === 'string' && error.message.trim())
+            ? error.message
+            : suggestBtn.dataset.genericErrorMessage || '';
+        if (message) {
+          showError(message);
+        }
+      } finally {
+        setSuggestBtnLoading(false);
+      }
+    });
+  }
 });
