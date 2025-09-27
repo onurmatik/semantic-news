@@ -5,6 +5,11 @@ from pgvector.django import L2Distance
 import json
 
 from semanticnews.agenda.models import Event
+from semanticnews.agenda.localities import (
+    get_default_locality_label,
+    get_locality_options,
+)
+
 from .models import Topic
 from .utils.timeline.models import TopicEvent
 from .utils.mcps.models import MCPServer
@@ -223,6 +228,8 @@ def topics_detail_edit(request, topic_uuid, username):
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
         )
+    context["localities"] = get_locality_options()
+    context["default_locality_label"] = get_default_locality_label()
     return render(
         request,
         "topics/topics_detail_edit.html",

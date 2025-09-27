@@ -55,10 +55,10 @@
               <div class="mb-3">
                 <label for="suggestLocality" class="form-label">{% trans "Locality" %}</label>
                 <select class="form-select" id="suggestLocality">
-                  <option value="">{% trans "Global" %}</option>
+                  <option value="">{{ default_locality_label|default:_("Global") }}</option>
                   {% if localities %}
                     {% for locality in localities %}
-                      <option value="{{ locality.name }}">{{ locality.name }}</option>
+                      <option value="{{ locality.code }}" data-label="{{ locality.label }}">{{ locality.label }}</option>
                     {% endfor %}
                   {% endif %}
                 </select>

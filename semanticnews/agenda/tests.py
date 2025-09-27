@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 import json
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
@@ -409,12 +409,12 @@ class PublishEventTests(TestCase):
 
 
 class SuggestViewAdminTests(TestCase):
+    @override_settings(LOCALITIES=[("us", "United States")], DEFAULT_LOCALITY="us")
     @patch("semanticnews.agenda.admin.suggest_events")
     def test_admin_suggest_view_creates_categories(self, mock_suggest):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
         from datetime import date
-        from .models import Event, Locality
 
         mock_suggest.return_value = AgendaEventList(
             event_list=[
@@ -430,20 +430,19 @@ class SuggestViewAdminTests(TestCase):
         user = User.objects.create_superuser("admin", "a@example.com", "password")
         self.client.force_login(user)
 
-        locality = Locality.objects.create(name="USA")
-
         response = self.client.post(
             reverse("admin:agenda_event_suggest"),
             {
                 "start_date": "2024-06-01",
                 "end_date": "2024-06-30",
-                "locality": locality.id,
+                "locality": "us",
             },
         )
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Event.objects.count(), 1)
         event = Event.objects.first()
+        self.assertEqual(event.locality, "us")
         self.assertEqual(
             set(event.categories.values_list("name", flat=True)),
             {"Politics", "Economy"},
@@ -473,23 +472,24 @@ class EventDetailTopicTests(TestCase):
 
 
 class EventDetailLocalityTests(TestCase):
+    @override_settings(
+        LOCALITIES=[("us", "United States"), ("fr", "France")],
+        DEFAULT_LOCALITY="us",
+    )
     def test_locality_select_lists_localities(self):
         from datetime import date
-        from .models import Locality, Event
 
         event = Event.objects.create(
             title="My Event",
             date=date(2024, 1, 1),
             embedding=[0.0] * 1536,
         )
-        default_loc = Locality.objects.create(name="USA", is_default=True)
-        other_loc = Locality.objects.create(name="France")
 
         response = self.client.get(event.get_absolute_url())
 
-        self.assertContains(response, '<option value="">Global</option>', html=True)
+        self.assertContains(response, '<option value="">United States</option>', html=True)
         content = response.content.decode()
-        self.assertLess(content.index(default_loc.name), content.index(other_loc.name))
+        self.assertLess(content.index('value="us"'), content.index('value="fr"'))
 
 
 class EventManagerTests(TestCase):

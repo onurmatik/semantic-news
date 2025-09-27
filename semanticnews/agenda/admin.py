@@ -6,7 +6,13 @@ from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 from slugify import slugify
 
-from .models import Event, Locality, Category, Source, Description
+from semanticnews.agenda.localities import (
+    get_locality_choices,
+    get_locality_label,
+    resolve_locality_code,
+)
+
+from .models import Event, Category, Source, Description
 from .forms import EventSuggestForm, FindMajorEventsForm
 from .api import suggest_events, AgendaEventResponse
 
@@ -41,13 +47,27 @@ class HasContentsFilter(admin.SimpleListFilter):
         return queryset
 
 
+class LocalityFilter(admin.SimpleListFilter):
+    title = "locality"
+    parameter_name = "locality"
+
+    def lookups(self, request, model_admin):
+        return get_locality_choices()
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(locality=value)
+        return queryset
+
+
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     # Columns
     list_display = (
         "title",
         "slug",
-        "locality",
+        "display_locality",
         "date",
         "status",
         "has_embedding_flag",
@@ -61,7 +81,7 @@ class EventAdmin(admin.ModelAdmin):
         HasEmbeddingFilter,
         "status",
         "created_by",
-        "locality",
+        LocalityFilter,
         ("categories", admin.RelatedOnlyFieldListFilter),
         ("date", admin.DateFieldListFilter),
         ("created_at", admin.DateFieldListFilter),
@@ -100,6 +120,10 @@ class EventAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description="Embedding")
     def has_embedding_flag(self, obj):
         return obj.embedding is not None
+
+    @admin.display(description="Locality")
+    def display_locality(self, obj):
+        return get_locality_label(obj.locality) or "-"
 
     @admin.display(description="Embedding (preview)")
     def embedding_pretty(self, obj):
@@ -158,7 +182,8 @@ class EventAdmin(admin.ModelAdmin):
         if request.method == "POST" and form.is_valid():
             start = form.cleaned_data["start_date"]
             end = form.cleaned_data["end_date"]
-            locality = form.cleaned_data.get("locality")
+            locality_code = form.cleaned_data.get("locality")
+            locality_label = get_locality_label(locality_code)
             selected_categories = form.cleaned_data.get("categories")
 
             existing = Event.objects.filter(date__range=(start, end)).values("title", "date")
@@ -167,7 +192,7 @@ class EventAdmin(admin.ModelAdmin):
             suggestions = suggest_events(
                 start_date=start,
                 end_date=end,
-                locality=locality.name if locality else None,
+                locality=locality_label,
                 categories=", ".join(c.name for c in selected_categories) if selected_categories else None,
                 exclude=exclude,
             )
@@ -179,7 +204,7 @@ class EventAdmin(admin.ModelAdmin):
                 event = Event.objects.create(
                     title=item.title,
                     date=item.date,
-                    locality=locality,
+                    locality=locality_code,
                     created_by=request.user if request.user.is_authenticated else None,
                 )
                 for url in item.sources:
@@ -211,11 +236,9 @@ class EventAdmin(admin.ModelAdmin):
             return self._redirect_back(request)
 
         # pass through current locality / single category filters if present
-        locality_name = None
-        loc_id = request.GET.get("locality__id__exact")
-        if loc_id:
-            loc = Locality.objects.filter(pk=loc_id).first()
-            locality_name = loc.name if loc else None
+        locality_query = request.GET.get("locality__exact") or request.GET.get("locality")
+        locality_code = resolve_locality_code(locality_query)
+        locality_name = get_locality_label(locality_code) if locality_code else None
 
         categories = None
         cat_id = request.GET.get("categories__id__exact")
@@ -232,7 +255,7 @@ class EventAdmin(admin.ModelAdmin):
             events = Event.objects.find_major_events(
                 year=year,
                 month=month,
-                locality=locality_name,
+                locality=locality_code,
                 categories=categories,
                 limit=limit,
             )
@@ -265,7 +288,8 @@ class EventAdmin(admin.ModelAdmin):
         if request.method == "POST" and form.is_valid():
             year = form.cleaned_data["year"]
             month = form.cleaned_data["month"]
-            locality = form.cleaned_data["locality"].name if form.cleaned_data["locality"] else None
+            locality_code = resolve_locality_code(form.cleaned_data["locality"])
+            locality_label = get_locality_label(locality_code)
 
             selected_categories = form.cleaned_data["categories"]
             categories = ", ".join(c.name for c in selected_categories) if selected_categories else None
@@ -277,7 +301,7 @@ class EventAdmin(admin.ModelAdmin):
                 events = Event.objects.find_major_events(
                     year=year,
                     month=month,
-                    locality=locality,
+                    locality=locality_code,
                     categories=categories,
                     limit=limit,
                     distance_threshold=distance_threshold,
@@ -305,12 +329,6 @@ class EventAdmin(admin.ModelAdmin):
             "title": "Find major events",
         }
         return render(request, "admin/agenda/event/find_events.html", context)
-
-
-@admin.register(Locality)
-class LocalityAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
 
 
 @admin.register(Category)
