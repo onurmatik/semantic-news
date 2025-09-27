@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, Http404
 from pgvector.django import L2Distance
 import json
 
@@ -40,6 +40,22 @@ def topic_create(request):
         topic_uuid=str(topic.uuid),
         username=request.user.username,
     )
+
+
+def topics_detail_redirect(request, topic_uuid, username):
+    """Redirect topics accessed via UUID to their canonical slug URL."""
+
+    topic = get_object_or_404(
+        Topic.objects.select_related("created_by"),
+        uuid=topic_uuid,
+        created_by__username=username,
+    )
+
+    if not topic.slug:
+        raise Http404("Topic does not have a slug yet.")
+
+    return redirect("topics_detail", slug=topic.slug, username=username)
+
 
 def topics_list(request):
     """Display the most recently updated published topics."""
