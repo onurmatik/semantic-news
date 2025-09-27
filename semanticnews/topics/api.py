@@ -146,8 +146,8 @@ class TopicTitleUpdateResponse(Schema):
 
     topic_uuid: str
     title: Optional[str] = None
-    slug: str
-    detail_url: str
+    slug: Optional[str] = None
+    detail_url: Optional[str] = None
     edit_url: str
 
 
@@ -208,24 +208,23 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
     topic.title = new_title or None
     topic.save(update_fields=["title"])
 
-    if topic.title is None:
-        Topic.objects.filter(pk=topic.pk).update(slug=str(topic.uuid))
-        topic.slug = str(topic.uuid)
-
-    slug_value = topic.slug or str(topic.uuid)
+    slug_value = topic.slug
+    detail_url = None
+    if slug_value:
+        detail_url = reverse(
+            "topics_detail",
+            kwargs={"slug": slug_value, "username": topic.created_by.username},
+        )
 
     return TopicTitleUpdateResponse(
         topic_uuid=str(topic.uuid),
         title=topic.title,
         slug=slug_value,
-        detail_url=reverse(
-            "topics_detail",
-            kwargs={"slug": slug_value, "username": topic.created_by.username},
-        ),
         edit_url=reverse(
             "topics_detail_edit",
-            kwargs={"slug": slug_value, "username": topic.created_by.username},
+            kwargs={"topic_uuid": str(topic.uuid), "username": topic.created_by.username},
         ),
+        detail_url=detail_url,
     )
 
 

@@ -176,7 +176,7 @@ class TopicVideoEmbedDisplayTests(TestCase):
         self.client.force_login(self.user)
         url = reverse(
             'topics_detail_edit',
-            kwargs={'username': self.user.username, 'slug': self.topic.slug},
+            kwargs={'username': self.user.username, 'topic_uuid': str(self.topic.uuid)},
         )
         response = self.client.get(url)
         self.assertContains(response, 'youtube.com/embed/vid123')

@@ -15,7 +15,7 @@
 
     <div
         data-topic-uuid="{{ topic.uuid }}"
-        data-topic-slug="{{ topic.slug|default:topic.uuid }}"
+        data-topic-slug="{{ topic.slug|default:'' }}"
         data-topic-title="{{ topic.title|default_if_none:'' }}"
     >
 
