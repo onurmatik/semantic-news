@@ -196,6 +196,9 @@ _static_dirs = [BASE_DIR / 'static', PACKAGE_ROOT / 'static']
 STATICFILES_DIRS = tuple(str(path) for path in _static_dirs if path.exists())
 
 
+# AI / LLM configuration
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-5")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

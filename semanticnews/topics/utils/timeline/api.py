@@ -3,6 +3,7 @@
 from datetime import date
 from typing import List, Optional
 
+from django.conf import settings
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from django.db.models import F, Value
@@ -156,7 +157,7 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             tools=[{"type": "web_search_preview"}],
             input=prompt,
             text_format=TimelineEventList,
