@@ -2,6 +2,7 @@ from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from typing import Optional, List, Literal
 from datetime import datetime
+from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 
@@ -395,7 +396,7 @@ def suggest_topics(about: str, limit: int = 3) -> List[str]:
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             input=prompt,
             text_format=TopicSuggestionList,
         )

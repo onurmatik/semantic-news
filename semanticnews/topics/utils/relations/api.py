@@ -1,6 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 
+from django.conf import settings
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from django.utils.timezone import make_naive
@@ -70,7 +71,7 @@ def extract_entity_relations(request, payload: TopicEntityRelationCreateRequest)
     try:
         with OpenAI() as client:
             response = client.responses.parse(
-                model="gpt-5",
+                model=settings.DEFAULT_AI_MODEL,
                 input=prompt,
                 text_format=_TopicEntityRelationResponse,
             )

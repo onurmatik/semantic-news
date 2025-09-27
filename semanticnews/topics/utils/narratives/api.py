@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
+from django.conf import settings
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -64,7 +65,7 @@ def create_narrative(request, payload: TopicNarrativeCreateRequest):
     try:
         with OpenAI() as client:
             response = client.responses.parse(
-                model="gpt-5",
+                model=settings.DEFAULT_AI_MODEL,
                 input=prompt,
                 text_format=_TopicNarrativeResponse,
             )

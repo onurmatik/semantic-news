@@ -2,6 +2,7 @@ from datetime import date
 from typing import List, Optional
 import json
 
+from django.conf import settings
 from django.db.models import F, Value
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
@@ -198,7 +199,7 @@ def validate_event(request, payload: EventValidationRequest):
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             tools=[{"type": "web_search_preview"}],
             input=prompt,
             text_format=EventValidationResponse,
@@ -430,7 +431,7 @@ def suggest_events(
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             tools=[{"type": "web_search_preview"}],
             input=prompt,
             text_format=AgendaEventList,

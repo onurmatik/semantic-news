@@ -1,5 +1,6 @@
 from typing import List
 
+from django.conf import settings
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import ConfigDict
@@ -127,7 +128,7 @@ def fetch_data(request, payload: TopicDataFetchRequest):
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             input=prompt,
             tools=[{"type": "web_search_preview"}],
             text_format=_TopicDataResponse,
@@ -162,7 +163,7 @@ def search_data(request, payload: TopicDataSearchRequest):
 
     with OpenAI() as client:
         response = client.responses.parse(
-            model="gpt-5",
+            model=settings.DEFAULT_AI_MODEL,
             input=prompt,
             tools=[{"type": "web_search_preview"}],
             text_format=_TopicDataSearchResponse,
