@@ -1,12 +1,14 @@
 import uuid
 from urllib.parse import urlparse
 
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
-from django.conf import settings
-from semanticnews.openai import OpenAI
-from pgvector.django import VectorField, HnswIndex, L2Distance
+from pgvector.django import HnswIndex, L2Distance, VectorField
 from slugify import slugify
+
+from semanticnews.agenda.localities import get_locality_label, resolve_locality_code
+from semanticnews.openai import OpenAI
 
 
 class EventManager(models.Manager):
@@ -80,10 +82,8 @@ class EventManager(models.Manager):
         _, last_day = calendar.monthrange(year, month)
         end_date = date(year, month, last_day)
 
-        # Resolve locality object (if provided)
-        locality_obj = None
-        if locality:
-            locality_obj, _ = Locality.objects.get_or_create(name=locality)
+        locality_code = resolve_locality_code(locality)
+        locality_label = get_locality_label(locality_code) if locality_code else None
 
         # Build exclude list from existing events in that month
         existing_qs = (
@@ -104,7 +104,7 @@ class EventManager(models.Manager):
         suggestions = suggest_events(
             start_date=start_date,
             end_date=end_date,
-            locality=locality,
+            locality=locality_label,
             categories=categories,
             limit=limit,
             exclude=exclude,
@@ -133,14 +133,14 @@ class EventManager(models.Manager):
                         "title": suggestion.title,
                         "confidence": None,
                         "status": "draft",
-                        "locality": locality_obj,  # set on initial create
+                        "locality": locality_code,
                     },
                     distance_threshold=distance_threshold,
                 )
 
                 # If matched existing and it lacks locality, attach it (don’t override if set)
-                if not created and locality_obj and event.locality_id is None:
-                    event.locality = locality_obj
+                if not created and locality_code and not event.locality:
+                    event.locality = locality_code
                     event.save(update_fields=["locality"])
 
                 # Attach categories
@@ -179,7 +179,11 @@ class Event(models.Model):
         (4, 'High'),
         (5, 'Very high'),
     ), default=4)
-    locality = models.ForeignKey('agenda.Locality', on_delete=models.CASCADE, blank=True, null=True)
+    locality = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
 
     status = models.CharField(max_length=20, choices=(
         ('draft', 'Draft'),
@@ -253,6 +257,10 @@ class Event(models.Model):
             return embedding
 
     @property
+    def locality_label(self):
+        return get_locality_label(self.locality)
+
+    @property
     def description(self):
         desc = self.descriptions.last()
         if desc:
@@ -271,18 +279,6 @@ class Description(models.Model):
 
     def __str__(self):
         return self.description
-
-
-class Locality(models.Model):
-    name = models.CharField(max_length=100)
-    is_default = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name_plural = 'localities'
-
 
 class Category(models.Model):
     name = models.CharField(max_length=100)

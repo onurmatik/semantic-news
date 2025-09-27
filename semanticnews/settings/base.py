@@ -152,6 +152,13 @@ LANGUAGES = [
 LOCALE_PATHS = [PACKAGE_ROOT / 'locale']
 
 
+# Locality configuration
+DEFAULT_LOCALITY = "global"
+LOCALITIES = [
+    ("global", _("Global")),
+]
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 

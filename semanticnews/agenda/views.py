@@ -7,7 +7,12 @@ from django.urls import reverse
 from django.db.models import Prefetch
 from pgvector.django import L2Distance
 
-from .models import Event, Locality, Category, Source
+from semanticnews.agenda.localities import (
+    get_default_locality_label,
+    get_locality_options,
+)
+
+from .models import Event, Category, Source
 from semanticnews.topics.models import Topic
 
 
@@ -74,7 +79,7 @@ def event_detail(request, year, month, day, slug):
         .distinct()
     )
 
-    localities = Locality.objects.all().order_by("-is_default", "name")
+    localities = get_locality_options()
 
     context = {
         "event": obj,
@@ -82,6 +87,7 @@ def event_detail(request, year, month, day, slug):
         "similar_events": similar_events,
         "exclude_events": exclude_events,
         "localities": localities,
+        "default_locality_label": get_default_locality_label(),
         "categories": categories,
         "domains": domains,
     }
@@ -192,7 +198,7 @@ def event_list(request, year, month=None, day=None):
         .distinct()
     )
 
-    localities = Locality.objects.all().order_by("-is_default", "name")
+    localities = get_locality_options()
 
     context = {
         "events": events,
@@ -201,6 +207,7 @@ def event_list(request, year, month=None, day=None):
         "end": end,
         "exclude_events": exclude_events,
         "localities": localities,
+        "default_locality_label": get_default_locality_label(),
         "categories": categories,
         "domains": domains,
         "prev_url": prev_url,

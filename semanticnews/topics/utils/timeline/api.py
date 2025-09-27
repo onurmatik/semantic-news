@@ -10,6 +10,8 @@ from django.db.models import F, Value
 from pgvector.django import CosineDistance
 
 from ...models import Topic
+from semanticnews.agenda.localities import get_locality_label, resolve_locality_code
+
 from ....agenda.models import Category, Event, Source
 from .models import TopicEvent
 from ....openai import OpenAI
@@ -131,8 +133,11 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
     else:
         timeframe = "recently"
 
-    if payload.locality:
-        timeframe += f" in {payload.locality}"
+    locality_code = resolve_locality_code(payload.locality)
+    locality_label = get_locality_label(locality_code) if locality_code else None
+
+    if locality_label:
+        timeframe += f" in {locality_label}"
 
     descriptor_parts = []
     if payload.related_event:
@@ -184,6 +189,7 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
                     "title": ev.title,
                     "status": "published",
                     "created_by": user,
+                    "locality": locality_code,
                 },
             )
 
@@ -195,6 +201,10 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
                 for name in ev.categories or []:
                     category, _ = Category.objects.get_or_create(name=name)
                     event.categories.add(category)
+
+            if not created and locality_code and not event.locality:
+                event.locality = locality_code
+                event.save(update_fields=["locality"])
 
             created_events.append(
                 TimelineSuggestedEventOut(

@@ -1,19 +1,21 @@
-from datetime import date
 import calendar
+from datetime import date
 
 from django import forms
 from django.utils import timezone
 
-from .models import Locality, Category
+from semanticnews.agenda.localities import get_locality_form_choices
+
+from .models import Category
 
 
 class EventSuggestForm(forms.Form):
     start_date = forms.DateField()
     end_date = forms.DateField()
-    locality = forms.ModelChoiceField(
-        queryset=Locality.objects.all().order_by("-is_default", "name"),
+    locality = forms.ChoiceField(
+        choices=get_locality_form_choices(),
         required=False,
-        empty_label="Global",
+        label="Locality",
     )
     categories = forms.ModelMultipleChoiceField(queryset=Category.objects.all(), required=False)
 
@@ -26,6 +28,10 @@ class EventSuggestForm(forms.Form):
             self.initial.setdefault('start_date', first)
             self.initial.setdefault('end_date', last)
 
+    def clean_locality(self):
+        value = self.cleaned_data.get("locality")
+        return value or None
+
 
 class FindMajorEventsForm(forms.Form):
     now = timezone.now()
@@ -35,8 +41,10 @@ class FindMajorEventsForm(forms.Form):
     year = forms.ChoiceField(choices=YEAR_CHOICES, initial=now.year, label="Year")
     month = forms.ChoiceField(choices=MONTH_CHOICES, initial=now.month, label="Month")
 
-    locality = forms.ModelChoiceField(
-        queryset=Locality.objects.all(), required=False, empty_label="(Any)", label="Locality"
+    locality = forms.ChoiceField(
+        choices=get_locality_form_choices(blank_label="(Any)"),
+        required=False,
+        label="Locality",
     )
 
     categories = forms.ModelMultipleChoiceField(
@@ -52,3 +60,7 @@ class FindMajorEventsForm(forms.Form):
 
     def clean_year(self):
         return int(self.cleaned_data["year"])
+
+    def clean_locality(self):
+        value = self.cleaned_data.get("locality")
+        return value or None
