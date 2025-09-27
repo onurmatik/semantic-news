@@ -212,8 +212,11 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
     detail_url = None
     if slug_value:
         detail_url = reverse(
-            "topics_detail",
-            kwargs={"slug": slug_value, "username": topic.created_by.username},
+            "topics_detail_redirect",
+            kwargs={
+                "topic_uuid": str(topic.uuid),
+                "username": topic.created_by.username,
+            },
         )
 
     return TopicTitleUpdateResponse(

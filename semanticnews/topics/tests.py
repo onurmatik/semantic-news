@@ -141,6 +141,46 @@ class TopicCreateViewTests(TestCase):
         self.assertIsNone(topic.title)
 
 
+class TopicDetailRedirectViewTests(TestCase):
+    """Tests for redirecting UUID-based topic URLs to slug URLs."""
+
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user("user", "user@example.com", "password")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_redirects_to_slug_detail(self, mock_embedding):
+        topic = Topic.objects.create(title="Example", created_by=self.user)
+
+        response = self.client.get(
+            reverse(
+                "topics_detail_redirect",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "topics_detail",
+                kwargs={"slug": topic.slug, "username": self.user.username},
+            ),
+        )
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_returns_404_when_slug_missing(self, mock_embedding):
+        topic = Topic.objects.create(created_by=self.user)
+
+        response = self.client.get(
+            reverse(
+                "topics_detail_redirect",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+
 class SetTopicTitleAPITests(TestCase):
     """Tests for updating a topic title via the API."""
 
@@ -191,8 +231,8 @@ class SetTopicTitleAPITests(TestCase):
         self.assertEqual(
             data["detail_url"],
             reverse(
-                "topics_detail",
-                kwargs={"slug": topic.slug, "username": self.user.username},
+                "topics_detail_redirect",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
             ),
         )
 
