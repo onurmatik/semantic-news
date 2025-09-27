@@ -120,11 +120,8 @@ class Topic(models.Model):
 
         previous_slug = self.slug
 
-        if self.title:
-            if not self.slug or self.slug == str(self.uuid):
-                self.slug = slugify(self.title)
-        else:
-            self.slug = None
+        if self.title and not self.slug:
+            self.slug = slugify(self.title)
 
         if update_fields is not None and self.slug != previous_slug:
             update_fields.add("slug")
