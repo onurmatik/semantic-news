@@ -58,7 +58,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body>
+<body{% if request.user.is_authenticated %} data-current-user="{{ request.user.username }}"{% endif %}>
 
 
     <nav class="navbar navbar-expand bg-dark small mb-2" data-bs-theme="dark">
@@ -216,6 +216,10 @@
     </div>
 
 
+{% if request.user.is_authenticated %}
+    {% include "topics/topic_create_modal.html" %}
+{% endif %}
+
 <div aria-live="polite" aria-atomic="true" class="position-relative">
     <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-4">
     </div>
@@ -234,6 +238,11 @@
 
 
 <script src="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+
+
+{% if request.user.is_authenticated %}
+<script src="{% static 'topics/topic_create_modal.js' %}"></script>
+{% endif %}
 
 
 {% block extra_js %}{% endblock %}

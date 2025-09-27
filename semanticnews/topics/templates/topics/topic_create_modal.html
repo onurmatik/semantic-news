@@ -1,0 +1,59 @@
+{% load i18n %}
+<div class="modal fade" id="createTopicModal" tabindex="-1" aria-labelledby="createTopicModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="createTopicForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="createTopicModalLabel">{% trans "Create topic" %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans "Close" %}"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger d-none" id="createTopicError" role="alert"></div>
+        <div class="mb-3">
+          <label class="form-label" for="createTopicTitleInput">{% trans "Title" %}</label>
+          <input
+            type="text"
+            class="form-control"
+            id="createTopicTitleInput"
+            name="title"
+            maxlength="200"
+            placeholder="{% trans "Enter a title" %}"
+            autocomplete="off"
+          >
+          <div class="form-text">{% trans "Leave blank to keep the topic untitled." %}</div>
+        </div>
+        <div
+          class="mb-3 d-none"
+          id="createTopicTitleSuggestions"
+          data-no-results-message="{% trans "No suggestions available yet. Try refining your description." %}"
+        >
+          <p class="form-text mb-2">{% trans "Select a suggestion to populate the title." %}</p>
+          <div class="list-group" id="createTopicTitleSuggestionsList"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="me-auto">
+          <button
+            type="button"
+            class="btn btn-link text-decoration-none px-0"
+            id="createTopicSkipBtn"
+          >
+            {% trans "Skip for now" %}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          id="createTopicSuggestBtn"
+          data-default-label="{% trans "Suggest" %}"
+          data-loading-label="{% trans "Suggesting" %}…"
+          data-empty-input-message="{% trans "Describe what the topic is about to get suggestions." %}"
+          data-generic-error-message="{% trans "Unable to fetch suggestions." %}"
+        >
+          {% trans "Suggest" %}
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Create" %}</button>
+      </div>
+    </form>
+  </div>
+</div>

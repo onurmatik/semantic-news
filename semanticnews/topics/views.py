@@ -12,34 +12,16 @@ from .utils.mcps.models import MCPServer
 
 @login_required
 def topic_create(request):
-    """Create a draft topic and redirect the user to the edit page."""
+    """Legacy endpoint retained for backwards compatibility.
 
-    title = request.GET.get("title")
-    event_uuid = request.GET.get("event")
+    Previously, this view created a draft topic and redirected the user to the
+    edit page. The creation flow now happens client-side via a modal dialog, so
+    this view simply redirects authenticated users back to the topics list
+    without creating a new topic. This prevents accidental topic creation when
+    the legacy URL is visited directly or linked from outdated clients.
+    """
 
-    topic = Topic.objects.create(created_by=request.user)
-
-    if title:
-        topic.title = title
-        topic.save(update_fields=["title"])
-
-    if event_uuid:
-        try:
-            event = Event.objects.get(uuid=event_uuid)
-        except Event.DoesNotExist:
-            pass
-        else:
-            TopicEvent.objects.get_or_create(
-                topic=topic,
-                event=event,
-                defaults={"created_by": request.user},
-            )
-
-    return redirect(
-        "topics_detail_edit",
-        topic_uuid=str(topic.uuid),
-        username=request.user.username,
-    )
+    return redirect("topics_list")
 
 
 def topics_detail_redirect(request, topic_uuid, username):
