@@ -105,7 +105,10 @@ class TopicCreateViewTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": user.username}),
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": user.username},
+            ),
         )
         self.assertEqual(topic.title, "My Draft Topic")
 
@@ -129,7 +132,10 @@ class TopicCreateViewTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": user.username}),
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": user.username},
+            ),
         )
         self.assertTrue(topic.events.filter(pk=event.pk).exists())
         self.assertIsNone(topic.title)
@@ -177,16 +183,22 @@ class SetTopicTitleAPITests(TestCase):
         self.assertEqual(data["slug"], topic.slug)
         self.assertEqual(
             data["edit_url"],
-            reverse("topics_detail_edit", kwargs={"slug": topic.slug, "username": self.user.username}),
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
+            ),
         )
         self.assertEqual(
             data["detail_url"],
-            reverse("topics_detail", kwargs={"slug": topic.slug, "username": self.user.username}),
+            reverse(
+                "topics_detail",
+                kwargs={"slug": topic.slug, "username": self.user.username},
+            ),
         )
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_allows_clearing_title(self, mock_embedding):
-        """Clearing the title keeps the topic accessible via its UUID slug."""
+        """Clearing the title removes the slug while keeping the topic editable."""
 
         topic = Topic.objects.create(title="Named", created_by=self.user)
         self.client.force_login(self.user)
@@ -200,10 +212,11 @@ class SetTopicTitleAPITests(TestCase):
 
         topic.refresh_from_db()
         self.assertIsNone(topic.title)
-        self.assertEqual(topic.slug, str(topic.uuid))
+        self.assertIsNone(topic.slug)
 
         data = response.json()
-        self.assertEqual(data["slug"], str(topic.uuid))
+        self.assertIsNone(data["slug"])
+        self.assertIsNone(data["detail_url"])
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_forbids_updating_other_users_topic(self, mock_embedding):

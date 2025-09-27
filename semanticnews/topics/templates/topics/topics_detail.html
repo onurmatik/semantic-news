@@ -98,7 +98,7 @@
                     {% trans "Edit" %}
                 </a>
             {% else %}
-                <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' slug=topic.slug username=topic.created_by.username %}">
+                <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' topic_uuid=topic.uuid username=topic.created_by.username %}">
                     {% trans "Edit" %}
                 </a>
             {% endif %}

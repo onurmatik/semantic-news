@@ -23,10 +23,6 @@ def topic_create(request):
         topic.title = title
         topic.save(update_fields=["title"])
 
-    if not topic.slug:
-        Topic.objects.filter(pk=topic.pk).update(slug=str(topic.uuid))
-        topic.slug = str(topic.uuid)
-
     if event_uuid:
         try:
             event = Event.objects.get(uuid=event_uuid)
@@ -41,7 +37,7 @@ def topic_create(request):
 
     return redirect(
         "topics_detail_edit",
-        slug=topic.slug,
+        topic_uuid=str(topic.uuid),
         username=request.user.username,
     )
 
@@ -137,7 +133,7 @@ def topics_detail(request, slug, username):
 
 
 @login_required
-def topics_detail_edit(request, slug, username):
+def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
         Topic.objects.prefetch_related(
             "events",
@@ -153,7 +149,7 @@ def topics_detail_edit(request, slug, username):
             "data_insights__sources",
             "data_visualizations__insight",
         ),
-        slug=slug,
+        uuid=topic_uuid,
         created_by__username=username,
     )
 
