@@ -92,53 +92,16 @@ class TopicCreateViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("login", response["Location"])
 
-    def test_redirects_to_edit_page(self):
-        """Creating a topic sends the user to the edit page."""
+    def test_redirects_without_creating_topic(self):
+        """Visiting the legacy endpoint no longer creates a topic."""
 
         user = self.User.objects.create_user("user", "user@example.com", "password")
         self.client.force_login(user)
 
-        with patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536):
-            response = self.client.get(reverse("topics_create"), {"title": "My Draft Topic"})
+        response = self.client.get(reverse("topics_create"), {"title": "My Draft Topic"})
 
-        topic = Topic.objects.get()
-
-        self.assertRedirects(
-            response,
-            reverse(
-                "topics_detail_edit",
-                kwargs={"topic_uuid": str(topic.uuid), "username": user.username},
-            ),
-        )
-        self.assertEqual(topic.title, "My Draft Topic")
-
-    def test_links_event_when_query_parameter_provided(self):
-        """The selected event is attached to the new topic when provided."""
-
-        user = self.User.objects.create_user("user", "user@example.com", "password")
-        self.client.force_login(user)
-
-        with (
-            patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536),
-            patch("semanticnews.agenda.models.Event.get_embedding", return_value=[0.0] * 1536),
-        ):
-            event = Event.objects.create(title="An Event", date="2024-01-01")
-            response = self.client.get(
-                reverse("topics_create"),
-                {"event": str(event.uuid)},
-            )
-
-        topic = Topic.objects.get()
-
-        self.assertRedirects(
-            response,
-            reverse(
-                "topics_detail_edit",
-                kwargs={"topic_uuid": str(topic.uuid), "username": user.username},
-            ),
-        )
-        self.assertTrue(topic.events.filter(pk=event.pk).exists())
-        self.assertIsNone(topic.title)
+        self.assertRedirects(response, reverse("topics_list"))
+        self.assertFalse(Topic.objects.exists())
 
 
 class TopicDetailRedirectViewTests(TestCase):

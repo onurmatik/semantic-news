@@ -61,7 +61,10 @@
 
                 <li>
                     <a class="dropdown-item small"
-                       href="{% url 'topics_create' %}?title={{ event.title|urlencode }}&event={{ event.uuid }}">
+                       href="#"
+                       data-topic-create
+                       data-topic-create-default-title="{{ event.title|default_if_none:''|escape }}"
+                       data-topic-create-event-uuid="{{ event.uuid }}">
                         {% trans "Create new topic" %}
                     </a>
                 </li>
