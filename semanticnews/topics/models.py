@@ -197,11 +197,11 @@ class Topic(models.Model):
         if not force and self.embedding is not None and len(self.embedding) > 0:
             return self.embedding
 
-        client = OpenAI()
-        embedding = client.embeddings.create(
-            input=self.build_context(),
-            model='text-embedding-3-small'
-        ).data[0].embedding
+        with OpenAI() as client:
+            embedding = client.embeddings.create(
+                input=self.build_context(),
+                model='text-embedding-3-small'
+            ).data[0].embedding
         return embedding
 
     @cached_property

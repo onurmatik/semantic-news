@@ -20,11 +20,11 @@ class User(AbstractUser):
 
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0:
-            client = OpenAI()
-            embedding = client.embeddings.create(
-                input=self.term,
-                model='text-embedding-3-small'
-            ).data[0].embedding
+            with OpenAI() as client:
+                embedding = client.embeddings.create(
+                    input=self.term,
+                    model='text-embedding-3-small'
+                ).data[0].embedding
             return embedding
 
 
