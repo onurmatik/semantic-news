@@ -9,14 +9,14 @@
       <div class="modal-body">
         <div class="alert alert-danger d-none" id="createTopicError" role="alert"></div>
         <div class="mb-3">
-          <label class="form-label" for="createTopicTitleInput">{% trans "Title" %}</label>
+          <label class="form-label" for="createTopicTitleInput">{% trans "Title or subject" %}</label>
           <input
             type="text"
             class="form-control"
             id="createTopicTitleInput"
             name="title"
             maxlength="200"
-            placeholder="{% trans "Enter a title" %}"
+            placeholder="{% trans "Enter a title and hit create or subject and get suggestions" %}"
             autocomplete="off"
           >
           <div class="form-text">{% trans "Leave blank to keep the topic untitled." %}</div>
@@ -51,7 +51,6 @@
         >
           {% trans "Suggest" %}
         </button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Create" %}</button>
       </div>
     </form>
