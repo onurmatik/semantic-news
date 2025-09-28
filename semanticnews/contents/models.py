@@ -65,11 +65,11 @@ class Content(models.Model):
 
     def get_embedding(self):
         if self.embedding is None or len(self.embedding) == 0 and self.markdown:
-            client = OpenAI()
-            embedding = client.embeddings.create(
-                input=self.markdown,
-                model='text-embedding-3-small'
-            ).data[0].embedding
+            with OpenAI() as client:
+                embedding = client.embeddings.create(
+                    input=self.markdown,
+                    model='text-embedding-3-small'
+                ).data[0].embedding
             return embedding
 
 

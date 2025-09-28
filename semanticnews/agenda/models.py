@@ -115,51 +115,50 @@ class EventManager(models.Manager):
             return created_events
 
         # Reuse one OpenAI client for all suggestions
-        client = OpenAI()
+        with OpenAI() as client:
+            for suggestion in suggestions:
+                with transaction.atomic():
+                    embed_text = f"{suggestion.title} - {suggestion.date}\n{', '.join(suggestion.categories or [])}"
+                    embedding = client.embeddings.create(
+                        input=embed_text,
+                        model="text-embedding-3-small",
+                    ).data[0].embedding
 
-        for suggestion in suggestions:
-            with transaction.atomic():
-                embed_text = f"{suggestion.title} - {suggestion.date}\n{', '.join(suggestion.categories or [])}"
-                embedding = client.embeddings.create(
-                    input=embed_text,
-                    model="text-embedding-3-small",
-                ).data[0].embedding
+                    # Semantic de-dup on SAME DATE using L2 distance
+                    event, created = self.get_or_create_semantic(
+                        date=suggestion.date,
+                        embedding=embedding,
+                        defaults={
+                            "title": suggestion.title,
+                            "confidence": None,
+                            "status": "draft",
+                            "locality": locality_code,
+                        },
+                        distance_threshold=distance_threshold,
+                    )
 
-                # Semantic de-dup on SAME DATE using L2 distance
-                event, created = self.get_or_create_semantic(
-                    date=suggestion.date,
-                    embedding=embedding,
-                    defaults={
-                        "title": suggestion.title,
-                        "confidence": None,
-                        "status": "draft",
-                        "locality": locality_code,
-                    },
-                    distance_threshold=distance_threshold,
-                )
+                    # If matched existing and it lacks locality, attach it (don’t override if set)
+                    if not created and locality_code and not event.locality:
+                        event.locality = locality_code
+                        event.save(update_fields=["locality"])
 
-                # If matched existing and it lacks locality, attach it (don’t override if set)
-                if not created and locality_code and not event.locality:
-                    event.locality = locality_code
-                    event.save(update_fields=["locality"])
+                    # Attach categories
+                    for name in suggestion.categories or []:
+                        cat, _ = Category.objects.get_or_create(name=name)
+                        event.categories.add(cat)
 
-                # Attach categories
-                for name in suggestion.categories or []:
-                    cat, _ = Category.objects.get_or_create(name=name)
-                    event.categories.add(cat)
+                    # Attach sources
+                    for url in suggestion.sources or []:
+                        src, _ = Source.objects.get_or_create(url=url)
+                        event.sources.add(src)
 
-                # Attach sources
-                for url in suggestion.sources or []:
-                    src, _ = Source.objects.get_or_create(url=url)
-                    event.sources.add(src)
+                    # Recompute embedding after M2M changes to keep it fresh
+                    new_emb = event.get_embedding()
+                    if new_emb is not None:
+                        event.embedding = new_emb
+                        event.save(update_fields=["embedding"])
 
-                # Recompute embedding after M2M changes to keep it fresh
-                new_emb = event.get_embedding()
-                if new_emb is not None:
-                    event.embedding = new_emb
-                    event.save(update_fields=["embedding"])
-
-                created_events.append(event)
+                    created_events.append(event)
 
         return created_events
 
@@ -245,15 +244,15 @@ class Event(models.Model):
             return None
 
         if self.embedding is None or len(self.embedding) == 0:
-            client = OpenAI()
-            text = (
-                f"{self.title} - {self.date}\n"
-                f"{', '.join([c.name for c in self.categories.all()])}"
-            )
-            embedding = client.embeddings.create(
-                input=text,
-                model='text-embedding-3-small'
-            ).data[0].embedding
+            with OpenAI() as client:
+                text = (
+                    f"{self.title} - {self.date}\n"
+                    f"{', '.join([c.name for c in self.categories.all()])}"
+                )
+                embedding = client.embeddings.create(
+                    input=text,
+                    model='text-embedding-3-small'
+                ).data[0].embedding
             return embedding
 
     @property

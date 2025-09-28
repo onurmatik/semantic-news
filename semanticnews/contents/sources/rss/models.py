@@ -167,13 +167,13 @@ class RssItem(models.Model):
         Combines the title and description of the item and uses OpenAI's
         Embedding API to compute the embedding vector.
         """
-        client = OpenAI()
-        # Prepare the text to be embedded
-        embed_text = f"{self.title}\n{self.description or ''}"
-        response = client.embeddings.create(
-            input=embed_text,
-            model='text-embedding-3-small'
-        )
+        with OpenAI() as client:
+            # Prepare the text to be embedded
+            embed_text = f"{self.title}\n{self.description or ''}"
+            response = client.embeddings.create(
+                input=embed_text,
+                model='text-embedding-3-small'
+            )
         self.embedding = response.data[0].embedding
         self.save()
 

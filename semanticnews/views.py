@@ -25,15 +25,15 @@ def search_results(request):
     events = Event.objects.none()
 
     if query:
-        client = OpenAI()
-        embedding = (
-            client.embeddings.create(
-                model="text-embedding-3-small",
-                input=query,
+        with OpenAI() as client:
+            embedding = (
+                client.embeddings.create(
+                    model="text-embedding-3-small",
+                    input=query,
+                )
+                .data[0]
+                .embedding
             )
-            .data[0]
-            .embedding
-        )
 
         topics = (
             Topic.objects.filter(status="published")

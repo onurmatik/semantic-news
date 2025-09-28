@@ -280,38 +280,37 @@ class VideoTranscriptChunk(models.Model):
 
     def get_embedding(self):
         if self.revised_text and (self.embedding is None or len(self.embedding) == 0):
-            client = OpenAI()
-            embedding = client.embeddings.create(
-                input=self.revised_text,
-                model='text-embedding-3-small'
-            ).data[0].embedding
+            with OpenAI() as client:
+                embedding = client.embeddings.create(
+                    input=self.revised_text,
+                    model='text-embedding-3-small'
+                ).data[0].embedding
             return embedding
 
     def revise_text(self):
         # Revise the raw text; embeddings are based on the revised version
 
-        client = OpenAI()
-
-        if not self.revised_text and self.raw_text:
-            # Revise the raw text to fix typos & punctuation
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",  # <= best model loyal to the instruction
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "The provided text is a chunk of a video transcript. "
-                                   "Revise it by adding appropriate punctuation and correcting grammar and typos. "
-                                   "Remove premature sentences from the start and the end of the chunk, if any. "
-                                   "Remove filler sounds. Give paragraph breaks where appropriate. "
-                                   "Preserve the original meaning and structure. "
-                                   "Do not shorten, summarize, or remove any content."
-                    },
-                    {
-                        "role": "user",
-                        "content": self.raw_text,
-                    },
-                ],
-            )
-            self.revised_text = response.choices[0].message.content
+        with OpenAI() as client:
+            if not self.revised_text and self.raw_text:
+                # Revise the raw text to fix typos & punctuation
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",  # <= best model loyal to the instruction
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "The provided text is a chunk of a video transcript. "
+                                       "Revise it by adding appropriate punctuation and correcting grammar and typos. "
+                                       "Remove premature sentences from the start and the end of the chunk, if any. "
+                                       "Remove filler sounds. Give paragraph breaks where appropriate. "
+                                       "Preserve the original meaning and structure. "
+                                       "Do not shorten, summarize, or remove any content."
+                        },
+                        {
+                            "role": "user",
+                            "content": self.raw_text,
+                        },
+                    ],
+                )
+                self.revised_text = response.choices[0].message.content
 
         self.save()

@@ -17,11 +17,10 @@ class VectorStore(models.Model):
 
         # If we haven’t uploaded yet, push to OpenAI and store the id.
         if not self.vs_id:
-            client = OpenAI()
-
-            vs_obj = client.vector_stores.create(
-                name=self.name,
-            )
+            with OpenAI() as client:
+                vs_obj = client.vector_stores.create(
+                    name=self.name,
+                )
 
             # Avoid a second `save()` call by using queryset.update()
             type(self).objects.filter(pk=self.pk).update(vs_id=vs_obj.id)
@@ -44,15 +43,14 @@ class VectorStoreFile(models.Model):
 
         # If we haven’t uploaded yet, push to OpenAI and store the id.
         if not self.file_id:
-            client = OpenAI()
+            with OpenAI() as client:
+                with self.document.open('rb') as f:
+                    file_data = f.read()
 
-            with self.document.open('rb') as f:
-                file_data = f.read()
-
-            file_obj = client.vector_stores.files.upload_and_poll(
-                vector_store_id=self.vector_store.vs_id,
-                file=(self.document.name, file_data),
-            )
+                file_obj = client.vector_stores.files.upload_and_poll(
+                    vector_store_id=self.vector_store.vs_id,
+                    file=(self.document.name, file_data),
+                )
 
             # Avoid a second `save()` call by using queryset.update()
             type(self).objects.filter(pk=self.pk).update(file_id=file_obj.id)
