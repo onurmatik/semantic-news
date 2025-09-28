@@ -9,7 +9,7 @@ from semanticnews.topics.models import Topic
 class TopicDataSearchAPITests(TestCase):
     """Tests for the data search API endpoint."""
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.topics.utils.data.tasks.OpenAI")
     def test_search_data_returns_table_and_sources(self, mock_openai):
         User = get_user_model()
         user = User.objects.create_user("user", "user@example.com", "password")
@@ -53,7 +53,7 @@ class TopicDataSearchAPITests(TestCase):
         _, kwargs = mock_client.responses.parse.call_args
         self.assertIn(get_default_language_instruction(), kwargs["input"])
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.topics.utils.data.tasks.OpenAI")
     def test_search_data_returns_explanation_when_needed(self, mock_openai):
         User = get_user_model()
         user = User.objects.create_user("user2", "user2@example.com", "password")

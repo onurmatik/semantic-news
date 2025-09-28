@@ -8,6 +8,7 @@ from pydantic import ConfigDict
 from ...models import Topic
 from .models import TopicData, TopicDataInsight, TopicDataVisualization
 from ....openai import OpenAI
+from .tasks import fetch_topic_data_task, search_topic_data_task
 from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
@@ -47,17 +48,6 @@ class TopicDataSaveRequest(Schema):
 
 class TopicDataSaveResponse(Schema):
     success: bool
-
-
-class _TopicDataResponse(Schema):
-    headers: List[str]
-    rows: List[List[str]]
-    name: str
-
-
-class _TopicDataSearchResponse(_TopicDataResponse):
-    sources: List[str]
-    explanation: str | None = None
 
 
 class TopicDataAnalyzeRequest(Schema):
@@ -121,24 +111,11 @@ def fetch_data(request, payload: TopicDataFetchRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    prompt = (
-        f"Fetch the tabular data from {payload.url} and return it as JSON with keys 'headers', 'rows', and optionally 'name' representing a concise title for the dataset."
-    )
-    prompt = append_default_language_instruction(prompt)
+    result = fetch_topic_data_task.apply(
+        kwargs={"url": payload.url, "model": settings.DEFAULT_AI_MODEL}
+    ).get()
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model=settings.DEFAULT_AI_MODEL,
-            input=prompt,
-            tools=[{"type": "web_search_preview"}],
-            text_format=_TopicDataResponse,
-        )
-
-    return TopicDataFetchResponse(
-        headers=response.output_parsed.headers,
-        rows=response.output_parsed.rows,
-        name=response.output_parsed.name,
-    )
+    return TopicDataFetchResponse(**result)
 
 
 @router.post("/search", response=TopicDataSearchResponse)
@@ -152,31 +129,13 @@ def search_data(request, payload: TopicDataSearchRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    prompt = (
-        "Find tabular data that matches the following description and "
-        "return it as JSON with keys 'headers', 'rows', 'sources' (a list of URLs), 'name', and "
-        "optionally 'explanation' (a brief note if the data does not fully match the request). "
-        "Description: "
-        f"{payload.description}"
-    )
-    prompt = append_default_language_instruction(prompt)
+    result = search_topic_data_task.apply(
+        kwargs={"description": payload.description, "model": settings.DEFAULT_AI_MODEL}
+    ).get()
 
-    with OpenAI() as client:
-        response = client.responses.parse(
-            model=settings.DEFAULT_AI_MODEL,
-            input=prompt,
-            tools=[{"type": "web_search_preview"}],
-            text_format=_TopicDataSearchResponse,
-        )
+    if result.get("explanation") is None:
+        result.pop("explanation", None)
 
-    result = {
-        "headers": response.output_parsed.headers,
-        "rows": response.output_parsed.rows,
-        "name": response.output_parsed.name,
-        "sources": response.output_parsed.sources,
-    }
-    if response.output_parsed.explanation:
-        result["explanation"] = response.output_parsed.explanation
     return TopicDataSearchResponse(**result)
 
 
