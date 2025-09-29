@@ -1,5 +1,6 @@
 boto3
 celery
+flower
 django
 django-ninja
 django-recaptcha
