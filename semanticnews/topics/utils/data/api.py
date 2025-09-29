@@ -111,8 +111,8 @@ def fetch_data(request, payload: TopicDataFetchRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    result = fetch_topic_data_task.apply(
-        kwargs={"url": payload.url, "model": settings.DEFAULT_AI_MODEL}
+    result = fetch_topic_data_task.delay(
+        url=payload.url, model=settings.DEFAULT_AI_MODEL
     ).get()
 
     return TopicDataFetchResponse(**result)
@@ -129,8 +129,8 @@ def search_data(request, payload: TopicDataSearchRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    result = search_topic_data_task.apply(
-        kwargs={"description": payload.description, "model": settings.DEFAULT_AI_MODEL}
+    result = search_topic_data_task.delay(
+        description=payload.description, model=settings.DEFAULT_AI_MODEL
     ).get()
 
     if result.get("explanation") is None:
