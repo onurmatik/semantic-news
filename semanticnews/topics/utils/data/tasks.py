@@ -41,8 +41,15 @@ def _resolve_model(model: str | None) -> str:
     return settings.DEFAULT_AI_MODEL
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 2})
-def fetch_topic_data_task(self, *, url: str, model: str | None = None) -> Dict[str, Any]:
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 2},
+)
+def fetch_topic_data_task(
+    self, *, url: str, model: str | None = None
+) -> Dict[str, Any]:
     """Fetch structured tabular data from a URL using the LLM."""
     resolved_model = _resolve_model(model)
     prompt = (
@@ -56,10 +63,16 @@ def fetch_topic_data_task(self, *, url: str, model: str | None = None) -> Dict[s
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
+        "url": url,
     }
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 2})
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 2},
+)
 def search_topic_data_task(
     self,
     *,
@@ -76,7 +89,11 @@ def search_topic_data_task(
     )
     prompt = append_default_language_instruction(prompt)
 
-    parsed = _call_openai(prompt, model=resolved_model, schema=_TopicDataSearchResponseSchema)
+    parsed = _call_openai(
+        prompt, model=resolved_model, schema=_TopicDataSearchResponseSchema
+    )
+
+    first_source = parsed.sources[0] if parsed.sources else None
 
     result: Dict[str, Any] = {
         "headers": parsed.headers,
@@ -84,5 +101,6 @@ def search_topic_data_task(
         "name": parsed.name,
         "sources": parsed.sources,
         "explanation": parsed.explanation,
+        "url": first_source,
     }
     return result

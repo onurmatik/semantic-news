@@ -9,6 +9,7 @@
             <div class="modal-body">
                 <form id="dataForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <div id="dataStatusMessage" class="alert alert-info d-none" role="alert"></div>
                     <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="data_mode" id="dataModeUrl" value="url" checked>
@@ -39,7 +40,7 @@
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="fetchDataBtn">
                             {% trans "Fetch" %}
                         </button>
-                        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+                        <button type="submit" class="btn btn-primary" id="dataSaveButton" disabled>{% trans "Save" %}</button>
                     </div>
                 </form>
             </div>
