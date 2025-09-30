@@ -15,7 +15,7 @@ authors = [
 keywords = ["django", "news", "semantic"]
 dependencies = [
     "boto3",
-    "celery",
+    "celery[redis]",
     "django",
     "django-ninja",
     "django-recaptcha",
