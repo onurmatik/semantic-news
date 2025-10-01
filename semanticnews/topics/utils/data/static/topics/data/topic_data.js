@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let fetchedData = null;
   let pollTimer = null;
   let currentTaskId = null;
+  let currentRequestId = null;
 
   const topicUuid = form
     ? form.querySelector('input[name="topic_uuid"]').value
@@ -109,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearStoredState = () => {
     if (!storageKey) return;
     localStorage.removeItem(storageKey);
+    currentRequestId = null;
   };
 
   const updateSaveButtonState = () => {
@@ -237,8 +239,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleStatusPayload = (payload) => {
     if (!payload) return 'none';
     const taskId = payload.task_id || currentTaskId;
+    const requestId = payload.request_id || currentRequestId;
+    const isSaved = Boolean(payload.saved);
+
+    if (isSaved) {
+      clearStoredState();
+      currentTaskId = null;
+      currentRequestId = null;
+      fetchedData = null;
+      resetPreview();
+      hideStatusMessage();
+      updateSaveButtonState();
+      stopPolling();
+      return 'saved';
+    }
+
     if (!taskId) return 'none';
     currentTaskId = taskId;
+    currentRequestId = requestId || null;
     const status = payload.status;
     const normalizedResult = normalizeResult(payload.result);
     const hasSources = normalizedResult && normalizedResult.sources.length > 0;
@@ -251,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       fetchedData = null;
       updateSaveButtonState();
-      saveStoredState({ taskId, status, mode });
+      saveStoredState({ taskId, status, mode, requestId: currentRequestId, saved: false });
       return 'pending';
     }
 
@@ -264,7 +282,14 @@ document.addEventListener('DOMContentLoaded', () => {
         dataButtonController.showSuccess();
       }
       stopPolling();
-      saveStoredState({ taskId, status: 'success', mode, result: normalizedResult || null });
+      saveStoredState({
+        taskId,
+        status: 'success',
+        mode,
+        result: normalizedResult || null,
+        requestId: currentRequestId,
+        saved: false,
+      });
       return 'success';
     }
 
@@ -277,7 +302,14 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchedData = null;
       updateSaveButtonState();
       stopPolling();
-      saveStoredState({ taskId, status: 'failure', mode, error: message });
+      saveStoredState({
+        taskId,
+        status: 'failure',
+        mode,
+        error: message,
+        requestId: currentRequestId,
+        saved: false,
+      });
       return 'failure';
     }
 
@@ -289,6 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams({ topic_uuid: topicUuid });
     if (currentTaskId) {
       params.set('task_id', currentTaskId);
+    }
+    if (currentRequestId) {
+      params.set('request_id', currentRequestId);
     }
 
     try {
@@ -305,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         clearStoredState();
         currentTaskId = null;
+        currentRequestId = null;
         stopPolling();
         return null;
       }
@@ -330,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchRequestStatus(true);
       if (!data) return;
       const outcome = handleStatusPayload(data);
-      if (outcome === 'success' || outcome === 'failure') {
+      if (outcome === 'success' || outcome === 'failure' || outcome === 'saved') {
         stopPolling();
       }
     }, 3000);
@@ -357,6 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hideStatusMessage();
       stopPolling();
       currentTaskId = null;
+      currentRequestId = null;
       clearStoredState();
       if (dataButtonController && dataButtonController.reset) {
         dataButtonController.reset();
@@ -418,16 +455,21 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       if (!fetchedData) return;
       const url = fetchedData.url || (urlInput ? urlInput.value : '');
+      const body = {
+        topic_uuid: topicUuid,
+        url,
+        name: nameInput ? nameInput.value : null,
+        headers: fetchedData.headers,
+        rows: fetchedData.rows,
+      };
+      if (currentRequestId) {
+        body.request_id = currentRequestId;
+      }
+
       const res = await fetch('/api/topics/data/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic_uuid: topicUuid,
-          url,
-          name: nameInput ? nameInput.value : null,
-          headers: fetchedData.headers,
-          rows: fetchedData.rows
-        })
+        body: JSON.stringify(body)
       });
       if (res.ok) {
         clearStoredState();
@@ -440,16 +482,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const stored = loadStoredState();
     if (stored && stored.taskId) {
       currentTaskId = stored.taskId;
+      currentRequestId = stored.requestId || null;
       handleStatusPayload({
         task_id: stored.taskId,
         status: stored.status || 'pending',
         mode: stored.mode || 'url',
         result: stored.result || null,
         error: stored.error || null,
+        request_id: stored.requestId || null,
+        saved: stored.saved || false,
       });
-      if (stored.status === 'success' || stored.status === 'failure') {
-        return;
-      }
     }
 
     const data = await fetchRequestStatus();

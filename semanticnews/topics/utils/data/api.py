@@ -1,6 +1,7 @@
 from typing import List
 
 from django.conf import settings
+from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import ConfigDict
@@ -17,7 +18,6 @@ router = Router()
 class TopicDataFetchRequest(Schema):
     topic_uuid: str
     url: str
-
 
 
 class TopicDataSearchRequest(Schema):
@@ -40,6 +40,7 @@ class TopicDataSaveRequest(Schema):
     name: str | None = None
     headers: List[str]
     rows: List[List[str]]
+    request_id: int | None = None
 
 
 class TopicDataSaveResponse(Schema):
@@ -97,9 +98,11 @@ class TopicDataVisualizeResponse(Schema):
 
 
 class TopicDataTaskResponse(Schema):
+    request_id: int
     task_id: str
     status: str
     mode: str
+    saved: bool
     result: TopicDataResult | None = None
     error: str | None = None
 
@@ -107,9 +110,11 @@ class TopicDataTaskResponse(Schema):
 def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
     result_payload = request.result if isinstance(request.result, dict) else None
     schema_kwargs = {
+        "request_id": request.id,
         "task_id": request.task_id or "",
         "status": request.status,
         "mode": request.mode,
+        "saved": request.saved_data_id is not None,
         "error": request.error_message,
     }
     if result_payload is not None:
@@ -120,14 +125,21 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
 
 
 def _get_latest_request(
-    *, user_id: int, topic_uuid: str, task_id: str | None = None
+    *,
+    user_id: int,
+    topic_uuid: str,
+    task_id: str | None = None,
+    request_id: int | None = None,
 ) -> TopicDataRequest | None:
     qs = TopicDataRequest.objects.filter(
         user_id=user_id,
         topic__uuid=topic_uuid,
+        saved_data__isnull=True,
     )
     if task_id:
         qs = qs.filter(task_id=task_id)
+    if request_id:
+        qs = qs.filter(id=request_id)
     return qs.order_by("-created_at").first()
 
 
@@ -195,7 +207,12 @@ def search_data(request, payload: TopicDataSearchRequest):
 
 
 @router.get("/status", response=TopicDataTaskResponse)
-def data_request_status(request, topic_uuid: str, task_id: str | None = None):
+def data_request_status(
+    request,
+    topic_uuid: str,
+    task_id: str | None = None,
+    request_id: int | None = None,
+):
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -209,6 +226,7 @@ def data_request_status(request, topic_uuid: str, task_id: str | None = None):
         user_id=user.id,
         topic_uuid=topic_uuid,
         task_id=task_id,
+        request_id=request_id,
     )
 
     if not data_request:
@@ -228,12 +246,30 @@ def save_data(request, payload: TopicDataSaveRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    TopicData.objects.create(
+    matching_request: TopicDataRequest | None = None
+    if payload.request_id:
+        try:
+            matching_request = TopicDataRequest.objects.get(
+                id=payload.request_id,
+                topic=topic,
+                user=user,
+            )
+        except TopicDataRequest.DoesNotExist:
+            matching_request = None
+
+    topic_data = TopicData.objects.create(
         topic=topic,
         url=payload.url,
         name=payload.name,
         data={"headers": payload.headers, "rows": payload.rows},
     )
+
+    if matching_request and matching_request.saved_data_id is None:
+        TopicDataRequest.objects.filter(id=matching_request.id).update(
+            saved_data_id=topic_data.id,
+            saved_at=timezone.now(),
+            updated_at=timezone.now(),
+        )
 
     return TopicDataSaveResponse(success=True)
 

@@ -36,6 +36,14 @@ class TopicDataRequest(models.Model):
     input_payload = models.JSONField(default=dict)
     result = models.JSONField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
+    saved_data = models.ForeignKey(
+        "topics.TopicData",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_requests",
+    )
+    saved_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
