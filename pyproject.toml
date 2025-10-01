@@ -7,7 +7,7 @@ name = "semantic-news"
 version = "0.1.7"
 description = "Semantic news aggregation platform built with Django"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Onur Mat" },
     { name = "Kemal Soylu" }
