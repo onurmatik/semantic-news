@@ -285,8 +285,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const fetchRequestStatus = async (silent = false) => {
-    if (!topicUuid || !currentTaskId) return null;
-    const params = new URLSearchParams({ topic_uuid: topicUuid, task_id: currentTaskId });
+    if (!topicUuid) return null;
+    const params = new URLSearchParams({ topic_uuid: topicUuid });
+    if (currentTaskId) {
+      params.set('task_id', currentTaskId);
+    }
 
     try {
       const res = await fetch(`/api/topics/data/status?${params.toString()}`);

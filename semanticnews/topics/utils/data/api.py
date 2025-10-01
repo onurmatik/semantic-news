@@ -1,27 +1,17 @@
 from typing import List
 
-from celery import states as celery_states
-from celery.result import AsyncResult
 from django.conf import settings
-from django.core.cache import cache
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import ConfigDict
 
 from ...models import Topic
-from .models import TopicData, TopicDataInsight, TopicDataVisualization
+from .models import TopicData, TopicDataInsight, TopicDataVisualization, TopicDataRequest
 from ....openai import OpenAI
 from .tasks import fetch_topic_data_task, search_topic_data_task
 from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
-
-
-REQUEST_CACHE_TIMEOUT = 60 * 60  # one hour
-
-
-def _cache_key(*, user_id: int, topic_uuid: str) -> str:
-    return f"topic-data-request:{user_id}:{topic_uuid}"
 
 
 class TopicDataFetchRequest(Schema):
@@ -114,35 +104,31 @@ class TopicDataTaskResponse(Schema):
     error: str | None = None
 
 
-def _get_cached_request(*, user_id: int, topic_uuid: str) -> dict | None:
-    cached = cache.get(_cache_key(user_id=user_id, topic_uuid=topic_uuid))
-    if isinstance(cached, dict) and "task_id" in cached:
-        return cached
-    return None
-
-
-def _store_cached_request(*, user_id: int, topic_uuid: str, payload: dict) -> dict:
-    cache.set(
-        _cache_key(user_id=user_id, topic_uuid=topic_uuid),
-        payload,
-        timeout=REQUEST_CACHE_TIMEOUT,
-    )
-    return payload
-
-
-def _build_task_response(payload: dict) -> TopicDataTaskResponse:
-    result = payload.get("result")
+def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
+    result_payload = request.result if isinstance(request.result, dict) else None
     schema_kwargs = {
-        "task_id": payload["task_id"],
-        "status": payload.get("status", "pending"),
-        "mode": payload.get("mode", "url"),
-        "error": payload.get("error"),
+        "task_id": request.task_id or "",
+        "status": request.status,
+        "mode": request.mode,
+        "error": request.error_message,
     }
-    if isinstance(result, dict):
-        schema_kwargs["result"] = TopicDataResult(**result)
+    if result_payload is not None:
+        schema_kwargs["result"] = TopicDataResult(**result_payload)
     else:
         schema_kwargs["result"] = None
     return TopicDataTaskResponse(**schema_kwargs)
+
+
+def _get_latest_request(
+    *, user_id: int, topic_uuid: str, task_id: str | None = None
+) -> TopicDataRequest | None:
+    qs = TopicDataRequest.objects.filter(
+        user_id=user_id,
+        topic__uuid=topic_uuid,
+    )
+    if task_id:
+        qs = qs.filter(task_id=task_id)
+    return qs.order_by("-created_at").first()
 
 
 @router.post("/fetch", response=TopicDataTaskResponse)
@@ -152,26 +138,28 @@ def fetch_data(request, payload: TopicDataFetchRequest):
         raise HttpError(401, "Unauthorized")
 
     try:
-        Topic.objects.get(uuid=payload.topic_uuid)
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    data_request = TopicDataRequest.objects.create(
+        topic=topic,
+        user=user,
+        mode=TopicDataRequest.Mode.URL,
+        status=TopicDataRequest.Status.PENDING,
+        input_payload={"url": payload.url},
+    )
+
     async_result = fetch_topic_data_task.delay(
+        request_id=data_request.id,
         url=payload.url,
         model=settings.DEFAULT_AI_MODEL,
     )
 
-    cached = _store_cached_request(
-        user_id=user.id,
-        topic_uuid=payload.topic_uuid,
-        payload={
-            "task_id": async_result.id,
-            "mode": "url",
-            "status": "pending",
-        },
-    )
+    TopicDataRequest.objects.filter(id=data_request.id).update(task_id=async_result.id)
+    data_request.refresh_from_db()
 
-    return _build_task_response(cached)
+    return _build_task_response(data_request)
 
 
 
@@ -182,26 +170,28 @@ def search_data(request, payload: TopicDataSearchRequest):
         raise HttpError(401, "Unauthorized")
 
     try:
-        Topic.objects.get(uuid=payload.topic_uuid)
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    data_request = TopicDataRequest.objects.create(
+        topic=topic,
+        user=user,
+        mode=TopicDataRequest.Mode.SEARCH,
+        status=TopicDataRequest.Status.PENDING,
+        input_payload={"description": payload.description},
+    )
+
     async_result = search_topic_data_task.delay(
+        request_id=data_request.id,
         description=payload.description,
         model=settings.DEFAULT_AI_MODEL,
     )
 
-    cached = _store_cached_request(
-        user_id=user.id,
-        topic_uuid=payload.topic_uuid,
-        payload={
-            "task_id": async_result.id,
-            "mode": "search",
-            "status": "pending",
-        },
-    )
+    TopicDataRequest.objects.filter(id=data_request.id).update(task_id=async_result.id)
+    data_request.refresh_from_db()
 
-    return _build_task_response(cached)
+    return _build_task_response(data_request)
 
 
 @router.get("/status", response=TopicDataTaskResponse)
@@ -215,64 +205,16 @@ def data_request_status(request, topic_uuid: str, task_id: str | None = None):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
-    cached = _get_cached_request(user_id=user.id, topic_uuid=topic_uuid)
-    if not cached:
-        raise HttpError(404, "No data request found")
-
-    if task_id and task_id != cached.get("task_id"):
-        raise HttpError(404, "No data request found")
-
-    if cached.get("status") in {"success", "failure"} and (
-        cached.get("result") is not None or cached.get("error")
-    ):
-        return _build_task_response(cached)
-
-    async_result = AsyncResult(cached["task_id"])
-    state = async_result.state
-
-    status = cached.get("status", "pending")
-    result_data: dict | None = None
-    error_message: str | None = None
-
-    if state in {celery_states.PENDING, celery_states.RECEIVED, celery_states.RETRY}:
-        status = "pending"
-    elif state == celery_states.STARTED:
-        status = "started"
-    elif state == celery_states.SUCCESS:
-        status = "success"
-        raw_result = async_result.result
-        if isinstance(raw_result, dict):
-            result_data = raw_result
-        else:  # pragma: no cover - defensive
-            result_data = None
-    elif state in {celery_states.FAILURE, celery_states.REVOKED}:
-        status = "failure"
-        failure_result = async_result.result
-        if isinstance(failure_result, Exception):
-            error_message = str(failure_result)
-        elif failure_result:
-            error_message = str(failure_result)
-        else:
-            error_message = "Task failed"
-    else:  # pragma: no cover - unexpected states
-        status = "pending"
-
-    updated = cached.copy()
-    updated["status"] = status
-    if result_data is not None:
-        updated["result"] = result_data
-        updated.pop("error", None)
-    if error_message is not None:
-        updated["error"] = error_message
-        updated.pop("result", None)
-
-    stored = _store_cached_request(
+    data_request = _get_latest_request(
         user_id=user.id,
         topic_uuid=topic_uuid,
-        payload=updated,
+        task_id=task_id,
     )
 
-    return _build_task_response(stored)
+    if not data_request:
+        raise HttpError(404, "No data request found")
+
+    return _build_task_response(data_request)
 
 
 @router.post("/create", response=TopicDataSaveResponse)

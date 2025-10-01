@@ -5,10 +5,15 @@ from typing import Any, Dict, List
 
 from celery import shared_task
 from django.conf import settings
+from django.utils import timezone
 from ninja import Schema
 
 from ....openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
+from .models import TopicDataRequest
+
+
+_UNSET = object()
 
 
 class _TopicDataResponseSchema(Schema):
@@ -20,6 +25,26 @@ class _TopicDataResponseSchema(Schema):
 class _TopicDataSearchResponseSchema(_TopicDataResponseSchema):
     sources: List[str]
     explanation: str | None = None
+
+
+def _update_request(
+    request_id: int,
+    *,
+    status: TopicDataRequest.Status | None = None,
+    result: Dict[str, Any] | None | object = _UNSET,
+    error_message: str | None | object = _UNSET,
+) -> None:
+    """Persist status updates for a TopicDataRequest instance."""
+
+    updates: Dict[str, Any] = {"updated_at": timezone.now()}
+    if status is not None:
+        updates["status"] = status
+    if result is not _UNSET:
+        updates["result"] = result
+    if error_message is not _UNSET:
+        updates["error_message"] = error_message
+
+    TopicDataRequest.objects.filter(id=request_id).update(**updates)
 
 
 def _call_openai(prompt: str, *, model: str, schema: type[Schema]) -> Schema:
@@ -48,9 +73,15 @@ def _resolve_model(model: str | None) -> str:
     retry_kwargs={"max_retries": 2},
 )
 def fetch_topic_data_task(
-    self, *, url: str, model: str | None = None
+    self, *, request_id: int, url: str, model: str | None = None
 ) -> Dict[str, Any]:
     """Fetch structured tabular data from a URL using the LLM."""
+    _update_request(
+        request_id,
+        status=TopicDataRequest.Status.STARTED,
+        result=None,
+        error_message=None,
+    )
     resolved_model = _resolve_model(model)
     prompt = (
         f"Fetch the tabular data from {url} and return it as JSON with keys 'headers', 'rows', "
@@ -58,13 +89,30 @@ def fetch_topic_data_task(
     )
     prompt = append_default_language_instruction(prompt)
 
-    parsed = _call_openai(prompt, model=resolved_model, schema=_TopicDataResponseSchema)
-    return {
+    try:
+        parsed = _call_openai(prompt, model=resolved_model, schema=_TopicDataResponseSchema)
+    except Exception as exc:
+        _update_request(
+            request_id,
+            status=TopicDataRequest.Status.FAILURE,
+            result=None,
+            error_message=str(exc),
+        )
+        raise
+
+    result: Dict[str, Any] = {
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
         "url": url,
     }
+    _update_request(
+        request_id,
+        status=TopicDataRequest.Status.SUCCESS,
+        result=result,
+        error_message=None,
+    )
+    return result
 
 
 @shared_task(
@@ -76,10 +124,17 @@ def fetch_topic_data_task(
 def search_topic_data_task(
     self,
     *,
+    request_id: int,
     description: str,
     model: str | None = None,
 ) -> Dict[str, Any]:
     """Search for tabular data matching a description using the LLM."""
+    _update_request(
+        request_id,
+        status=TopicDataRequest.Status.STARTED,
+        result=None,
+        error_message=None,
+    )
     resolved_model = _resolve_model(model)
     prompt = (
         "Find tabular data that matches the following description and return it as JSON with "
@@ -89,9 +144,18 @@ def search_topic_data_task(
     )
     prompt = append_default_language_instruction(prompt)
 
-    parsed = _call_openai(
-        prompt, model=resolved_model, schema=_TopicDataSearchResponseSchema
-    )
+    try:
+        parsed = _call_openai(
+            prompt, model=resolved_model, schema=_TopicDataSearchResponseSchema
+        )
+    except Exception as exc:
+        _update_request(
+            request_id,
+            status=TopicDataRequest.Status.FAILURE,
+            result=None,
+            error_message=str(exc),
+        )
+        raise
 
     first_source = parsed.sources[0] if parsed.sources else None
 
@@ -103,4 +167,10 @@ def search_topic_data_task(
         "explanation": parsed.explanation,
         "url": first_source,
     }
+    _update_request(
+        request_id,
+        status=TopicDataRequest.Status.SUCCESS,
+        result=result,
+        error_message=None,
+    )
     return result
