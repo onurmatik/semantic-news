@@ -7,6 +7,7 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 from ninja import Schema
+from pydantic import Field
 
 from ....openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
@@ -17,13 +18,13 @@ _UNSET = object()
 
 
 class _TopicDataResponseSchema(Schema):
-    headers: List[str]
-    rows: List[List[str]]
+    headers: List[str] = Field(default_factory=list)
+    rows: List[List[str]] = Field(default_factory=list)
     name: str | None = None
 
 
 class _TopicDataSearchResponseSchema(_TopicDataResponseSchema):
-    sources: List[str]
+    sources: List[str] = Field(default_factory=list)
     explanation: str | None = None
 
 
