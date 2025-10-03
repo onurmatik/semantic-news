@@ -48,9 +48,17 @@ class TopicDataRequestAdmin(admin.ModelAdmin):
 
 @admin.register(TopicData)
 class TopicDataAdmin(admin.ModelAdmin):
-    list_display = ("topic", "name", "url", "created_at")
-    search_fields = ("topic__title", "name", "url")
+    list_display = ("topic", "name", "primary_source", "created_at")
+    search_fields = ("topic__title", "name")
     readonly_fields = ("created_at",)
+
+    @staticmethod
+    def primary_source(obj):
+        sources = obj.sources or []
+        if isinstance(sources, list) and sources:
+            return sources[0]
+        return ""
+    primary_source.short_description = "Primary source"
 
 
 @admin.register(TopicDataInsight)

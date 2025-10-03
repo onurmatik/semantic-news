@@ -65,12 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
           .map((row) => row.map(normalizeString))
       : [];
 
-    let source = null;
-    if (typeof result.source === 'string' && result.source.trim() !== '') {
-      source = normalizeString(result.source);
-    } else if (Array.isArray(result.sources) && result.sources.length > 0) {
-      source = normalizeString(result.sources[0]);
+    let sources = [];
+    if (Array.isArray(result.sources)) {
+      sources = result.sources
+        .filter((value) => typeof value === 'string' && value.trim() !== '')
+        .map(normalizeString);
     }
+    if (sources.length === 0 && typeof result.source === 'string' && result.source.trim() !== '') {
+      sources = [normalizeString(result.source)];
+    }
+    const primarySource = sources.length > 0 ? sources[0] : null;
 
     const explanation = result.explanation
       ? normalizeString(result.explanation)
@@ -78,12 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const name = result.name ? normalizeString(result.name) : '';
 
-    const url = result.url ? normalizeString(result.url) : null;
+    const url = result.url ? normalizeString(result.url) : primarySource;
 
     return {
       headers,
       rows,
-      source,
+      sources,
+      source: primarySource,
       explanation,
       name,
       url,
@@ -175,16 +180,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalized = normalizeResult(result);
     if (!normalized) return;
 
-    const effectiveMode = mode || (normalized.source ? 'search' : 'url');
+    const hasSources = Array.isArray(normalized.sources) && normalized.sources.length > 0;
+    const effectiveMode = mode || (hasSources && !normalized.url ? 'search' : 'url');
     const urlValue = normalized.url || (effectiveMode === 'url'
       ? (urlInput ? urlInput.value : '')
-      : (normalized.source || ''));
+      : (hasSources ? normalized.sources[0] : ''));
 
     fetchedData = {
       headers: normalized.headers,
       rows: normalized.rows,
       name: normalized.name,
-      source: normalized.source,
+      sources: hasSources ? normalized.sources : [],
       explanation: normalized.explanation,
       url: urlValue,
       mode: effectiveMode,
@@ -199,29 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderPreview(fetchedData);
 
-    if (effectiveMode === 'search') {
-      if (sourcesWrapper && sourcesList) {
-        if (fetchedData.source) {
-          sourcesList.innerHTML = `<li><a href="${fetchedData.source}" target="_blank" rel="noreferrer">${fetchedData.source}</a></li>`;
-          sourcesWrapper.classList.remove('d-none');
-        } else {
-          sourcesList.innerHTML = '';
-          sourcesWrapper.classList.add('d-none');
-        }
+    if (sourcesWrapper && sourcesList) {
+      if (Array.isArray(fetchedData.sources) && fetchedData.sources.length > 0) {
+        sourcesList.innerHTML = fetchedData.sources
+          .map((src) => `<li><a href="${src}" target="_blank" rel="noreferrer">${src}</a></li>`)
+          .join('');
+        sourcesWrapper.classList.remove('d-none');
+      } else {
+        sourcesList.innerHTML = '';
+        sourcesWrapper.classList.add('d-none');
       }
-      if (explanationEl) {
-        if (fetchedData.explanation) {
-          explanationEl.textContent = fetchedData.explanation;
-          explanationEl.classList.remove('d-none');
-        } else {
-          explanationEl.classList.add('d-none');
-          explanationEl.textContent = '';
-        }
-      }
-    } else {
-      if (sourcesWrapper) sourcesWrapper.classList.add('d-none');
-      if (sourcesList) sourcesList.innerHTML = '';
-      if (explanationEl) {
+    }
+    if (explanationEl) {
+      if (fetchedData.explanation) {
+        explanationEl.textContent = fetchedData.explanation;
+        explanationEl.classList.remove('d-none');
+      } else {
         explanationEl.classList.add('d-none');
         explanationEl.textContent = '';
       }
@@ -260,8 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRequestId = requestId || null;
     const status = payload.status;
     const normalizedResult = normalizeResult(payload.result);
-    const hasSource = normalizedResult && Boolean(normalizedResult.source);
-    const mode = payload.mode || (hasSource ? 'search' : 'url');
+    const hasSources = normalizedResult && Array.isArray(normalizedResult.sources) && normalizedResult.sources.length > 0;
+    const mode = payload.mode || (hasSources ? 'search' : 'url');
 
     if (status === 'pending' || status === 'started') {
       setStatusMessage('info', 'We started gathering your data. You can close this modal while we work.');
@@ -456,6 +455,9 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       if (!fetchedData) return;
       const url = fetchedData.url || (urlInput ? urlInput.value : '');
+      const sources = Array.isArray(fetchedData.sources)
+        ? Array.from(new Set(fetchedData.sources.filter((src) => typeof src === 'string' && src)))
+        : [];
       const body = {
         topic_uuid: topicUuid,
         url,
@@ -463,6 +465,10 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: fetchedData.headers,
         rows: fetchedData.rows,
       };
+      body.sources = sources;
+      if (fetchedData.explanation) {
+        body.explanation = fetchedData.explanation;
+      }
       if (currentRequestId) {
         body.request_id = currentRequestId;
       }

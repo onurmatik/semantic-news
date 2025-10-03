@@ -56,10 +56,13 @@ class TopicDataRequest(models.Model):
 
 
 class TopicData(models.Model):
-    topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE, related_name='datas')
-    url = models.URLField()
+    topic = models.ForeignKey(
+        'topics.Topic', on_delete=models.CASCADE, related_name='datas'
+    )
     name = models.CharField(max_length=200, blank=True, null=True)
     data = models.JSONField()
+    sources = models.JSONField(default=list)
+    explanation = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

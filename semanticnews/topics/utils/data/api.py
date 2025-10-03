@@ -29,6 +29,7 @@ class TopicDataResult(Schema):
     headers: List[str]
     rows: List[List[str]]
     name: str | None = None
+    sources: List[str] | None = None
     source: str | None = None
     explanation: str | None = None
     url: str | None = None
@@ -36,10 +37,12 @@ class TopicDataResult(Schema):
 
 class TopicDataSaveRequest(Schema):
     topic_uuid: str
-    url: str
+    url: str | None = None
     name: str | None = None
     headers: List[str]
     rows: List[List[str]]
+    sources: List[str] | None = None
+    explanation: str | None = None
     request_id: int | None = None
 
 
@@ -119,10 +122,17 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
     }
     if result_payload is not None:
         normalized_payload = dict(result_payload)
-        if "source" not in normalized_payload and "sources" in normalized_payload:
-            sources_value = normalized_payload.get("sources")
-            if isinstance(sources_value, list) and sources_value:
-                normalized_payload["source"] = sources_value[0]
+        sources_value = normalized_payload.get("sources")
+        if not isinstance(sources_value, list):
+            sources_value = []
+        normalized_sources = [str(item) for item in sources_value if isinstance(item, str)]
+        if not normalized_sources and isinstance(normalized_payload.get("source"), str):
+            normalized_sources = [normalized_payload["source"]]
+        if normalized_sources:
+            normalized_payload["sources"] = normalized_sources
+            if "source" not in normalized_payload:
+                normalized_payload["source"] = normalized_sources[0]
+        else:
             normalized_payload.pop("sources", None)
         schema_kwargs["result"] = TopicDataResult(**normalized_payload)
     else:
@@ -263,11 +273,25 @@ def save_data(request, payload: TopicDataSaveRequest):
         except TopicDataRequest.DoesNotExist:
             matching_request = None
 
+    sources = payload.sources or []
+    if payload.url:
+        sources = list(sources) + [payload.url]
+    sources = [str(url) for url in sources if isinstance(url, str) and url]
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_sources = []
+    for url in sources:
+        if url in seen:
+            continue
+        seen.add(url)
+        unique_sources.append(url)
+
     topic_data = TopicData.objects.create(
         topic=topic,
-        url=payload.url,
         name=payload.name,
         data={"headers": payload.headers, "rows": payload.rows},
+        sources=unique_sources,
+        explanation=payload.explanation,
     )
 
     if matching_request and matching_request.saved_data_id is None:
