@@ -65,9 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
           .map((row) => row.map(normalizeString))
       : [];
 
-    const sources = Array.isArray(result.sources)
-      ? result.sources.map(normalizeString)
-      : [];
+    let source = null;
+    if (typeof result.source === 'string' && result.source.trim() !== '') {
+      source = normalizeString(result.source);
+    } else if (Array.isArray(result.sources) && result.sources.length > 0) {
+      source = normalizeString(result.sources[0]);
+    }
 
     const explanation = result.explanation
       ? normalizeString(result.explanation)
@@ -80,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       headers,
       rows,
-      sources,
+      source,
       explanation,
       name,
       url,
@@ -172,16 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalized = normalizeResult(result);
     if (!normalized) return;
 
-    const effectiveMode = mode || (normalized.sources && normalized.sources.length ? 'search' : 'url');
+    const effectiveMode = mode || (normalized.source ? 'search' : 'url');
     const urlValue = normalized.url || (effectiveMode === 'url'
       ? (urlInput ? urlInput.value : '')
-      : ((normalized.sources && normalized.sources[0]) || ''));
+      : (normalized.source || ''));
 
     fetchedData = {
       headers: normalized.headers,
       rows: normalized.rows,
       name: normalized.name,
-      sources: normalized.sources,
+      source: normalized.source,
       explanation: normalized.explanation,
       url: urlValue,
       mode: effectiveMode,
@@ -198,10 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (effectiveMode === 'search') {
       if (sourcesWrapper && sourcesList) {
-        if (fetchedData.sources && fetchedData.sources.length > 0) {
-          sourcesList.innerHTML = fetchedData.sources
-            .map((src) => `<li><a href="${src}" target="_blank" rel="noreferrer">${src}</a></li>`)
-            .join('');
+        if (fetchedData.source) {
+          sourcesList.innerHTML = `<li><a href="${fetchedData.source}" target="_blank" rel="noreferrer">${fetchedData.source}</a></li>`;
           sourcesWrapper.classList.remove('d-none');
         } else {
           sourcesList.innerHTML = '';
@@ -259,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRequestId = requestId || null;
     const status = payload.status;
     const normalizedResult = normalizeResult(payload.result);
-    const hasSources = normalizedResult && normalizedResult.sources.length > 0;
-    const mode = payload.mode || (hasSources ? 'search' : 'url');
+    const hasSource = normalizedResult && Boolean(normalizedResult.source);
+    const mode = payload.mode || (hasSource ? 'search' : 'url');
 
     if (status === 'pending' || status === 'started') {
       setStatusMessage('info', 'We started gathering your data. You can close this modal while we work.');

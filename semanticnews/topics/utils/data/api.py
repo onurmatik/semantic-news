@@ -29,7 +29,7 @@ class TopicDataResult(Schema):
     headers: List[str]
     rows: List[List[str]]
     name: str | None = None
-    sources: List[str] | None = None
+    source: str | None = None
     explanation: str | None = None
     url: str | None = None
 
@@ -118,7 +118,13 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
         "error": request.error_message,
     }
     if result_payload is not None:
-        schema_kwargs["result"] = TopicDataResult(**result_payload)
+        normalized_payload = dict(result_payload)
+        if "source" not in normalized_payload and "sources" in normalized_payload:
+            sources_value = normalized_payload.get("sources")
+            if isinstance(sources_value, list) and sources_value:
+                normalized_payload["source"] = sources_value[0]
+            normalized_payload.pop("sources", None)
+        schema_kwargs["result"] = TopicDataResult(**normalized_payload)
     else:
         schema_kwargs["result"] = None
     return TopicDataTaskResponse(**schema_kwargs)

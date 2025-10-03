@@ -23,7 +23,7 @@ class _TopicDataResponseSchema(Schema):
 
 
 class _TopicDataSearchResponseSchema(_TopicDataResponseSchema):
-    sources: List[str]
+    source: str
     explanation: str | None = None
 
 
@@ -138,8 +138,10 @@ def search_topic_data_task(
     resolved_model = _resolve_model(model)
     prompt = (
         "Find tabular data that matches the following description and return it as JSON with "
-        "keys 'headers', 'rows', 'sources' (a list of URLs), 'name', and optionally 'explanation' "
-        "(a brief note if the data does not fully match the request). Description: "
+        "keys 'headers', 'rows', 'source' (the single URL where the tabular data appears), "
+        "'name', and optionally 'explanation' (a brief note if the data does not fully match the "
+        "request). The 'source' must point directly to the page containing the table, not to a "
+        "summary or search results. Description: "
         f"{description}"
     )
     prompt = append_default_language_instruction(prompt)
@@ -157,15 +159,13 @@ def search_topic_data_task(
         )
         raise
 
-    first_source = parsed.sources[0] if parsed.sources else None
-
     result: Dict[str, Any] = {
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
-        "sources": parsed.sources,
+        "source": parsed.source,
         "explanation": parsed.explanation,
-        "url": first_source,
+        "url": parsed.source,
     }
     _update_request(
         request_id,
