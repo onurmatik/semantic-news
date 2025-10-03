@@ -23,7 +23,7 @@ class TopicDataSearchAPITests(TestCase):
             headers=["Year", "USD/TL"],
             rows=[["2023", "1.1"]],
             name="USD/TL Rates",
-            sources=["https://example.com/data"],
+            source="https://example.com/data",
             explanation=None,
         )
         mock_client.responses.parse.return_value = mock_response
@@ -45,7 +45,7 @@ class TopicDataSearchAPITests(TestCase):
                 "headers": ["Year", "USD/TL"],
                 "rows": [["2023", "1.1"]],
                 "name": "USD/TL Rates",
-                "sources": ["https://example.com/data"],
+                "source": "https://example.com/data",
             },
         )
         self.assertNotIn("explanation", response.json())
@@ -67,7 +67,7 @@ class TopicDataSearchAPITests(TestCase):
             headers=["Year", "USD/TL"],
             rows=[["2019", "5.7"]],
             name=None,
-            sources=["https://example.com/partial"],
+            source="https://example.com/partial",
             explanation="Only five years of data were found",
         )
         mock_client.responses.parse.return_value = mock_response
@@ -88,7 +88,7 @@ class TopicDataSearchAPITests(TestCase):
             {
                 "headers": ["Year", "USD/TL"],
                 "rows": [["2019", "5.7"]],
-                "sources": ["https://example.com/partial"],
+                "source": "https://example.com/partial",
                 "explanation": "Only five years of data were found",
             },
         )
