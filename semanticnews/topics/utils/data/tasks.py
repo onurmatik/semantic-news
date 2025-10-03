@@ -23,7 +23,7 @@ class _TopicDataResponseSchema(Schema):
 
 
 class _TopicDataSearchResponseSchema(_TopicDataResponseSchema):
-    source: str
+    sources: List[str]
     explanation: str | None = None
 
 
@@ -104,6 +104,7 @@ def fetch_topic_data_task(
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
+        "sources": [url],
         "url": url,
     }
     _update_request(
@@ -138,10 +139,10 @@ def search_topic_data_task(
     resolved_model = _resolve_model(model)
     prompt = (
         "Find tabular data that matches the following description and return it as JSON with "
-        "keys 'headers', 'rows', 'source' (the single URL where the tabular data appears), "
-        "'name', and optionally 'explanation' (a brief note if the data does not fully match the "
-        "request). The 'source' must point directly to the page containing the table, not to a "
-        "summary or search results. Description: "
+        "keys 'headers', 'rows', 'sources' (a list of direct URLs where the tabular data "
+        "appears), 'name', and optionally 'explanation' (a brief note if the data does not fully "
+        "match the request). Each entry in 'sources' must point directly to a page containing the "
+        "table, not to a summary or search results. Description: "
         f"{description}"
     )
     prompt = append_default_language_instruction(prompt)
@@ -159,13 +160,14 @@ def search_topic_data_task(
         )
         raise
 
+    sources = [url for url in parsed.sources if isinstance(url, str) and url]
     result: Dict[str, Any] = {
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
-        "source": parsed.source,
+        "sources": sources,
         "explanation": parsed.explanation,
-        "url": parsed.source,
+        "url": sources[0] if sources else None,
     }
     _update_request(
         request_id,

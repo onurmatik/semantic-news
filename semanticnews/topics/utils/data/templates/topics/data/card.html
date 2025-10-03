@@ -44,9 +44,19 @@
                             </tbody>
                         </table>
                     </div>
-                    <p class="small text-muted mt-2">
-                        {% trans "Source" %}: <a href="{{ data.url }}" target="_blank">{{ data.url }}</a>
-                    </p>
+                    {% if data.sources %}
+                    <div class="small text-muted mt-2">
+                        <strong>{% trans "Sources" %}:</strong>
+                        <ul class="mb-0 ps-3">
+                            {% for source in data.sources %}
+                                <li><a href="{{ source }}" target="_blank" rel="noopener noreferrer">{{ source }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if data.explanation %}
+                    <p class="small text-muted mt-2">{{ data.explanation }}</p>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
