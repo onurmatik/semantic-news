@@ -101,6 +101,50 @@ class TopicDataSearchAPITests(TestCase):
         _, kwargs = mock_client.responses.parse.call_args
         self.assertIn(get_default_language_instruction(), kwargs["input"])
 
+    @patch("semanticnews.topics.utils.data.tasks.OpenAI")
+    def test_search_data_allows_empty_results(self, mock_openai):
+        User = get_user_model()
+        user = User.objects.create_user("user3", "user3@example.com", "password")
+        self.client.force_login(user)
+        topic = Topic.objects.create(title="Empty", created_by=user)
+
+        mock_client = MagicMock()
+        mock_openai.return_value.__enter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.output_parsed = MagicMock(
+            headers=[],
+            rows=[],
+            name=None,
+            sources=[],
+            explanation="No relevant data was found",
+        )
+        mock_client.responses.parse.return_value = mock_response
+
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "description": "Dataset that does not exist",
+        }
+
+        response = self.client.post(
+            "/api/topics/data/search",
+            payload,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "headers": [],
+                "rows": [],
+                "sources": [],
+                "explanation": "No relevant data was found",
+            },
+        )
+        mock_client.responses.parse.assert_called_once()
+        _, kwargs = mock_client.responses.parse.call_args
+        self.assertIn(get_default_language_instruction(), kwargs["input"])
+
     def test_search_requires_authentication(self):
         User = get_user_model()
         user = User.objects.create_user("user", "user@example.com", "password")

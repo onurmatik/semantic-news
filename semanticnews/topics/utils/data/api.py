@@ -4,7 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from ...models import Topic
 from .models import TopicData, TopicDataInsight, TopicDataVisualization, TopicDataRequest
@@ -26,8 +26,8 @@ class TopicDataSearchRequest(Schema):
 
 
 class TopicDataResult(Schema):
-    headers: List[str]
-    rows: List[List[str]]
+    headers: List[str] = Field(default_factory=list)
+    rows: List[List[str]] = Field(default_factory=list)
     name: str | None = None
     sources: List[str] | None = None
     source: str | None = None
@@ -122,6 +122,23 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
     }
     if result_payload is not None:
         normalized_payload = dict(result_payload)
+        headers_value = normalized_payload.get("headers")
+        if not isinstance(headers_value, list):
+            headers_value = []
+        normalized_headers = [str(item) for item in headers_value if isinstance(item, str)]
+        normalized_payload["headers"] = normalized_headers
+
+        rows_value = normalized_payload.get("rows")
+        if not isinstance(rows_value, list):
+            rows_value = []
+        normalized_rows: List[List[str]] = []
+        for row in rows_value:
+            if not isinstance(row, list):
+                continue
+            normalized_row = [str(cell) for cell in row if isinstance(cell, str)]
+            normalized_rows.append(normalized_row)
+        normalized_payload["rows"] = normalized_rows
+
         sources_value = normalized_payload.get("sources")
         if not isinstance(sources_value, list):
             sources_value = []
@@ -133,7 +150,8 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
             if "source" not in normalized_payload:
                 normalized_payload["source"] = normalized_sources[0]
         else:
-            normalized_payload.pop("sources", None)
+            normalized_payload["sources"] = []
+            normalized_payload.pop("source", None)
         schema_kwargs["result"] = TopicDataResult(**normalized_payload)
     else:
         schema_kwargs["result"] = None
