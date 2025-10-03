@@ -140,11 +140,16 @@ def search_topic_data_task(
     resolved_model = _resolve_model(model)
     prompt = (
         "Find tabular data that matches the following description and return it as JSON with "
-        "keys 'headers', 'rows', 'sources' (a list of direct URLs where the tabular data "
-        "appears), 'name', and optionally 'explanation' (a brief note if the data does not fully "
-        "match the request). Each entry in 'sources' must point directly to a page containing the "
-        "table, not to a summary or search results. Description: "
-        f"{description}"
+        "keys 'headers', 'rows', 'sources' (a list of direct URLs where the tabular data appears), "
+        "'name' (short dataset label), and optionally 'explanation' (a brief note if the data does not fully match the request). "
+        "Prioritize official or primary sources maintained by the organization that produced the data "
+        "(e.g., government statistical offices, regulators, or research institutes)"
+        "Each entry in 'sources' must point directly to a page containing the "
+        "data, not to a summary, news coverage, PDF download page or search results. "
+        "Aim for the most up to date data from the first source. "
+        "If the only available data is outdated or from a secondary source, "
+        "still return it but include an 'explanation' that clearly states the limitation. "
+        f"Description: {description}"
     )
     prompt = append_default_language_instruction(prompt)
 
