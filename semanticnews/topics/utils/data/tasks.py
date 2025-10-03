@@ -143,9 +143,10 @@ def search_topic_data_task(
         "keys 'headers', 'rows', 'sources' (a list of direct URLs where the tabular data appears), "
         "'name' (short dataset label), and optionally 'explanation' (a brief note if the data does not fully match the request). "
         "Prioritize official or primary sources maintained by the organization that produced the data "
-        "(e.g., government statistical offices, regulators, or research institutes)"
-        "Each entry in 'sources' must point directly to a page containing the "
-        "data, not to a summary, news coverage, PDF download page or search results. "
+        "(e.g., government statistical offices, regulators, or research institutes). "
+        "Include only the minimum number of sources required to cover the dataset (typically one per organization) "
+        "and avoid listing multiple URLs that reflect the same underlying data. "
+        "Each entry in 'sources' must point directly to a page containing the data, not to a summary, news coverage, PDF download page or search results. "
         "Aim for the most up to date data from the first source. "
         "If the only available data is outdated or from a secondary source, "
         "still return it but include an 'explanation' that clearly states the limitation. "
@@ -167,13 +168,23 @@ def search_topic_data_task(
         raise
 
     sources = [url for url in parsed.sources if isinstance(url, str) and url]
+    unique_sources: list[str] = []
+    seen_sources: set[str] = set()
+    for source in sources:
+        normalized = source.strip()
+        if not normalized:
+            continue
+        if normalized in seen_sources:
+            continue
+        seen_sources.add(normalized)
+        unique_sources.append(normalized)
     result: Dict[str, Any] = {
         "headers": parsed.headers,
         "rows": parsed.rows,
         "name": parsed.name,
-        "sources": sources,
+        "sources": unique_sources,
         "explanation": parsed.explanation,
-        "url": sources[0] if sources else None,
+        "url": unique_sources[0] if unique_sources else None,
     }
     _update_request(
         request_id,
