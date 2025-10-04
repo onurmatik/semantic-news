@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
+from .models import TopicDataInsight, TopicDataVisualization
 
 
 class TopicDataSearchAPITests(TestCase):
@@ -161,3 +162,41 @@ class TopicDataSearchAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 401)
+
+
+class TopicDataVisualizationDeleteTests(TestCase):
+    """Tests for deleting topic data visualizations."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user("owner", "owner@example.com", "password")
+        self.other = User.objects.create_user("viewer", "viewer@example.com", "password")
+        self.topic = Topic.objects.create(title="My Topic", created_by=self.owner)
+        self.insight = TopicDataInsight.objects.create(topic=self.topic, insight="Insight text")
+        self.visualization = TopicDataVisualization.objects.create(
+            topic=self.topic,
+            insight=self.insight,
+            chart_type="bar",
+            chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+        )
+
+    def test_owner_can_delete_visualization(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.delete(f"/api/topics/data/visualization/{self.visualization.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"success": True})
+        self.assertFalse(
+            TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
+        )
+
+    def test_other_user_cannot_delete_visualization(self):
+        self.client.force_login(self.other)
+
+        response = self.client.delete(f"/api/topics/data/visualization/{self.visualization.id}")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
+        )

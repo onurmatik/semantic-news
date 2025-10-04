@@ -452,3 +452,22 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
         chart_type=visualization.chart_type,
         chart_data=visualization.chart_data,
     )
+
+
+@router.delete("/visualization/{visualization_id}", response=TopicDataSaveResponse)
+def delete_visualization(request, visualization_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        visualization = TopicDataVisualization.objects.select_related("topic").get(id=visualization_id)
+    except TopicDataVisualization.DoesNotExist:
+        raise HttpError(404, "Visualization not found")
+
+    if visualization.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    visualization.delete()
+
+    return TopicDataSaveResponse(success=True)
