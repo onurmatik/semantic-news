@@ -70,6 +70,7 @@ class TopicDataVisualizeRequest(Schema):
     insight_id: int | None = None
     insight: str | None = None
     chart_type: str | None = None
+    instructions: str | None = None
 
 
 class _ChartDataset(Schema):
@@ -426,6 +427,8 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
             "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
             "formatted for Chart.js."
         )
+    if payload.instructions:
+        prompt += f" Please consider the following user instructions: {payload.instructions}"
     prompt = append_default_language_instruction(prompt)
     prompt += f"\n\n{tables_section}"
 

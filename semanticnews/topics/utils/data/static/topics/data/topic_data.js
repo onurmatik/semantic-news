@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeForm = document.getElementById('dataVisualizeForm');
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   const chartTypeSelect = document.getElementById('visualizeChartType');
+  const visualizeInstructionsInput = document.getElementById('visualizeInstructions');
   const urlMode = document.getElementById('dataModeUrl');
   const searchMode = document.getElementById('dataModeSearch');
   let fetchedData = null;
@@ -630,6 +631,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const chartType = chartTypeSelect ? chartTypeSelect.value : '';
       if (chartType) {
         body.chart_type = chartType;
+      }
+      if (visualizeInstructionsInput) {
+        const instructions = visualizeInstructionsInput.value.trim();
+        if (instructions) {
+          body.instructions = instructions;
+        }
       }
       try {
         const res = await fetch('/api/topics/data/visualize', {

@@ -33,6 +33,10 @@
                             <option value="pie">{% trans "Pie" %}</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label for="visualizeInstructions" class="form-label">{% trans "Extra instructions" %}</label>
+                        <textarea class="form-control" id="visualizeInstructions" name="instructions" rows="3" placeholder="{% trans 'Optional additional guidance for the visualization' %}"></textarea>
+                    </div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="visualizeDataBtn">{% trans "Visualize" %}</button>
                     </div>
