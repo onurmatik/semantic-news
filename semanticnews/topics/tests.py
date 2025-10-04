@@ -641,7 +641,11 @@ class VisualizeDataAPITests(TestCase):
         insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
         insight.sources.add(data)
 
-        payload = {"topic_uuid": str(topic.uuid), "insight_id": insight.id}
+        payload = {
+            "topic_uuid": str(topic.uuid),
+            "insight_id": insight.id,
+            "instructions": "Highlight revenue trends.",
+        }
         response = self.client.post(
             "/api/topics/data/visualize", payload, content_type="application/json"
         )
@@ -656,6 +660,8 @@ class VisualizeDataAPITests(TestCase):
             "chart_type": "bar",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
+        called_kwargs = mock_client.responses.parse.call_args.kwargs
+        self.assertIn("Highlight revenue trends.", called_kwargs["input"])
 
     @patch("semanticnews.topics.utils.data.api.OpenAI")
     def test_creates_visualization_with_chart_type(self, mock_openai):
