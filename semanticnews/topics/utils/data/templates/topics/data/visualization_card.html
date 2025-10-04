@@ -4,11 +4,32 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fs-5 mb-0">{% trans "Visualizations" %}</h6>
         </div>
-        <div id="topicDataVisualizationCards">
+        <div
+            id="topicDataVisualizationCards"
+            data-edit-mode="{% if edit_mode %}true{% else %}false{% endif %}"
+            data-remove-confirm="{% trans 'Remove this visualization?' %}"
+            data-remove-label="{% trans 'Remove' %}"
+            data-remove-aria-label="{% trans 'Remove visualization' %}"
+        >
             {% for viz in data_visualizations %}
-            <div class="card mb-3 shadow-sm">
+            <div class="card mb-3 shadow-sm" data-visualization-card data-visualization-id="{{ viz.id }}">
                 <div class="card-body">
-                    <div class="mb-2">{{ viz.insight.insight }}</div>
+                    <div class="d-flex align-items-start mb-2">
+                        <div class="flex-grow-1 me-2">{{ viz.insight.insight }}</div>
+                        {% if edit_mode %}
+                        <button
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            data-visualization-remove-btn
+                            data-visualization-id="{{ viz.id }}"
+                            data-confirm-message="{% trans 'Remove this visualization?' %}"
+                            aria-label="{% trans 'Remove visualization' %}"
+                        >
+                            <i class="bi bi-trash"></i>
+                            <span class="visually-hidden">{% trans "Remove" %}</span>
+                        </button>
+                        {% endif %}
+                    </div>
                     <div class="chart-container">
                         <canvas
                             id="dataVisualizationChart{{ viz.id }}"
