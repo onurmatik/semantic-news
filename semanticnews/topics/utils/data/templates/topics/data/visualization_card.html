@@ -6,9 +6,18 @@
         </div>
         <div id="topicDataVisualizationCards">
             {% for viz in data_visualizations %}
-            <div class="mb-3">
-                <div class="mb-1">{{ viz.insight.insight }}</div>
-                <canvas id="dataVisualizationChart{{ viz.id }}" class="data-visualization-chart" data-chart-type="{{ viz.chart_type }}" data-chart="{{ viz.chart_data|jsonify }}"></canvas>
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-2">{{ viz.insight.insight }}</div>
+                    <div class="chart-container">
+                        <canvas
+                            id="dataVisualizationChart{{ viz.id }}"
+                            class="data-visualization-chart"
+                            data-chart-type="{{ viz.chart_type }}"
+                            data-chart="{{ viz.chart_data|jsonify }}"
+                        ></canvas>
+                    </div>
+                </div>
             </div>
             {% endfor %}
         </div>
