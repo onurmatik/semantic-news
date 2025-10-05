@@ -5,12 +5,19 @@ from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
+from django.db import transaction
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from .models import Topic
+from .models import Topic, TopicModuleLayout
+from .layouts import (
+    ALLOWED_PLACEMENTS,
+    MODULE_REGISTRY,
+    get_topic_layout,
+    serialize_layout,
+)
 from .utils.timeline.models import TopicEvent
 from .utils.timeline.api import router as timeline_router
 from .utils.recaps.api import router as recaps_router
@@ -152,6 +159,26 @@ class TopicTitleUpdateResponse(Schema):
     edit_url: str
 
 
+class TopicLayoutModule(Schema):
+    """Schema describing a single module layout entry."""
+
+    module_key: str
+    placement: Literal["primary", "sidebar"]
+    display_order: int
+
+
+class TopicLayoutResponse(Schema):
+    """Response wrapper for a topic layout."""
+
+    modules: List[TopicLayoutModule]
+
+
+class TopicLayoutUpdateRequest(Schema):
+    """Payload for updating a topic's module layout."""
+
+    modules: List[TopicLayoutModule]
+
+
 @api.post("/set-status", response=TopicStatusUpdateResponse)
 def set_topic_status(request, payload: TopicStatusUpdateRequest):
     """Update the status of a topic owned by the authenticated user.
@@ -230,6 +257,87 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
         ),
         detail_url=detail_url,
     )
+
+
+def _get_owned_topic(request, topic_uuid: str) -> Topic:
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by != user:
+        raise HttpError(403, "Forbidden")
+
+    return topic
+
+
+def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
+    validated: List[dict] = []
+    seen_keys = set()
+
+    for index, module in enumerate(modules):
+        key = module.module_key
+        if key not in MODULE_REGISTRY:
+            raise HttpError(400, f"Unknown module key: {key}")
+        if key in seen_keys:
+            raise HttpError(400, f"Duplicate module key: {key}")
+        seen_keys.add(key)
+
+        if module.placement not in ALLOWED_PLACEMENTS:
+            raise HttpError(400, f"Invalid placement: {module.placement}")
+
+        if module.display_order < 0:
+            raise HttpError(400, "Display order must be non-negative")
+
+        validated.append(
+            {
+                "module_key": key,
+                "placement": module.placement,
+                "display_order": module.display_order if module.display_order is not None else index,
+            }
+        )
+
+    return validated
+
+
+@api.get("/{topic_uuid}/layout", response=TopicLayoutResponse)
+def get_topic_layout_configuration(request, topic_uuid: str):
+    """Return the saved module layout for the authenticated owner."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    layout = get_topic_layout(topic)
+    return TopicLayoutResponse(modules=serialize_layout(layout))
+
+
+@api.put("/{topic_uuid}/layout", response=TopicLayoutResponse)
+def update_topic_layout_configuration(
+    request, topic_uuid: str, payload: TopicLayoutUpdateRequest
+):
+    """Persist a custom module layout for the authenticated owner."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    validated_modules = _validate_layout_modules(payload.modules)
+
+    with transaction.atomic():
+        TopicModuleLayout.objects.filter(topic=topic).delete()
+        TopicModuleLayout.objects.bulk_create(
+            [
+                TopicModuleLayout(
+                    topic=topic,
+                    module_key=module["module_key"],
+                    placement=module["placement"],
+                    display_order=module["display_order"],
+                )
+                for module in validated_modules
+            ]
+        )
+
+    layout = get_topic_layout(topic)
+    return TopicLayoutResponse(modules=serialize_layout(layout))
 
 
 class TopicEventAddRequest(Schema):

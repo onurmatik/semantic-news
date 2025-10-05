@@ -20,6 +20,37 @@ from .utils.documents.models import TopicDocument, TopicWebpage
 from .utils.timeline.models import TopicEvent
 
 
+class TopicModuleLayout(models.Model):
+    """User-configurable placement information for topic utility modules."""
+
+    PLACEMENT_PRIMARY = "primary"
+    PLACEMENT_SIDEBAR = "sidebar"
+    PLACEMENT_CHOICES = (
+        (PLACEMENT_PRIMARY, "Primary"),
+        (PLACEMENT_SIDEBAR, "Sidebar"),
+    )
+
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="module_layouts",
+    )
+    module_key = models.CharField(max_length=50)
+    placement = models.CharField(
+        max_length=20,
+        choices=PLACEMENT_CHOICES,
+        default=PLACEMENT_PRIMARY,
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        unique_together = ("topic", "module_key")
+
+    def __str__(self):
+        return f"{self.topic} · {self.module_key} ({self.placement})"
+
+
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=200, blank=True, null=True)
