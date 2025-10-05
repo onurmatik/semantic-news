@@ -131,11 +131,11 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         "templates": {
             "detail": {
                 "template": "topics/timeline/overview_card.html",
-                "context": {},
+                "context": {"edit_mode": False},
             },
             "edit": {
                 "template": "topics/timeline/overview_card.html",
-                "context": {},
+                "context": {"edit_mode": True},
             },
         },
         "context_keys": ["timeline", "topic"],
@@ -144,11 +144,11 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         "templates": {
             "detail": {
                 "template": "topics/documents/card.html",
-                "context": {},
+                "context": {"edit_mode": False},
             },
             "edit": {
                 "template": "topics/documents/card.html",
-                "context": {},
+                "context": {"edit_mode": True},
             },
         },
         "context_keys": ["documents", "webpages", "topic"],
