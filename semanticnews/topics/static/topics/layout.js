@@ -4,7 +4,6 @@
     { value: 'compact', label: 'Compact' },
     { value: 'expanded', label: 'Expanded' },
   ];
-  const PLACEMENTS = ['primary', 'sidebar'];
   const SAVE_DEBOUNCE_MS = 600;
 
   function ready(callback) {
@@ -201,6 +200,7 @@
       }
 
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
+      updatePlacementButtons(draggedModule);
     }
 
     function handleColumnDrop(event) {
@@ -211,6 +211,7 @@
       const column = event.currentTarget;
       column.appendChild(draggedModule);
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
+      updatePlacementButtons(draggedModule);
     }
 
     function moveModule(moduleEl, direction) {
@@ -231,6 +232,42 @@
         column.insertBefore(moduleEl, next);
         scheduleSave();
       }
+    }
+
+    function updatePlacementButtons(moduleEl) {
+      const placement = moduleEl.dataset.placement || moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn || 'primary';
+      const controls = moduleEl.querySelector('.topic-module-controls');
+      if (!controls) {
+        return;
+      }
+      const moveLeftButton = controls.querySelector('.topic-module-move-left');
+      const moveRightButton = controls.querySelector('.topic-module-move-right');
+      if (!moveLeftButton || !moveRightButton) {
+        return;
+      }
+
+      if (placement === 'primary') {
+        moveLeftButton.classList.add('d-none');
+        moveRightButton.classList.remove('d-none');
+      } else {
+        moveLeftButton.classList.remove('d-none');
+        moveRightButton.classList.add('d-none');
+      }
+    }
+
+    function moveModuleToPlacement(moduleEl, targetPlacement) {
+      const targetColumn = columns.find((column) => column.dataset.layoutColumn === targetPlacement);
+      if (!targetColumn) {
+        return;
+      }
+      const currentPlacement = moduleEl.dataset.placement || moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn;
+      if (currentPlacement === targetPlacement) {
+        return;
+      }
+      targetColumn.appendChild(moduleEl);
+      moduleEl.dataset.placement = targetPlacement;
+      updatePlacementButtons(moduleEl);
+      scheduleSave();
     }
 
     function addControls(moduleEl) {
@@ -271,26 +308,27 @@
       });
       controls.appendChild(moveDownButton);
 
-      const placementSelect = document.createElement('select');
-      placementSelect.className = 'form-select form-select-sm topic-module-placement';
-      PLACEMENTS.forEach((placement) => {
-        const option = document.createElement('option');
-        option.value = placement;
-        option.textContent = placement === 'primary' ? 'Primary column' : 'Sidebar';
-        placementSelect.appendChild(option);
+      const moveLeftButton = document.createElement('button');
+      moveLeftButton.type = 'button';
+      moveLeftButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-left';
+      moveLeftButton.innerHTML = '<span class="bi bi-arrow-left"></span>';
+      moveLeftButton.title = 'Move to primary column';
+      moveLeftButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        moveModuleToPlacement(moduleEl, 'primary');
       });
-      placementSelect.value = moduleEl.dataset.placement || moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn || 'primary';
-      placementSelect.addEventListener('change', () => {
-        const targetPlacement = placementSelect.value;
-        const targetColumn = columns.find((column) => column.dataset.layoutColumn === targetPlacement);
-        if (!targetColumn) {
-          return;
-        }
-        targetColumn.appendChild(moduleEl);
-        moduleEl.dataset.placement = targetPlacement;
-        scheduleSave();
+      controls.appendChild(moveLeftButton);
+
+      const moveRightButton = document.createElement('button');
+      moveRightButton.type = 'button';
+      moveRightButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-right';
+      moveRightButton.innerHTML = '<span class="bi bi-arrow-right"></span>';
+      moveRightButton.title = 'Move to sidebar';
+      moveRightButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        moveModuleToPlacement(moduleEl, 'sidebar');
       });
-      controls.appendChild(placementSelect);
+      controls.appendChild(moveRightButton);
 
       const sizeSelect = document.createElement('select');
       sizeSelect.className = 'form-select form-select-sm topic-module-size';
@@ -308,6 +346,7 @@
       controls.appendChild(sizeSelect);
 
       moduleEl.insertBefore(controls, moduleEl.firstChild);
+      updatePlacementButtons(moduleEl);
     }
 
     function initModule(moduleEl) {
