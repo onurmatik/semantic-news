@@ -10,7 +10,8 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic
+from .models import Topic, TopicModuleLayout
+from .layouts import get_layout_for_mode
 from .utils.timeline.models import TopicEvent
 from .utils.mcps.models import MCPServer
 
@@ -78,6 +79,7 @@ def topics_detail(request, slug, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
+            "module_layouts",
         ),
         slug=slug,
         created_by__username=username,
@@ -114,6 +116,8 @@ def topics_detail(request, slug, username):
         relations_json = ""
         relations_json_pretty = ""
 
+    layout = get_layout_for_mode(topic, mode="detail")
+
     context = {
         "topic": topic,
         "related_events": related_events,
@@ -130,6 +134,8 @@ def topics_detail(request, slug, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
+        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
     }
 
     return render(request, "topics/topics_detail.html", context)
@@ -151,6 +157,7 @@ def topics_detail_edit(request, topic_uuid, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
+            "module_layouts",
         ),
         uuid=topic_uuid,
         created_by__username=username,
@@ -202,6 +209,8 @@ def topics_detail_edit(request, topic_uuid, username):
     else:
         suggested_events = Event.objects.none()
 
+    layout = get_layout_for_mode(topic, mode="edit")
+
     context = {
         "topic": topic,
         "related_events": related_events,
@@ -223,6 +232,9 @@ def topics_detail_edit(request, topic_uuid, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
+        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
+        "layout_update_url": f"/api/topics/{topic.uuid}/layout",
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
