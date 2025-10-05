@@ -14,7 +14,6 @@ from semanticnews.prompting import append_default_language_instruction
 from .models import Topic, TopicModuleLayout
 from .layouts import (
     ALLOWED_PLACEMENTS,
-    ALLOWED_SIZE_VARIANTS,
     MODULE_REGISTRY,
     get_topic_layout,
     serialize_layout,
@@ -165,7 +164,6 @@ class TopicLayoutModule(Schema):
 
     module_key: str
     placement: Literal["primary", "sidebar"]
-    size_variant: str
     display_order: int
 
 
@@ -292,9 +290,6 @@ def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
         if module.placement not in ALLOWED_PLACEMENTS:
             raise HttpError(400, f"Invalid placement: {module.placement}")
 
-        if module.size_variant not in ALLOWED_SIZE_VARIANTS:
-            raise HttpError(400, f"Invalid size variant: {module.size_variant}")
-
         if module.display_order < 0:
             raise HttpError(400, "Display order must be non-negative")
 
@@ -302,7 +297,6 @@ def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
             {
                 "module_key": key,
                 "placement": module.placement,
-                "size_variant": module.size_variant,
                 "display_order": module.display_order if module.display_order is not None else index,
             }
         )
@@ -336,7 +330,6 @@ def update_topic_layout_configuration(
                     topic=topic,
                     module_key=module["module_key"],
                     placement=module["placement"],
-                    size_variant=module["size_variant"],
                     display_order=module["display_order"],
                 )
                 for module in validated_modules

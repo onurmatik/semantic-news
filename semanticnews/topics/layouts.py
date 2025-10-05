@@ -160,61 +160,51 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
     {
         "module_key": "images",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_EXPANDED,
         "display_order": 1,
     },
     {
         "module_key": "recaps",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 2,
     },
     {
         "module_key": "data",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 3,
     },
     {
         "module_key": "data_visualizations",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 4,
     },
     {
         "module_key": "narratives",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 5,
     },
     {
         "module_key": "embeds",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 6,
     },
     {
         "module_key": "relations",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 7,
     },
     {
         "module_key": "related_events",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 8,
     },
     {
         "module_key": "timeline",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 9,
     },
     {
         "module_key": "documents",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "size_variant": TopicModuleLayout.SIZE_DEFAULT,
         "display_order": 10,
     },
 ]
@@ -229,7 +219,6 @@ def _normalize_layout(records: Iterable[TopicModuleLayout]) -> List[Dict[str, ob
             {
                 "module_key": record.module_key,
                 "placement": record.placement,
-                "size_variant": record.size_variant,
                 "display_order": record.display_order,
             }
         )
@@ -271,7 +260,6 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         descriptor = {
             "module_key": module_key,
             "placement": entry["placement"],
-            "size_variant": entry["size_variant"],
             "display_order": entry["display_order"],
             "template_name": template_config.get("template"),
             "context_overrides": template_config.get("context", {}),
@@ -325,7 +313,6 @@ def serialize_layout(layout: Sequence[Dict[str, object]]) -> List[Dict[str, obje
         {
             "module_key": entry["module_key"],
             "placement": entry["placement"],
-            "size_variant": entry["size_variant"],
             "display_order": entry["display_order"],
         }
         for entry in layout
@@ -337,8 +324,3 @@ ALLOWED_PLACEMENTS = {
     TopicModuleLayout.PLACEMENT_SIDEBAR,
 }
 
-ALLOWED_SIZE_VARIANTS = {
-    TopicModuleLayout.SIZE_DEFAULT,
-    TopicModuleLayout.SIZE_COMPACT,
-    TopicModuleLayout.SIZE_EXPANDED,
-}

@@ -30,15 +30,6 @@ class TopicModuleLayout(models.Model):
         (PLACEMENT_SIDEBAR, "Sidebar"),
     )
 
-    SIZE_DEFAULT = "default"
-    SIZE_COMPACT = "compact"
-    SIZE_EXPANDED = "expanded"
-    SIZE_CHOICES = (
-        (SIZE_DEFAULT, "Default"),
-        (SIZE_COMPACT, "Compact"),
-        (SIZE_EXPANDED, "Expanded"),
-    )
-
     topic = models.ForeignKey(
         "Topic",
         on_delete=models.CASCADE,
@@ -49,11 +40,6 @@ class TopicModuleLayout(models.Model):
         max_length=20,
         choices=PLACEMENT_CHOICES,
         default=PLACEMENT_PRIMARY,
-    )
-    size_variant = models.CharField(
-        max_length=20,
-        choices=SIZE_CHOICES,
-        default=SIZE_DEFAULT,
     )
     display_order = models.PositiveIntegerField(default=0)
 

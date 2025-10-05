@@ -1,9 +1,4 @@
 (function () {
-  const SIZE_OPTIONS = [
-    { value: 'default', label: 'Default' },
-    { value: 'compact', label: 'Compact' },
-    { value: 'expanded', label: 'Expanded' },
-  ];
   const SAVE_DEBOUNCE_MS = 600;
 
   function ready(callback) {
@@ -49,9 +44,6 @@
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.5rem;
-      }
-      .topic-module-controls .form-select {
-        width: auto;
       }
       .topic-module-controls .btn {
         display: inline-flex;
@@ -116,7 +108,6 @@
           payload.push({
             module_key: moduleEl.dataset.module,
             placement,
-            size_variant: moduleEl.dataset.sizeVariant || 'default',
             display_order: index,
           });
         });
@@ -330,21 +321,6 @@
       });
       controls.appendChild(moveRightButton);
 
-      const sizeSelect = document.createElement('select');
-      sizeSelect.className = 'form-select form-select-sm topic-module-size';
-      SIZE_OPTIONS.forEach((option) => {
-        const opt = document.createElement('option');
-        opt.value = option.value;
-        opt.textContent = option.label;
-        sizeSelect.appendChild(opt);
-      });
-      sizeSelect.value = moduleEl.dataset.sizeVariant || 'default';
-      sizeSelect.addEventListener('change', () => {
-        moduleEl.dataset.sizeVariant = sizeSelect.value;
-        scheduleSave();
-      });
-      controls.appendChild(sizeSelect);
-
       moduleEl.insertBefore(controls, moduleEl.firstChild);
       updatePlacementButtons(moduleEl);
     }
@@ -356,9 +332,6 @@
       moduleEl.addEventListener('dragover', handleDragOver);
       moduleEl.addEventListener('dragleave', handleDragLeave);
       moduleEl.addEventListener('drop', handleDrop);
-      if (!moduleEl.dataset.sizeVariant) {
-        moduleEl.dataset.sizeVariant = 'default';
-      }
       if (!moduleEl.dataset.placement) {
         const column = moduleEl.closest('[data-layout-column]');
         moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
