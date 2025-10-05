@@ -1,0 +1,30 @@
+{% load i18n %}
+<div class="modal fade modal-lg" id="textModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="textForm">
+                <div class="modal-header">
+                    <h5
+                        class="modal-title"
+                        data-text-modal-title
+                        data-edit-label="{% trans 'Edit text' %}"
+                    >
+                        {% trans "Add text" %}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="textId" name="text_id" value="">
+                    <div class="mb-3">
+                        <label for="textContent" class="form-label">{% trans "Content" %}</label>
+                        <textarea class="form-control" id="textContent" name="content" rows="8"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary" id="textSaveBtn">{% trans "Save text" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
