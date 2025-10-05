@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Iterable, List, Literal, Sequence
+from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 from .models import TopicModuleLayout
 
@@ -75,18 +75,18 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["data_visualizations", "topic"],
     },
-    "narratives": {
+    "text": {
         "templates": {
             "detail": {
-                "template": "topics/narratives/card.html",
+                "template": "topics/text/card.html",
                 "context": {"edit_mode": False},
             },
             "edit": {
-                "template": "topics/narratives/card.html",
+                "template": "topics/text/card.html",
                 "context": {"edit_mode": True},
             },
         },
-        "context_keys": ["current_narrative", "latest_narrative", "topic"],
+        "context_keys": ["topic"],
     },
     "embeds": {
         "templates": {
@@ -178,36 +178,38 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 4,
     },
     {
-        "module_key": "narratives",
+        "module_key": "embeds",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 5,
     },
     {
-        "module_key": "embeds",
+        "module_key": "relations",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 6,
     },
     {
-        "module_key": "relations",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 7,
-    },
-    {
         "module_key": "related_events",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 8,
+        "display_order": 7,
     },
     {
         "module_key": "timeline",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 9,
+        "display_order": 8,
     },
     {
         "module_key": "documents",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 10,
+        "display_order": 9,
     },
 ]
+
+
+def _split_module_key(module_key: str) -> Tuple[str, Optional[str]]:
+    if ":" in module_key:
+        base, identifier = module_key.split(":", 1)
+        return base, identifier
+    return module_key, None
 
 
 def _normalize_layout(records: Iterable[TopicModuleLayout]) -> List[Dict[str, object]]:
@@ -247,9 +249,17 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
 
+    text_manager = getattr(topic, "texts", None)
+    if text_manager is not None:
+        text_values = list(text_manager.all())
+    else:
+        text_values = []
+    text_map = {str(text.id): text for text in text_values}
+
     for entry in base_layout:
         module_key = entry["module_key"]
-        registry_entry = MODULE_REGISTRY.get(module_key)
+        base_key, identifier = _split_module_key(module_key)
+        registry_entry = MODULE_REGISTRY.get(base_key)
         if not registry_entry:
             continue
         templates = registry_entry.get("templates", {})
@@ -259,12 +269,17 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
 
         descriptor = {
             "module_key": module_key,
+            "base_module_key": base_key,
+            "module_identifier": identifier,
             "placement": entry["placement"],
             "display_order": entry["display_order"],
             "template_name": template_config.get("template"),
             "context_overrides": template_config.get("context", {}),
             "context_keys": registry_entry.get("context_keys", []),
         }
+
+        if base_key == "text" and identifier:
+            descriptor["text"] = text_map.get(identifier)
 
         placements.setdefault(entry["placement"], []).append(descriptor)
 
@@ -286,7 +301,14 @@ def _value_has_content(value):
 
 
 def _module_has_content(module: Dict[str, object], context: Dict[str, object]) -> bool:
-    registry_entry = MODULE_REGISTRY.get(module.get("module_key"), {})
+    base_key = module.get("base_module_key", module.get("module_key"))
+    if base_key == "text":
+        text_obj = module.get("text")
+        if not text_obj:
+            return False
+        return bool((text_obj.content or "").strip())
+
+    registry_entry = MODULE_REGISTRY.get(base_key, {})
     content_check = registry_entry.get("has_content")
     if callable(content_check):
         return bool(content_check(context))

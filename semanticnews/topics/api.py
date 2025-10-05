@@ -17,21 +17,22 @@ from .layouts import (
     MODULE_REGISTRY,
     get_topic_layout,
     serialize_layout,
+    _split_module_key,
 )
 from .utils.timeline.models import TopicEvent
 from .utils.timeline.api import router as timeline_router
 from .utils.recaps.api import router as recaps_router
-from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
 from .utils.images.api import router as images_router
 from .utils.embeds.api import router as embeds_router
 from .utils.relations.api import router as relations_router
 from .utils.data.api import router as data_router
 from .utils.documents.api import router as documents_router
+from .utils.text.api import router as text_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
-api.add_router("/narrative", narratives_router)
+api.add_router("/text", text_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 api.add_router("/embed", embeds_router)
@@ -52,7 +53,7 @@ class GenerationStatus(Schema):
 class GenerationStatusResponse(Schema):
     current: datetime
     recap: Optional[GenerationStatus] = None
-    narrative: Optional[GenerationStatus] = None
+    text: Optional[GenerationStatus] = None
     relation: Optional[GenerationStatus] = None
     image: Optional[GenerationStatus] = None
 
@@ -82,7 +83,7 @@ def generation_status(request, topic_uuid: str):
     return GenerationStatusResponse(
         current=timezone.now(),
         recap=latest(topic.recaps),
-        narrative=latest(topic.narratives),
+        text=latest(topic.texts),
         relation=latest(topic.entity_relations),
         image=latest(topic.images),
     )
@@ -281,8 +282,11 @@ def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
 
     for index, module in enumerate(modules):
         key = module.module_key
-        if key not in MODULE_REGISTRY:
+        base_key, identifier = _split_module_key(key)
+        if base_key not in MODULE_REGISTRY:
             raise HttpError(400, f"Unknown module key: {key}")
+        if base_key == "text" and not identifier:
+            raise HttpError(400, "Text modules must include an identifier")
         if key in seen_keys:
             raise HttpError(400, f"Duplicate module key: {key}")
         seen_keys.add(key)
