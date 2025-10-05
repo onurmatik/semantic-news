@@ -25,6 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const textIdInput = document.getElementById('textId');
   const titleEl = modalEl.querySelector('[data-text-modal-title]');
   const saveBtn = document.getElementById('textSaveBtn');
+  const reviseBtn = document.getElementById('textReviseBtn');
+  const shortenBtn = document.getElementById('textShortenBtn');
+  const expandBtn = document.getElementById('textExpandBtn');
 
   const confirmModalEl = document.getElementById('confirmDeleteTextModal');
   const confirmModal = confirmModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(confirmModalEl) : null;
@@ -66,6 +69,50 @@ document.addEventListener('DOMContentLoaded', () => {
       return easyMDE.value();
     }
     return textarea ? textarea.value || '' : '';
+  };
+
+  const handleTransformAction = (button, endpoint) => {
+    if (!button) return;
+    const defaultLabel = button.textContent;
+    const loadingLabel = button.dataset.loadingLabel || defaultLabel;
+
+    button.addEventListener('click', async () => {
+      if (!textarea && !easyMDE) return;
+      const content = getEditorContent();
+      if (!content || !content.trim()) {
+        return;
+      }
+
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.dataset.defaultLabel = defaultLabel;
+      button.textContent = loadingLabel;
+
+      try {
+        const res = await fetch(`${apiBase}/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: JSON.stringify({
+            topic_uuid: topicUuid,
+            content,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed to transform text');
+        const data = await res.json();
+        if (data && typeof data.content === 'string') {
+          setEditorContent(data.content);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = button.dataset.defaultLabel || defaultLabel;
+      }
+    });
   };
 
   const getLabel = (element, key, fallback) => {
@@ -171,6 +218,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   form && form.addEventListener('submit', submitForm);
+
+  handleTransformAction(reviseBtn, 'revise');
+  handleTransformAction(shortenBtn, 'shorten');
+  handleTransformAction(expandBtn, 'expand');
 
   confirmBtn && confirmBtn.addEventListener('click', async () => {
     const textId = confirmBtn.getAttribute('data-text-id');

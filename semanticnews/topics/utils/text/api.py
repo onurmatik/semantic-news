@@ -1,16 +1,23 @@
 from datetime import datetime
+import logging
 from typing import List, Optional
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
+from semanticnews.openai import OpenAI
+from semanticnews.prompting import append_default_language_instruction
+
 from ...models import Topic, TopicModuleLayout
 from .models import TopicText
 
 router = Router()
+
+logger = logging.getLogger(__name__)
 
 
 class TopicTextCreateRequest(Schema):
@@ -36,6 +43,19 @@ class TopicTextResponse(Schema):
 class TopicTextListResponse(Schema):
     total: int
     items: List[TopicTextResponse]
+
+
+class TopicTextTransformRequest(Schema):
+    topic_uuid: str
+    content: Optional[str] = ""
+
+
+class TopicTextTransformResponse(Schema):
+    content: str
+
+
+class _TransformTextResponse(Schema):
+    content: str
 
 
 def _get_owned_topic(request, topic_uuid: str) -> Topic:
@@ -132,6 +152,73 @@ def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
     text.save(update_fields=["content", "status", "error_message", "error_code", "updated_at"])
     layout = text.topic.module_layouts.filter(module_key=f"text:{text.id}").first()
     return _serialize_text(text, layout)
+
+
+def _transform_text(request, payload: TopicTextTransformRequest, mode: str) -> TopicTextTransformResponse:
+    topic = _get_owned_topic(request, payload.topic_uuid)
+    content = (payload.content or "").strip()
+    if not content:
+        raise HttpError(400, "Content is required")
+
+    context_md = topic.build_context()
+
+    if mode == "revise":
+        instruction = (
+            "Revise the text to improve clarity, grammar, and overall flow while keeping "
+            "its meaning and ensuring it aligns with the topic context."
+        )
+    elif mode == "shorten":
+        instruction = (
+            "Shorten the text so it becomes more concise, but preserve the core facts, "
+            "claims, and intent."
+        )
+    elif mode == "expand":
+        instruction = (
+            "Expand the text by adding helpful detail and explanation that remain relevant "
+            "to the topic context."
+        )
+    else:
+        raise HttpError(400, "Unsupported transform mode")
+
+    prompt = (
+        "You are assisting with editing content for a news topic.\n"
+        f"Topic title: {topic.title or ''}\n"
+        "Topic context:\n"
+        f"{context_md}\n\n"
+        "Original text:\n"
+        f"{content}\n\n"
+        f"{instruction} Return only the transformed text without commentary or additional metadata."
+    )
+    prompt = append_default_language_instruction(prompt)
+
+    try:
+        with OpenAI() as client:
+            response = client.responses.parse(
+                model=settings.DEFAULT_AI_MODEL,
+                input=prompt,
+                text_format=_TransformTextResponse,
+            )
+    except Exception:  # pragma: no cover - defensive logging path
+        logger.exception("Failed to %s topic text", mode)
+        raise HttpError(502, "Unable to transform text right now")
+
+    transformed = (response.output_parsed.content or "").strip()
+    return TopicTextTransformResponse(content=transformed)
+
+
+@router.post("/revise", response=TopicTextTransformResponse)
+def revise_text(request, payload: TopicTextTransformRequest):
+    return _transform_text(request, payload, mode="revise")
+
+
+@router.post("/shorten", response=TopicTextTransformResponse)
+def shorten_text(request, payload: TopicTextTransformRequest):
+    return _transform_text(request, payload, mode="shorten")
+
+
+@router.post("/expand", response=TopicTextTransformResponse)
+def expand_text(request, payload: TopicTextTransformRequest):
+    return _transform_text(request, payload, mode="expand")
 
 
 @router.delete("/{text_id}", response={204: None})
