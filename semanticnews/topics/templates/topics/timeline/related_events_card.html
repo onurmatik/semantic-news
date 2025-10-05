@@ -1,0 +1,15 @@
+{% load i18n %}
+{% if related_events %}
+<div class="card mt-3" data-related-events-card>
+  <div class="card-body" id="relatedEventsContainer" data-empty-message="{% trans 'No related events' %}">
+    <div class="card-title d-flex justify-content-between">
+        <h6 class="fs-5">
+            {% trans "Timeline" %}
+        </h6>
+    </div>
+    {% for event in related_events %}
+        {% include "agenda/event_list_item.html" with event=event show_remove=edit_mode show_add=False %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
