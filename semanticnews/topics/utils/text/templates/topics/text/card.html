@@ -11,13 +11,6 @@
         <div class="card-header d-flex align-items-center">
             <h6 class="fs-6 mb-0">{% trans "Text" %}</h6>
             <div class="d-flex align-items-center gap-2 ms-auto">
-                <small class="text-secondary">
-                    {% if text %}
-                        {% blocktrans with created=text.created_at|date:'SHORT_DATETIME_FORMAT' %}Created {{ created }}{% endblocktrans %}
-                    {% else %}
-                        {% trans "Not linked" %}
-                    {% endif %}
-                </small>
                 {% if text %}
                     <button
                         type="button"
