@@ -33,6 +33,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const apiBase = `/api/topics/text`;
 
+  const easyMDE = textarea && window.EasyMDE
+    ? new EasyMDE({
+        element: textarea,
+        autoDownloadFontAwesome: false,
+        spellChecker: false,
+        status: false,
+      })
+    : null;
+
+  if (textarea && easyMDE) {
+    textarea._easyMDE = easyMDE;
+  }
+
+  if (easyMDE && modalEl) {
+    modalEl.addEventListener('shown.bs.modal', () => {
+      easyMDE.codemirror.refresh();
+      easyMDE.codemirror.focus();
+    });
+  }
+
+  const setEditorContent = (value) => {
+    if (easyMDE) {
+      easyMDE.value(value || '');
+    } else if (textarea) {
+      textarea.value = value || '';
+    }
+  };
+
+  const getEditorContent = () => {
+    if (easyMDE) {
+      return easyMDE.value();
+    }
+    return textarea ? textarea.value || '' : '';
+  };
+
   const getLabel = (element, key, fallback) => {
     if (!element) return fallback;
     if (element.dataset && element.dataset[key]) {
@@ -66,14 +101,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const openCreateModal = () => {
     if (textIdInput) textIdInput.value = '';
-    if (textarea) textarea.value = '';
+    setEditorContent('');
     setModalMode('create');
     modal && modal.show();
   };
 
   const openEditModal = (id, content) => {
     if (textIdInput) textIdInput.value = id;
-    if (textarea) textarea.value = content || '';
+    setEditorContent(content || '');
     setModalMode('edit');
     modal && modal.show();
   };
@@ -107,8 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const submitForm = async (event) => {
     event.preventDefault();
-    if (!textarea) return;
-    const content = textarea.value || '';
+    if (!textarea && !easyMDE) return;
+    const content = getEditorContent();
     const textId = textIdInput ? textIdInput.value : '';
     const payload = textId ? { content } : { topic_uuid: topicUuid, content };
     const method = textId ? 'PUT' : 'POST';
