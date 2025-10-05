@@ -1,16 +1,19 @@
 {% load i18n %}
 {% if timeline %}
-<div class="card mt-3" data-topic-timeline-card>
+<div class="mt-3{% if edit_mode %} card{% endif %}" data-topic-timeline-card>
 
-  <div class="card-body">
+  {% if edit_mode %}
+  <div class="card-header d-flex align-items-center">
+      <h6 class="fs-5 mb-0">
+          {% trans "Timeline" %}
+      </h6>
+      <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
+  </div>
+  {% endif %}
 
-    <div class="card-title d-flex justify-content-between">
-        <h6 class="fs-5">
-            {% trans "Timeline" %}
-        </h6>
-    </div>
+  <div{% if edit_mode %} class="card-body"{% endif %}>
 
-    <div class="position-relative mt-4">
+    <div class="position-relative{% if edit_mode %} mt-4{% endif %}">
 
     {% for timeline_topic in timeline %}
 

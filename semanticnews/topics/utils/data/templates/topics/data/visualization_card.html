@@ -1,9 +1,12 @@
 {% load i18n json_extras %}
-<div class="card my-3" id="topicDataVisualizationsContainer"{% if not data_visualizations %} style="display: none;"{% endif %}>
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
+<div class="my-3{% if edit_mode %} card{% endif %}" id="topicDataVisualizationsContainer"{% if not data_visualizations %} style="display: none;"{% endif %}>
+    {% if edit_mode %}
+        <div class="card-header d-flex align-items-center">
             <h6 class="fs-5 mb-0">{% trans "Visualizations" %}</h6>
+            <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
         </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
         <div
             id="topicDataVisualizationCards"
             data-edit-mode="{% if edit_mode %}true{% else %}false{% endif %}"

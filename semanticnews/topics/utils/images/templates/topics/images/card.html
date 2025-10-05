@@ -35,9 +35,15 @@
     }
 </style>
 
-<div class="card my-3" id="topicImageContainer"{% if not topic.image %} style="display:none"{% endif %}
+<div class="my-3{% if edit_mode %} card{% endif %}" id="topicImageContainer"{% if not topic.image %} style="display:none"{% endif %}
      data-topic-image-card>
-    <div class="card-body">
+    {% if edit_mode %}
+    <div class="card-header d-flex align-items-center">
+        <h6 class="fs-5 mb-0">{% trans "Images" %}</h6>
+        <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
+    </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
         <div class="img-card-wrap">
             <img
                     id="topicImageLatest"
