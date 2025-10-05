@@ -209,6 +209,9 @@
       if (moduleEl.querySelector('.topic-module-controls')) {
         return;
       }
+      if (moduleEl.dataset.hasContent !== 'true') {
+        return;
+      }
 
       const controls = document.createElement('div');
       controls.className = 'topic-module-controls';

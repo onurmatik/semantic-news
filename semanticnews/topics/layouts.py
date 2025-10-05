@@ -10,6 +10,17 @@ from .models import TopicModuleLayout
 LayoutMode = Literal["detail", "edit"]
 
 
+def _topic_has_hero_image(context):
+    """Return whether the topic currently has a hero image."""
+
+    topic = context.get("topic")
+    if not topic:
+        return False
+
+    image = getattr(topic, "image", None)
+    return bool(image)
+
+
 MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
     "images": {
         "templates": {
@@ -23,6 +34,7 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
             },
         },
         "context_keys": ["topic"],
+        "has_content": _topic_has_hero_image,
     },
     "recaps": {
         "templates": {
@@ -272,6 +284,38 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         modules.sort(key=lambda module: module["display_order"])
 
     return placements
+
+
+def _value_has_content(value):
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    try:
+        return bool(value)
+    except TypeError:  # pragma: no cover - defensive
+        return True
+
+
+def _module_has_content(module: Dict[str, object], context: Dict[str, object]) -> bool:
+    registry_entry = MODULE_REGISTRY.get(module.get("module_key"), {})
+    content_check = registry_entry.get("has_content")
+    if callable(content_check):
+        return bool(content_check(context))
+
+    for key in registry_entry.get("context_keys", []):
+        if key == "topic":
+            continue
+        if key in context and _value_has_content(context[key]):
+            return True
+    return False
+
+
+def annotate_module_content(modules: List[Dict[str, object]], context: Dict[str, object]) -> None:
+    """Annotate ``modules`` with a ``has_content`` flag based on ``context``."""
+
+    for module in modules:
+        module["has_content"] = _module_has_content(module, context)
 
 
 def serialize_layout(layout: Sequence[Dict[str, object]]) -> List[Dict[str, object]]:

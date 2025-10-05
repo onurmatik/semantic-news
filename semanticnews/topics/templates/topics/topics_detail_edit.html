@@ -132,6 +132,7 @@
                 data-placement="{{ module.placement }}"
                 data-size-variant="{{ module.size_variant }}"
                 data-display-order="{{ module.display_order }}"
+                data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}
             </section>
@@ -155,6 +156,7 @@
                 data-placement="{{ module.placement }}"
                 data-size-variant="{{ module.size_variant }}"
                 data-display-order="{{ module.display_order }}"
+                data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}
             </section>

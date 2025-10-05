@@ -11,7 +11,7 @@ from semanticnews.agenda.localities import (
 )
 
 from .models import Topic, TopicModuleLayout
-from .layouts import get_layout_for_mode
+from .layouts import annotate_module_content, get_layout_for_mode
 from .utils.timeline.models import TopicEvent
 from .utils.mcps.models import MCPServer
 
@@ -117,6 +117,8 @@ def topics_detail(request, slug, username):
         relations_json_pretty = ""
 
     layout = get_layout_for_mode(topic, mode="detail")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
     context = {
         "topic": topic,
@@ -137,6 +139,11 @@ def topics_detail(request, slug, username):
         "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
         "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
     }
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
 
     return render(request, "topics/topics_detail.html", context)
 
@@ -210,6 +217,8 @@ def topics_detail_edit(request, topic_uuid, username):
         suggested_events = Event.objects.none()
 
     layout = get_layout_for_mode(topic, mode="edit")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
     context = {
         "topic": topic,
@@ -232,10 +241,13 @@ def topics_detail_edit(request, topic_uuid, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
-        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
-        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
         "layout_update_url": f"/api/topics/{topic.uuid}/layout",
     }
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
