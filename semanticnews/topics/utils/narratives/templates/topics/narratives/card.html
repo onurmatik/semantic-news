@@ -1,19 +1,19 @@
 {% load i18n markdown_extras %}
-<div class="card my-3" id="topicNarrativeContainer"{% if not latest_narrative %} style="display: none;"{% endif %}>
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
+<div class="my-3{% if edit_mode %} card{% endif %}" id="topicNarrativeContainer"{% if not latest_narrative %} style="display: none;"{% endif %}>
+    {% if edit_mode %}
+        <div class="card-header d-flex align-items-center">
             <h6 class="fs-5 mb-0">{% trans "Narrative" %}</h6>
 
-            {% if edit_mode %}
-                <div class="d-flex align-items-center gap-2" id="narrativePager" style="display:none;">
-                    <span class="small text-secondary me-2" id="narrativeCreatedAt"></span>
-                    <button class="btn btn-sm btn-outline-secondary" id="narrativePrev" aria-label="{% trans 'Previous narrative' %}">&lt;</button>
-                    <span class="small text-secondary" id="narrativePagerLabel">0/0</span>
-                    <button class="btn btn-sm btn-outline-secondary" id="narrativeNext" aria-label="{% trans 'Next narrative' %}">&gt;</button>
-                    <button class="btn btn-sm btn-outline-danger" id="narrativeDeleteBtn" aria-label="{% trans 'Delete narrative' %}"><i class="bi bi-trash"></i></button>
-                </div>
-            {% endif %}
+            <div class="d-flex align-items-center gap-2 ms-auto" id="narrativePager" style="display:none;">
+                <span class="small text-secondary me-2" id="narrativeCreatedAt"></span>
+                <button class="btn btn-sm btn-outline-secondary" id="narrativePrev" aria-label="{% trans 'Previous narrative' %}">&lt;</button>
+                <span class="small text-secondary" id="narrativePagerLabel">0/0</span>
+                <button class="btn btn-sm btn-outline-secondary" id="narrativeNext" aria-label="{% trans 'Next narrative' %}">&gt;</button>
+                <button class="btn btn-sm btn-outline-danger" id="narrativeDeleteBtn" aria-label="{% trans 'Delete narrative' %}"><i class="bi bi-trash"></i></button>
+            </div>
         </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
         <div id="topicNarrativeText">{% if latest_narrative %}{{ latest_narrative.narrative|markdownify }}{% endif %}</div>
     </div>
 </div>
