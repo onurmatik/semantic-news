@@ -136,6 +136,8 @@ def topics_detail(request, slug, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
+        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
     }
 
     annotate_module_content(primary_modules, context)
