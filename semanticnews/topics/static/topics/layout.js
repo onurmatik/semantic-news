@@ -47,11 +47,19 @@
       .topic-module-controls {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.5rem;
       }
       .topic-module-controls .form-select {
         width: auto;
+      }
+      .topic-module-controls .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.25rem;
+        line-height: 1;
       }
       .topic-module-handle {
         cursor: grab;
@@ -205,6 +213,26 @@
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
     }
 
+    function moveModule(moduleEl, direction) {
+      const column = moduleEl.closest('[data-layout-column]');
+      if (!column) {
+        return;
+      }
+      const modules = Array.from(column.querySelectorAll('[data-module]'));
+      const index = modules.indexOf(moduleEl);
+      if (index === -1) {
+        return;
+      }
+      if (direction === 'up' && index > 0) {
+        column.insertBefore(moduleEl, modules[index - 1]);
+        scheduleSave();
+      } else if (direction === 'down' && index < modules.length - 1) {
+        const next = modules[index + 1].nextSibling;
+        column.insertBefore(moduleEl, next);
+        scheduleSave();
+      }
+    }
+
     function addControls(moduleEl) {
       if (moduleEl.querySelector('.topic-module-controls')) {
         return;
@@ -220,6 +248,28 @@
       handle.className = 'topic-module-handle bi bi-grip-vertical';
       handle.title = 'Drag to reorder';
       controls.appendChild(handle);
+
+      const moveUpButton = document.createElement('button');
+      moveUpButton.type = 'button';
+      moveUpButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-up';
+      moveUpButton.innerHTML = '<span class="bi bi-arrow-up"></span>';
+      moveUpButton.title = 'Move up';
+      moveUpButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        moveModule(moduleEl, 'up');
+      });
+      controls.appendChild(moveUpButton);
+
+      const moveDownButton = document.createElement('button');
+      moveDownButton.type = 'button';
+      moveDownButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-down';
+      moveDownButton.innerHTML = '<span class="bi bi-arrow-down"></span>';
+      moveDownButton.title = 'Move down';
+      moveDownButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        moveModule(moduleEl, 'down');
+      });
+      controls.appendChild(moveDownButton);
 
       const placementSelect = document.createElement('select');
       placementSelect.className = 'form-select form-select-sm topic-module-placement';
