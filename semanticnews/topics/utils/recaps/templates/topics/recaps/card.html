@@ -5,19 +5,22 @@
         <div class="card-header d-flex align-items-center">
             <h6 class="fs-5 mb-0">{% trans "Recap" %}</h6>
 
-            <div class="d-flex align-items-center gap-2 ms-auto" id="recapPager" style="display:none;">
-                <span class="small text-secondary me-2" id="recapCreatedAt"></span>
-                <button class="btn btn-sm btn-outline-secondary d-none" id="recapPrev" data-show-when-multiple
-                        aria-label="{% trans 'Previous recap' %}">&lt;
-                </button>
-                <span class="small text-secondary d-none" id="recapPagerLabel" data-show-when-multiple>0/0</span>
-                <button class="btn btn-sm btn-outline-secondary d-none" id="recapNext" data-show-when-multiple
-                        aria-label="{% trans 'Next recap' %}">&gt;
-                </button>
-                <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
-                        aria-label="{% trans 'Delete recap' %}">
-                    <i class="bi bi-trash"></i>
-                </button>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <div class="d-flex align-items-center gap-2" id="recapPager" style="display:none;">
+                    <span class="small text-secondary me-2" id="recapCreatedAt"></span>
+                    <button class="btn btn-sm btn-outline-secondary d-none" id="recapPrev" data-show-when-multiple
+                            aria-label="{% trans 'Previous recap' %}">&lt;
+                    </button>
+                    <span class="small text-secondary d-none" id="recapPagerLabel" data-show-when-multiple>0/0</span>
+                    <button class="btn btn-sm btn-outline-secondary d-none" id="recapNext" data-show-when-multiple
+                            aria-label="{% trans 'Next recap' %}">&gt;
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
+                            aria-label="{% trans 'Delete recap' %}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="d-flex align-items-center gap-2" data-topic-module-header-actions></div>
             </div>
         </div>
     {% endif %}

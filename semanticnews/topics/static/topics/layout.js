@@ -40,10 +40,8 @@
       }
       .topic-module-controls {
         display: flex;
-        justify-content: flex-end;
         align-items: center;
         gap: 0.5rem;
-        margin-bottom: 0.5rem;
       }
       .topic-module-controls .btn {
         display: inline-flex;
@@ -321,7 +319,25 @@
       });
       controls.appendChild(moveRightButton);
 
-      moduleEl.insertBefore(controls, moduleEl.firstChild);
+      const headerActionsContainer =
+        moduleEl.querySelector('[data-topic-module-header-actions]') ||
+        (() => {
+          const header = moduleEl.querySelector('.card-header');
+          if (!header) {
+            return null;
+          }
+          const container = document.createElement('div');
+          container.className = 'd-flex align-items-center gap-2 ms-auto';
+          container.dataset.topicModuleHeaderActions = 'true';
+          header.appendChild(container);
+          return container;
+        })();
+
+      if (headerActionsContainer) {
+        headerActionsContainer.appendChild(controls);
+      } else {
+        moduleEl.insertBefore(controls, moduleEl.firstChild);
+      }
       updatePlacementButtons(moduleEl);
     }
 
