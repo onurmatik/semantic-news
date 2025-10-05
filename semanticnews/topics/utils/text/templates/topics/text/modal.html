@@ -20,9 +20,37 @@
                         <textarea class="form-control" id="textContent" name="content" rows="8"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
-                    <button type="submit" class="btn btn-primary" id="textSaveBtn">{% trans "Save text" %}</button>
+                <div class="modal-footer flex-wrap gap-2 justify-content-between">
+                    <div class="d-flex flex-wrap gap-2 me-auto">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="textReviseBtn"
+                            data-loading-label="{% trans 'Revising…' %}"
+                        >
+                            {% trans "Revise" %}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="textShortenBtn"
+                            data-loading-label="{% trans 'Shortening…' %}"
+                        >
+                            {% trans "Shorten" %}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="textExpandBtn"
+                            data-loading-label="{% trans 'Expanding…' %}"
+                        >
+                            {% trans "Expand" %}
+                        </button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                        <button type="submit" class="btn btn-primary" id="textSaveBtn">{% trans "Save text" %}</button>
+                    </div>
                 </div>
             </form>
         </div>
