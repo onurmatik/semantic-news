@@ -69,7 +69,7 @@ def topics_detail(request, slug, username):
         Topic.objects.prefetch_related(
             "events",
             "recaps",
-            "narratives",
+            "texts",
             "images",
             "documents",
             "webpages",
@@ -88,9 +88,6 @@ def topics_detail(request, slug, username):
     related_events = topic.events.all()
 
     # Only the “finished/latest” versions are used on the read-only page
-    latest_narrative = (
-        topic.narratives.filter(status="finished").order_by("-created_at").first()
-    )
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
     )
@@ -127,7 +124,6 @@ def topics_detail(request, slug, username):
         "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "latest_narrative": latest_narrative,
         "latest_data": latest_data,
         "datas": datas,
         "data_insights": data_insights,
@@ -154,7 +150,7 @@ def topics_detail_edit(request, topic_uuid, username):
         Topic.objects.prefetch_related(
             "events",
             "recaps",
-            "narratives",
+            "texts",
             "images",
             "documents",
             "webpages",
@@ -174,10 +170,6 @@ def topics_detail_edit(request, topic_uuid, username):
         return HttpResponseForbidden()
 
     related_events = topic.events.all()
-    current_narrative = topic.narratives.order_by("-created_at").first()
-    latest_narrative = (
-        topic.narratives.filter(status="finished").order_by("-created_at").first()
-    )
     current_recap = topic.recaps.order_by("-created_at").first()
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
@@ -230,8 +222,6 @@ def topics_detail_edit(request, topic_uuid, username):
         "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "current_narrative": current_narrative,
-        "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
         "latest_data": latest_data,
         "datas": datas,

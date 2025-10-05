@@ -12,7 +12,7 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 
 from ..utils import get_relevance
 from .utils.recaps.models import TopicRecap
-from .utils.narratives.models import TopicNarrative
+from .utils.text.models import TopicText
 from .utils.images.models import TopicImage
 from .utils.embeds.models import TopicYoutubeVideo
 from .utils.relations.models import TopicEntityRelation
@@ -283,9 +283,9 @@ class Topic(models.Model):
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
             )
-        for narrative in self.narratives.all():
-            TopicNarrative.objects.create(
-                topic=cloned, narrative=narrative.narrative, status="finished"
+        for text in self.texts.all():
+            TopicText.objects.create(
+                topic=cloned, content=text.content, status="finished"
             )
         for relation in self.entity_relations.all():
             TopicEntityRelation.objects.create(

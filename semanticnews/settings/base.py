@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     # User topics and utility apps
     'semanticnews.topics',
     'semanticnews.topics.utils.recaps',
-    'semanticnews.topics.utils.narratives',
+    'semanticnews.topics.utils.text',
     'semanticnews.topics.utils.mcps',
     'semanticnews.topics.utils.images',
     'semanticnews.topics.utils.embeds',
