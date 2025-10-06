@@ -6,6 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from django.db import transaction
+from django.core.exceptions import ValidationError
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
@@ -137,10 +138,12 @@ class TopicStatusUpdateResponse(Schema):
     Attributes:
         topic_uuid (str): UUID of the topic.
         status (str): The topic's updated status.
+        published_at (datetime | None): Timestamp of the most recent publication.
     """
 
     topic_uuid: str
     status: str
+    published_at: Optional[datetime] = None
 
 
 class TopicTitleUpdateRequest(Schema):
@@ -180,6 +183,14 @@ class TopicLayoutUpdateRequest(Schema):
     modules: List[TopicLayoutModule]
 
 
+class TopicMetadataResponse(Schema):
+    """Metadata about a topic for editor UI consumption."""
+
+    topic_uuid: str
+    status: str
+    published_at: Optional[datetime] = None
+
+
 @api.post("/set-status", response=TopicStatusUpdateResponse)
 def set_topic_status(request, payload: TopicStatusUpdateRequest):
     """Update the status of a topic owned by the authenticated user.
@@ -209,17 +220,48 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
         raise HttpError(400, "Invalid status")
 
     if payload.status == "published":
-        if not topic.title:
-            raise HttpError(400, "A title is required to publish a topic.")
+        try:
+            topic.publish()
+        except ValidationError as exc:
+            errors = []
+            for messages in exc.message_dict.values():
+                errors.extend(messages)
+            detail = "; ".join(errors) if errors else "Unable to publish topic."
+            raise HttpError(400, detail)
 
-        has_finished_recap = topic.recaps.filter(status="finished").exists()
-        if not has_finished_recap:
-            raise HttpError(400, "A recap is required to publish a topic.")
+        return TopicStatusUpdateResponse(
+            topic_uuid=str(topic.uuid),
+            status=topic.status,
+            published_at=topic.published_at,
+        )
 
     topic.status = payload.status
     topic.save(update_fields=["status"])
 
-    return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
+    return TopicStatusUpdateResponse(
+        topic_uuid=str(topic.uuid),
+        status=topic.status,
+        published_at=topic.published_at,
+    )
+
+
+@api.get("/{topic_uuid}/metadata", response=TopicMetadataResponse)
+def get_topic_metadata(request, topic_uuid: str):
+    """Return publication metadata for the authenticated owner's topic."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    publication = topic.current_publication
+    published_at = None
+    if publication is not None:
+        published_at = publication.published_at or topic.published_at
+    elif topic.published_at:
+        published_at = topic.published_at
+
+    return TopicMetadataResponse(
+        topic_uuid=str(topic.uuid),
+        status=topic.status,
+        published_at=published_at,
+    )
 
 
 @api.post("/set-title", response=TopicTitleUpdateResponse)

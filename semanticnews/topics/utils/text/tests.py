@@ -33,7 +33,11 @@ class TopicTextAPITests(TestCase):
 
         layout_key = f'text:{text_id}'
         self.assertTrue(
-            TopicModuleLayout.objects.filter(topic=self.topic, module_key=layout_key).exists()
+            TopicModuleLayout.objects.filter(
+                topic=self.topic,
+                module_key=layout_key,
+                version=TopicModuleLayout.DRAFT_VERSION,
+            ).exists()
         )
 
     def test_delete_text_removes_layout_entry(self):
@@ -43,13 +47,18 @@ class TopicTextAPITests(TestCase):
             module_key=f'text:{text.id}',
             placement=TopicModuleLayout.PLACEMENT_PRIMARY,
             display_order=1,
+            version=TopicModuleLayout.DRAFT_VERSION,
         )
 
         response = self.client.delete(f'/api/topics/text/{text.id}')
         self.assertEqual(response.status_code, 204)
         self.assertFalse(TopicText.objects.filter(id=text.id).exists())
         self.assertFalse(
-            TopicModuleLayout.objects.filter(topic=self.topic, module_key=f'text:{text.id}').exists()
+            TopicModuleLayout.objects.filter(
+                topic=self.topic,
+                module_key=f'text:{text.id}',
+                version=TopicModuleLayout.DRAFT_VERSION,
+            ).exists()
         )
 
     @patch('semanticnews.topics.utils.text.api.OpenAI')

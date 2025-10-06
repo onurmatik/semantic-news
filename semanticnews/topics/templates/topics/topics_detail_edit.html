@@ -11,6 +11,8 @@
 
 {% block content %}
 
+{% blocktrans with status='__STATUS__' asvar topic_status_template %}This topic is {{ status }}.{% endblocktrans %}
+
 <div class="d-flex justify-content-between pb-2 align-items-start">
 
     <div
@@ -49,7 +51,7 @@
 
         </h1>
 
-        <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center flex-wrap gap-2">
 
             <p class="text-secondary small">
 
@@ -69,14 +71,27 @@
 
             </p>
 
+            <span
+                class="text-secondary small"
+                id="topicPublishTimestamp"
+                {% if last_published_at_iso %}data-last-published="{{ last_published_at_iso }}"{% endif %}
+                {% if last_published_at %}title="{{ last_published_at|date:'DATETIME_FORMAT' }}"{% endif %}
+            >
+                {% if last_published_at %}
+                    {% blocktrans with published_ago=last_published_at|naturaltime %}Last published {{ published_ago }}.{% endblocktrans %}
+                {% else %}
+                    {% trans "Not yet published." %}
+                {% endif %}
+            </span>
+
         </div>
 
     </div>
 
-    <div class="d-flex align-items-start">
+    <div class="d-flex align-items-start gap-2">
 
-        {% if topic.status == 'draft' %}
-            <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
+        {% if topic.status != 'archived' %}
+            <button class="btn btn-outline-primary btn-sm" id="publishTopicBtn" data-status="published">
                 {% trans "Publish" %}
             </button>
         {% endif %}
@@ -87,7 +102,7 @@
 
     </div>
 
-    <div id="publishTopicError" class="alert alert-danger small mt-2 d-none" role="alert"></div>
+    <div id="publishTopicFeedback" class="alert small mt-2 d-none" role="alert"></div>
 
 </div>
 
@@ -110,7 +125,9 @@
         </div>
 
         <div class="gap-2">
-            <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
+            <span class="small text-secondary mx-2" data-topic-status-display data-status-template="{{ topic_status_template }}">
+                {% blocktrans with status=topic.status %}This topic is {{ status }}.{% endblocktrans %}
+            </span>
         </div>
 
     </div>
