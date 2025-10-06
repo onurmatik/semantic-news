@@ -21,6 +21,7 @@ class TopicRecapCreateRequest(Schema):
 
     topic_uuid: str
     recap: Optional[str] = None
+    instructions: Optional[str] = None
 
 
 class TopicRecapCreateResponse(Schema):
@@ -69,6 +70,10 @@ def create_recap(request, payload: TopicRecapCreateRequest):
         "Respond in Markdown and highlight key entities by making them **bold**. "
         "Give paragraph breaks where appropriate. Do not use any other formatting such as lists, titles, etc. "
     )
+    instructions = (payload.instructions or "").strip()
+    if instructions:
+        prompt += "\n\nFollow these additional instructions while drafting the recap:\n"
+        prompt += instructions
     prompt = append_default_language_instruction(prompt)
     prompt += f"\n\n{content_md}"
 

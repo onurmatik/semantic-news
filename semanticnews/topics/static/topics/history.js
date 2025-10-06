@@ -47,6 +47,14 @@ window.setupTopicHistory = function (options) {
 
   const container = document.querySelector('[data-topic-uuid]');
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
+  const buildSuggestionPayload = typeof options.buildSuggestionPayload === 'function'
+    ? () => options.buildSuggestionPayload({
+      topicUuid,
+      getValue,
+      textarea,
+      easyMDE,
+    })
+    : () => ({ topic_uuid: topicUuid });
 
   const norm = (s) => (s || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   let baseline = textarea ? norm(getValue()) : '';
@@ -214,10 +222,14 @@ window.setupTopicHistory = function (options) {
       suggestionBtn.disabled = true;
 
       try {
+        const payload = buildSuggestionPayload() || {};
+        if (!payload.topic_uuid) {
+          payload.topic_uuid = topicUuid;
+        }
         const res = await fetch(createUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic_uuid: topicUuid })
+          body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('Request failed');
         await res.json();
