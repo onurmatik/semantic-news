@@ -24,6 +24,16 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteUrl: (id) => `/api/topics/recap/${id}`,
     renderItem: (item, el) => { if (el) el.innerHTML = renderMarkdownLite(item.recap || ''); },
     parseInput: (text) => ({ recap: text }),
+    buildSuggestionPayload: ({ topicUuid, getValue }) => {
+      const payload = { topic_uuid: topicUuid };
+      if (typeof getValue === 'function') {
+        const instructions = (getValue() || '').trim();
+        if (instructions) {
+          payload.instructions = instructions;
+        }
+      }
+      return payload;
+    },
     controller,
     useMarkdown: true,
   });
