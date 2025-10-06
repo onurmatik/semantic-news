@@ -1,8 +1,10 @@
-{% if topic.image %}
-    <img
-        src="{{ topic.image.url }}"
-        class="img-fluid rounded mt-3 mb-3"
-        alt="{{ topic.title }}"
-        data-topic-hero-image
-    >
-{% endif %}
+{% with hero_topic=topic_publication|default:topic %}
+    {% if hero_topic and hero_topic.image %}
+        <img
+            src="{{ hero_topic.image.url }}"
+            class="img-fluid rounded mt-3 mb-3"
+            alt="{{ hero_topic.title }}"
+            data-topic-hero-image
+        >
+    {% endif %}
+{% endwith %}

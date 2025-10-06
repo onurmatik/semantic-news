@@ -13,7 +13,7 @@ LayoutMode = Literal["detail", "edit"]
 def _topic_has_hero_image(context):
     """Return whether the topic currently has a hero image."""
 
-    topic = context.get("topic")
+    topic = context.get("topic_publication") or context.get("topic")
     if not topic:
         return False
 
@@ -237,7 +237,17 @@ def _normalize_layout(records: Iterable[TopicModuleLayout]) -> List[Dict[str, ob
 def get_topic_layout(topic) -> List[Dict[str, object]]:
     """Return the stored layout configuration for ``topic`` or defaults."""
 
-    return _normalize_layout(topic.module_layouts.all())
+    layout_manager = getattr(topic, "module_layouts", None)
+    if layout_manager is None:
+        return deepcopy(DEFAULT_LAYOUT)
+
+    queryset = layout_manager.all()
+    model = getattr(layout_manager, "model", None)
+    if model and hasattr(model, "DRAFT_VERSION") and hasattr(model, "_meta"):
+        if any(field.name == "version" for field in model._meta.fields):
+            queryset = queryset.filter(version=model.DRAFT_VERSION)
+
+    return _normalize_layout(queryset)
 
 
 def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, object]]]:
