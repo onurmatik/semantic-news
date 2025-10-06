@@ -385,13 +385,19 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
 
 def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVisualization) -> None:
     module_key = f"data_visualizations:{visualization.id}"
-    exists = TopicModuleLayout.objects.filter(topic=topic, module_key=module_key).exists()
+    exists = TopicModuleLayout.objects.filter(
+        topic=topic,
+        module_key=module_key,
+        version=TopicModuleLayout.DRAFT_VERSION,
+    ).exists()
     if exists:
         return
 
     existing_layouts = list(
         TopicModuleLayout.objects.filter(
-            topic=topic, module_key__startswith="data_visualizations:"
+            topic=topic,
+            module_key__startswith="data_visualizations:",
+            version=TopicModuleLayout.DRAFT_VERSION,
         )
     )
     if existing_layouts:
@@ -403,7 +409,11 @@ def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVis
         display_order = max_order + 1
     else:
         aggregate_layout = (
-            TopicModuleLayout.objects.filter(topic=topic, module_key="data_visualizations")
+            TopicModuleLayout.objects.filter(
+                topic=topic,
+                module_key="data_visualizations",
+                version=TopicModuleLayout.DRAFT_VERSION,
+            )
             .order_by("display_order", "id")
             .first()
         )
@@ -413,7 +423,11 @@ def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVis
         else:
             placement = TopicModuleLayout.PLACEMENT_PRIMARY
             max_order = (
-                TopicModuleLayout.objects.filter(topic=topic, placement=placement)
+                TopicModuleLayout.objects.filter(
+                    topic=topic,
+                    placement=placement,
+                    version=TopicModuleLayout.DRAFT_VERSION,
+                )
                 .aggregate(Max("display_order"))
                 .get("display_order__max")
             )
@@ -424,6 +438,7 @@ def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVis
         module_key=module_key,
         placement=placement,
         display_order=display_order,
+        version=TopicModuleLayout.DRAFT_VERSION,
     )
 
 
@@ -519,7 +534,9 @@ def delete_visualization(request, visualization_id: int):
     module_key = f"data_visualizations:{visualization.id}"
     with transaction.atomic():
         TopicModuleLayout.objects.filter(
-            topic=visualization.topic, module_key=module_key
+            topic=visualization.topic,
+            module_key=module_key,
+            version=TopicModuleLayout.DRAFT_VERSION,
         ).delete()
         visualization.delete()
 

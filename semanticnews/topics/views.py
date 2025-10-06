@@ -12,7 +12,7 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic, TopicModuleLayout
+from .models import Topic, TopicModuleLayout, TopicPublication
 from .layouts import annotate_module_content, get_layout_for_mode
 from .utils.timeline.models import TopicEvent
 from .utils.data.models import TopicDataVisualization
@@ -74,7 +74,8 @@ def topics_list(request):
 
 def topics_detail(request, slug, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related(
+        Topic.objects.select_related("created_by", "current_publication")
+        .prefetch_related(
             "events",
             "recaps",
             "texts",
@@ -93,26 +94,63 @@ def topics_detail(request, slug, username):
         created_by__username=username,
     )
 
-    related_events = topic.events.all()
+    publication = None
+    if topic.current_publication_id:
+        publication = (
+            TopicPublication.objects.filter(pk=topic.current_publication_id)
+            .prefetch_related(
+                "recaps",
+                "texts",
+                "images",
+                "documents",
+                "webpages",
+                "youtube_videos",
+                "tweets",
+                "entity_relations",
+                "datas",
+                "data_insights__sources",
+                "data_visualizations__insight",
+                "module_layouts",
+                "events__event",
+            )
+            .first()
+        )
 
-    # Only the “finished/latest” versions are used on the read-only page
-    latest_recap = (
-        topic.recaps.filter(status="finished").order_by("-created_at").first()
-    )
-    latest_relation = (
-        topic.entity_relations.filter(status="finished").order_by("-created_at").first()
-    )
-
-    documents = list(topic.documents.all())
-    webpages = list(topic.webpages.all())
-
-    latest_data = topic.datas.order_by("-created_at").first()
-    datas = topic.datas.order_by("-created_at")  # used by data card
-    data_insights = topic.data_insights.order_by("-created_at")
-    data_visualizations = topic.data_visualizations.order_by("-created_at")
-
-    youtube_video = topic.youtube_videos.order_by("-created_at").first()
-    tweets = topic.tweets.order_by("-created_at")
+    if publication:
+        related_events = [
+            publication_event.event
+            for publication_event in publication.events.select_related("event")
+        ]
+        latest_recap = publication.recaps.order_by("-created_at").first()
+        latest_relation = (
+            publication.entity_relations.order_by("-created_at").first()
+        )
+        documents = list(publication.documents.all())
+        webpages = list(publication.webpages.all())
+        datas = publication.datas.order_by("-created_at")
+        latest_data = datas.first()
+        data_insights = publication.data_insights.order_by("-created_at")
+        data_visualizations = publication.data_visualizations.order_by("-created_at")
+        youtube_video = publication.youtube_videos.order_by("-created_at").first()
+        tweets = publication.tweets.order_by("-created_at")
+    else:
+        related_events = topic.events.all()
+        latest_recap = (
+            topic.recaps.filter(status="finished").order_by("-created_at").first()
+        )
+        latest_relation = (
+            topic.entity_relations.filter(status="finished")
+            .order_by("-created_at")
+            .first()
+        )
+        documents = list(topic.documents.all())
+        webpages = list(topic.webpages.all())
+        datas = topic.datas.order_by("-created_at")
+        latest_data = datas.first()
+        data_insights = topic.data_insights.order_by("-created_at")
+        data_visualizations = topic.data_visualizations.order_by("-created_at")
+        youtube_video = topic.youtube_videos.order_by("-created_at").first()
+        tweets = topic.tweets.order_by("-created_at")
 
     if latest_relation:
         relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
@@ -121,12 +159,14 @@ def topics_detail(request, slug, username):
         relations_json = ""
         relations_json_pretty = ""
 
-    layout = get_layout_for_mode(topic, mode="detail")
+    layout_owner = publication or topic
+    layout = get_layout_for_mode(layout_owner, mode="detail")
     primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
     sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
     context = {
         "topic": topic,
+        "topic_publication": publication,
         "related_events": related_events,
         "latest_recap": latest_recap,
         "latest_relation": latest_relation,
@@ -140,8 +180,8 @@ def topics_detail(request, slug, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
-        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
-        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
+        "primary_modules": primary_modules,
+        "sidebar_modules": sidebar_modules,
     }
 
     annotate_module_content(primary_modules, context)
@@ -155,7 +195,7 @@ def topics_detail(request, slug, username):
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related(
+        Topic.objects.select_related("created_by", "current_publication").prefetch_related(
             "events",
             "recaps",
             "texts",
@@ -220,8 +260,15 @@ def topics_detail_edit(request, topic_uuid, username):
     primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
     sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
+    publication = topic.current_publication
+    if publication:
+        last_published_at = publication.published_at or topic.published_at
+    else:
+        last_published_at = topic.published_at
+
     context = {
         "topic": topic,
+        "topic_publication": publication,
         "related_events": related_events,
         "suggested_events": suggested_events,
         "current_recap": current_recap,
@@ -240,6 +287,8 @@ def topics_detail_edit(request, topic_uuid, username):
         "documents": documents,
         "webpages": webpages,
         "layout_update_url": f"/api/topics/{topic.uuid}/layout",
+        "last_published_at": last_published_at,
+        "last_published_at_iso": last_published_at.isoformat() if last_published_at else "",
     }
 
     annotate_module_content(primary_modules, context)

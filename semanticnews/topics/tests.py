@@ -17,13 +17,14 @@ from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
-from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout
+from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout, TopicPublication
 from .utils.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
 from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from .utils.documents.models import TopicDocument
 
 
 class CreateTopicAPITests(TestCase):
@@ -377,8 +378,37 @@ class SetTopicStatusAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("published_at", data)
+        self.assertIsNotNone(data["published_at"])
         topic.refresh_from_db()
         self.assertEqual(topic.status, "published")
+        self.assertIsNotNone(topic.current_publication)
+        self.assertIsNotNone(topic.published_at)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_metadata_endpoint_returns_published_timestamp(self, mock_topic_embedding):
+        """Metadata endpoint exposes the latest publication timestamp."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+        TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
+
+        self.client.post(
+            "/api/topics/set-status",
+            {"topic_uuid": str(topic.uuid), "status": "published"},
+            content_type="application/json",
+        )
+
+        response = self.client.get(f"/api/topics/{topic.uuid}/metadata")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["topic_uuid"], str(topic.uuid))
+        self.assertEqual(data["status"], "published")
+        self.assertIsNotNone(data["published_at"])
 
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_cannot_publish_topic_without_title(self, mock_topic_embedding):
@@ -466,6 +496,67 @@ class SetTopicStatusAPITests(TestCase):
         topic.refresh_from_db()
         self.assertEqual(topic.status, "draft")
 
+
+class TopicPublicationSnapshotTests(TestCase):
+    """Integration tests for the topic publishing workflow."""
+
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user("user", "user@example.com", "password")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_publish_creates_snapshot(self, mock_embedding):
+        topic = Topic.objects.create(title="Snapshot", created_by=self.user)
+        TopicRecap.objects.create(topic=topic, recap="Initial Recap", status="finished")
+        TopicDocument.objects.create(topic=topic, title="Source Doc", url="https://example.com/doc.pdf")
+        dataset = TopicData.objects.create(
+            topic=topic,
+            name="Dataset",
+            data={"headers": ["A"], "rows": [[1]]},
+            sources=["https://data.example.com"],
+        )
+        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight text")
+        insight.sources.add(dataset)
+
+        topic.publish()
+
+        topic.refresh_from_db()
+        publication = topic.current_publication
+        self.assertIsNotNone(publication)
+        self.assertEqual(publication.title, topic.title)
+        self.assertEqual(publication.recaps.count(), 1)
+        self.assertEqual(publication.recaps.first().recap, "Initial Recap")
+        self.assertEqual(publication.documents.count(), 1)
+        self.assertEqual(publication.documents.first().title, "Source Doc")
+        self.assertEqual(publication.datas.count(), 1)
+        self.assertEqual(publication.data_insights.count(), 1)
+        self.assertEqual(publication.data_insights.first().sources.count(), 1)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_detail_view_uses_published_snapshot(self, mock_embedding):
+        topic = Topic.objects.create(title="Snapshot", created_by=self.user)
+        TopicRecap.objects.create(topic=topic, recap="First version", status="finished")
+
+        topic.publish()
+
+        detail_url = reverse(
+            "topics_detail",
+            kwargs={"slug": topic.slug, "username": topic.created_by.username},
+        )
+
+        response = self.client.get(detail_url)
+        self.assertContains(response, "First version")
+
+        TopicRecap.objects.create(topic=topic, recap="Second version", status="finished")
+
+        response = self.client.get(detail_url)
+        self.assertContains(response, "First version")
+        self.assertNotContains(response, "Second version")
+
+        topic.publish()
+
+        response = self.client.get(detail_url)
+        self.assertContains(response, "Second version")
 
 class CreateRecapAPITests(TestCase):
     """Tests for the recap creation API endpoint."""

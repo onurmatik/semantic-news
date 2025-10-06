@@ -184,6 +184,7 @@ class TopicDataVisualizationDeleteTests(TestCase):
             module_key=f"data_visualizations:{self.visualization.id}",
             placement=TopicModuleLayout.PLACEMENT_PRIMARY,
             display_order=1,
+            version=TopicModuleLayout.DRAFT_VERSION,
         )
 
     def test_owner_can_delete_visualization(self):
@@ -200,6 +201,7 @@ class TopicDataVisualizationDeleteTests(TestCase):
             TopicModuleLayout.objects.filter(
                 topic=self.topic,
                 module_key=f"data_visualizations:{self.visualization.id}",
+                version=TopicModuleLayout.DRAFT_VERSION,
             ).exists()
         )
 
