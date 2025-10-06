@@ -256,6 +256,20 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         text_values = []
     text_map = {str(text.id): text for text in text_values}
 
+    visualization_manager = getattr(topic, "data_visualizations", None)
+    if visualization_manager is not None:
+        visualization_values = list(visualization_manager.order_by("-created_at"))
+    else:
+        visualization_values = []
+    visualization_map = {str(viz.id): viz for viz in visualization_values}
+
+    explicit_visualization_ids = {
+        identifier
+        for layout_entry in base_layout
+        for base_key, identifier in [_split_module_key(layout_entry["module_key"])]
+        if base_key == "data_visualizations" and identifier
+    }
+
     for entry in base_layout:
         module_key = entry["module_key"]
         base_key, identifier = _split_module_key(module_key)
@@ -267,6 +281,29 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         if not template_config:
             continue
 
+        if base_key == "data_visualizations" and not identifier:
+            placement = entry["placement"]
+            base_display_order = entry["display_order"]
+            base_context_overrides = template_config.get("context", {})
+            for offset, viz in enumerate(visualization_values):
+                viz_identifier = str(viz.id)
+                if viz_identifier in explicit_visualization_ids:
+                    continue
+                explicit_visualization_ids.add(viz_identifier)
+                descriptor = {
+                    "module_key": f"{base_key}:{viz_identifier}",
+                    "base_module_key": base_key,
+                    "module_identifier": viz_identifier,
+                    "placement": placement,
+                    "display_order": base_display_order + offset,
+                    "template_name": template_config.get("template"),
+                    "context_overrides": dict(base_context_overrides),
+                    "context_keys": registry_entry.get("context_keys", []),
+                    "visualization": viz,
+                }
+                placements.setdefault(placement, []).append(descriptor)
+            continue
+
         descriptor = {
             "module_key": module_key,
             "base_module_key": base_key,
@@ -274,12 +311,19 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
             "placement": entry["placement"],
             "display_order": entry["display_order"],
             "template_name": template_config.get("template"),
-            "context_overrides": template_config.get("context", {}),
+            "context_overrides": dict(template_config.get("context", {})),
             "context_keys": registry_entry.get("context_keys", []),
         }
 
         if base_key == "text" and identifier:
             descriptor["text"] = text_map.get(identifier)
+
+        if base_key == "data_visualizations" and identifier:
+            viz = visualization_map.get(identifier)
+            if not viz:
+                continue
+            descriptor["visualization"] = viz
+            explicit_visualization_ids.add(identifier)
 
         placements.setdefault(entry["placement"], []).append(descriptor)
 
@@ -307,6 +351,16 @@ def _module_has_content(module: Dict[str, object], context: Dict[str, object]) -
         if not text_obj:
             return False
         return bool((text_obj.content or "").strip())
+
+    if base_key == "data_visualizations":
+        visualization = module.get("visualization")
+        if not visualization:
+            return False
+        insight = getattr(visualization, "insight", None)
+        if insight and getattr(insight, "insight", "").strip():
+            return True
+        chart_data = getattr(visualization, "chart_data", None)
+        return bool(chart_data)
 
     registry_entry = MODULE_REGISTRY.get(base_key, {})
     content_check = registry_entry.get("has_content")
