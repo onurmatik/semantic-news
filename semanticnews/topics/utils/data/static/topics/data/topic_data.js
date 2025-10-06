@@ -150,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   };
-  };
 
   const updateSaveButtonState = () => {
     if (!saveButton) return;
