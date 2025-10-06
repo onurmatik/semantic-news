@@ -71,50 +71,50 @@
 
 {% endblock %}
 
-
 {% block extra_js %}
+    {{ block.super }}
+    {% include "topics/data/scripts.html" %}
+    {% include "bookmarks_js.html" %}
 
-{% include "bookmarks_js.html" %}
+    <script>
+        document.addEventListener('click', async e => {
+            const btn = e.target.closest('.delete-topic-btn');
+            if (!btn) return;
 
-<script>
-    document.addEventListener('click', async e => {
-        const btn = e.target.closest('.delete-topic-btn');
-        if (!btn) return;
+            e.preventDefault();
+            disposeTooltip(btn);
 
-        e.preventDefault();
-        disposeTooltip(btn);
+            if (!confirm("{% trans "Are you sure you want to delete this draft?" %}")) return;
 
-        if (!confirm("{% trans "Are you sure you want to delete this draft?" %}")) return;
+            const url = btn.dataset.url;
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
 
-        const url = btn.dataset.url;
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
+            const data = await resp.json();
+            if (resp.ok) {
+                appendToast('{% trans "Success!" %}', data.message, 'success');
 
-        const data = await resp.json();
-        if (resp.ok) {
-            appendToast('{% trans "Success!" %}', data.message, 'success');
+                // Remove the topic card from the DOM:
+                const card = document.querySelector(
+                    `[data-topic-uuid="${data.uuid}"]`
+                );
+                if (card) card.remove();
 
-            // Remove the topic card from the DOM:
-            const card = document.querySelector(
-                `[data-topic-uuid="${data.uuid}"]`
-            );
-            if (card) card.remove();
-
-            // Optionally, if the list is now empty, show a "No topics" message:
-            const container = document.querySelector('#user-topics-container');
-            if (container && container.children.length === 0) {
-                container.innerHTML = '<span class="text-secondary">{% trans "No topic created yet." %}</span>';
+                // Optionally, if the list is now empty, show a "No topics" message:
+                const container = document.querySelector('#user-topics-container');
+                if (container && container.children.length === 0) {
+                    container.innerHTML = '<span class="text-secondary">{% trans "No topic created yet." %}</span>';
+                }
+            } else {
+                appendToast('{% trans "Error!" %}', data.error, 'danger');
             }
-        } else {
-            appendToast('{% trans "Error!" %}', data.error, 'danger');
-        }
-        showToasts();
-    });
-</script>
+            showToasts();
+        });
+    </script>
 
 {% endblock %}
