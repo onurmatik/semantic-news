@@ -1,12 +1,14 @@
 from typing import List
 
 from django.conf import settings
+from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import ConfigDict, Field
 
-from ...models import Topic
+from ...models import Topic, TopicModuleLayout
 from .models import TopicData, TopicDataInsight, TopicDataVisualization, TopicDataRequest
 from ....openai import OpenAI
 from .tasks import fetch_topic_data_task, search_topic_data_task
@@ -381,6 +383,50 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     return TopicDataAnalyzeResponse(insights=insights[:3])
 
 
+def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVisualization) -> None:
+    module_key = f"data_visualizations:{visualization.id}"
+    exists = TopicModuleLayout.objects.filter(topic=topic, module_key=module_key).exists()
+    if exists:
+        return
+
+    existing_layouts = list(
+        TopicModuleLayout.objects.filter(
+            topic=topic, module_key__startswith="data_visualizations:"
+        )
+    )
+    if existing_layouts:
+        placement = existing_layouts[0].placement
+        placement_orders = [
+            layout.display_order for layout in existing_layouts if layout.placement == placement
+        ]
+        max_order = max(placement_orders) if placement_orders else 0
+        display_order = max_order + 1
+    else:
+        aggregate_layout = (
+            TopicModuleLayout.objects.filter(topic=topic, module_key="data_visualizations")
+            .order_by("display_order", "id")
+            .first()
+        )
+        if aggregate_layout:
+            placement = aggregate_layout.placement
+            display_order = aggregate_layout.display_order
+        else:
+            placement = TopicModuleLayout.PLACEMENT_PRIMARY
+            max_order = (
+                TopicModuleLayout.objects.filter(topic=topic, placement=placement)
+                .aggregate(Max("display_order"))
+                .get("display_order__max")
+            )
+            display_order = (max_order or 0) + 1
+
+    TopicModuleLayout.objects.create(
+        topic=topic,
+        module_key=module_key,
+        placement=placement,
+        display_order=display_order,
+    )
+
+
 @router.post("/visualize", response=TopicDataVisualizeResponse)
 def visualize_data(request, payload: TopicDataVisualizeRequest):
     user = getattr(request, "user", None)
@@ -439,12 +485,14 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
             text_format=_TopicDataVisualizationResponse,
         )
 
-    visualization = TopicDataVisualization.objects.create(
-        topic=topic,
-        insight=insight_obj,
-        chart_type=payload.chart_type or response.output_parsed.chart_type,
-        chart_data=response.output_parsed.data.dict(),
-    )
+    with transaction.atomic():
+        visualization = TopicDataVisualization.objects.create(
+            topic=topic,
+            insight=insight_obj,
+            chart_type=payload.chart_type or response.output_parsed.chart_type,
+            chart_data=response.output_parsed.data.dict(),
+        )
+        _ensure_visualization_layout_entry(topic, visualization)
 
     return TopicDataVisualizeResponse(
         id=visualization.id,
@@ -468,6 +516,11 @@ def delete_visualization(request, visualization_id: int):
     if visualization.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    visualization.delete()
+    module_key = f"data_visualizations:{visualization.id}"
+    with transaction.atomic():
+        TopicModuleLayout.objects.filter(
+            topic=visualization.topic, module_key=module_key
+        ).delete()
+        visualization.delete()
 
     return TopicDataSaveResponse(success=True)
