@@ -396,6 +396,33 @@ class SetTopicStatusAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json().get("detail"),
+            "A title is required to publish a topic.",
+        )
+        topic.refresh_from_db()
+        self.assertEqual(topic.status, "draft")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_cannot_publish_topic_without_recap(self, mock_topic_embedding):
+        """Publishing requires at least one completed recap."""
+
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status", payload, content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json().get("detail"),
+            "A recap is required to publish a topic.",
+        )
         topic.refresh_from_db()
         self.assertEqual(topic.status, "draft")
 
