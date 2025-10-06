@@ -1,4 +1,4 @@
-{% load i18n markdown_extras %}
+{% load i18n markdown_extras json_extras %}
 
 <div class="position-relative mb-3 pb-3 border-bottom" data-topic-uuid="{{ topic.uuid }}">
 
@@ -49,6 +49,22 @@
 
         {% if topic.thumbnail %}
             <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
+        {% else %}
+            {% with topic.data_visualizations.all|first as first_visualization %}
+                {% if first_visualization %}
+                    <div
+                        class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
+                        data-visualization-preview="{{ first_visualization.id }}"
+                    >
+                        <canvas
+                            id="dataVisualizationChart{{ first_visualization.id }}"
+                            class="data-visualization-chart w-100"
+                            data-chart-type="{{ first_visualization.chart_type }}"
+                            data-chart="{{ first_visualization.chart_data|jsonify }}"
+                        ></canvas>
+                    </div>
+                {% endif %}
+            {% endwith %}
         {% endif %}
 
         {% with topic.recaps.last as latest_recap %}

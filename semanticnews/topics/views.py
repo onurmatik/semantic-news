@@ -4,6 +4,8 @@ from django.http import HttpResponseForbidden, Http404
 from pgvector.django import L2Distance
 import json
 
+from django.db.models import Prefetch
+
 from semanticnews.agenda.models import Event
 from semanticnews.agenda.localities import (
     get_default_locality_label,
@@ -13,6 +15,7 @@ from semanticnews.agenda.localities import (
 from .models import Topic, TopicModuleLayout
 from .layouts import annotate_module_content, get_layout_for_mode
 from .utils.timeline.models import TopicEvent
+from .utils.data.models import TopicDataVisualization
 from .utils.mcps.models import MCPServer
 
 
@@ -48,10 +51,15 @@ def topics_detail_redirect(request, topic_uuid, username):
 def topics_list(request):
     """Display the most recently updated published topics."""
 
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
     topics = (
         Topic.objects.filter(status="published")
         .select_related("created_by")
-        .prefetch_related("recaps", "images")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-updated_at", "-created_at")
     )
 

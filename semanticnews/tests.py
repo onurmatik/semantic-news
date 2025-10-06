@@ -12,6 +12,7 @@ from semanticnews.topics.models import Topic
 from semanticnews.agenda.models import Event
 from semanticnews.topics.utils.images.models import TopicImage
 from semanticnews.topics.utils.recaps.models import TopicRecap
+from semanticnews.topics.utils.data.models import TopicDataVisualization
 
 
 class PromptingInstructionTests(SimpleTestCase):
@@ -110,6 +111,31 @@ class HomeViewTopicListItemTests(TestCase):
 
         self.assertContains(response, "My recap")
         self.assertContains(response, topic.thumbnail.url)
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_home_displays_chart_when_thumbnail_missing(self, mock_embedding):
+        topic = Topic.objects.create(title="Chart Topic", status="published")
+        TopicRecap.objects.create(topic=topic, recap="Chart recap", status="finished")
+        visualization = TopicDataVisualization.objects.create(
+            topic=topic,
+            chart_type="bar",
+            chart_data={
+                "labels": ["A", "B"],
+                "datasets": [
+                    {"label": "Series", "data": [1, 2]},
+                ],
+            },
+        )
+
+        response = self.client.get(reverse("home"))
+
+        self.assertContains(response, f"dataVisualizationChart{visualization.id}")
+        self.assertContains(response, 'data-chart-type="bar"')
+        self.assertNotContains(
+            response,
+            'class="img-fluid rounded mb-2 float-start me-3 w-50"',
+            html=False,
+        )
 
 
 class LocaleRoutingTests(TestCase):
