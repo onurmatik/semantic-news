@@ -1,9 +1,9 @@
 {% load i18n %}
 <div class="modal fade modal-lg" id="textModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="textForm">
-                <div class="modal-header">
+        <div class="modal-content h-100">
+            <form id="textForm" class="d-flex flex-column h-100">
+                <div class="modal-header flex-shrink-0">
                     <h5
                         class="modal-title"
                         data-text-modal-title
@@ -13,13 +13,13 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body flex-grow-1 overflow-auto">
                     <input type="hidden" id="textId" name="text_id" value="">
                     <div class="mb-3">
                         <textarea class="form-control" id="textContent" name="content" rows="8"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer flex-wrap gap-2 justify-content-between">
+                <div class="modal-footer flex-wrap gap-2 justify-content-between flex-shrink-0">
                     <div class="d-flex flex-wrap gap-2 me-auto">
                         <button
                             type="button"
