@@ -5,26 +5,34 @@ from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
+from django.db import transaction
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from .models import Topic
+from .models import Topic, TopicModuleLayout
+from .layouts import (
+    ALLOWED_PLACEMENTS,
+    MODULE_REGISTRY,
+    get_topic_layout,
+    serialize_layout,
+    _split_module_key,
+)
 from .utils.timeline.models import TopicEvent
 from .utils.timeline.api import router as timeline_router
 from .utils.recaps.api import router as recaps_router
-from .utils.narratives.api import router as narratives_router
 from .utils.mcps.api import router as mcps_router
 from .utils.images.api import router as images_router
 from .utils.embeds.api import router as embeds_router
 from .utils.relations.api import router as relations_router
 from .utils.data.api import router as data_router
 from .utils.documents.api import router as documents_router
+from .utils.text.api import router as text_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
-api.add_router("/narrative", narratives_router)
+api.add_router("/text", text_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
 api.add_router("/embed", embeds_router)
@@ -45,7 +53,7 @@ class GenerationStatus(Schema):
 class GenerationStatusResponse(Schema):
     current: datetime
     recap: Optional[GenerationStatus] = None
-    narrative: Optional[GenerationStatus] = None
+    text: Optional[GenerationStatus] = None
     relation: Optional[GenerationStatus] = None
     image: Optional[GenerationStatus] = None
 
@@ -75,7 +83,7 @@ def generation_status(request, topic_uuid: str):
     return GenerationStatusResponse(
         current=timezone.now(),
         recap=latest(topic.recaps),
-        narrative=latest(topic.narratives),
+        text=latest(topic.texts),
         relation=latest(topic.entity_relations),
         image=latest(topic.images),
     )
@@ -152,6 +160,26 @@ class TopicTitleUpdateResponse(Schema):
     edit_url: str
 
 
+class TopicLayoutModule(Schema):
+    """Schema describing a single module layout entry."""
+
+    module_key: str
+    placement: Literal["primary", "sidebar"]
+    display_order: int
+
+
+class TopicLayoutResponse(Schema):
+    """Response wrapper for a topic layout."""
+
+    modules: List[TopicLayoutModule]
+
+
+class TopicLayoutUpdateRequest(Schema):
+    """Payload for updating a topic's module layout."""
+
+    modules: List[TopicLayoutModule]
+
+
 @api.post("/set-status", response=TopicStatusUpdateResponse)
 def set_topic_status(request, payload: TopicStatusUpdateRequest):
     """Update the status of a topic owned by the authenticated user.
@@ -180,8 +208,13 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     if payload.status not in valid_statuses:
         raise HttpError(400, "Invalid status")
 
-    if payload.status == "published" and not topic.title:
-        raise HttpError(400, "A title is required to publish a topic.")
+    if payload.status == "published":
+        if not topic.title:
+            raise HttpError(400, "A title is required to publish a topic.")
+
+        has_finished_recap = topic.recaps.filter(status="finished").exists()
+        if not has_finished_recap:
+            raise HttpError(400, "A recap is required to publish a topic.")
 
     topic.status = payload.status
     topic.save(update_fields=["status"])
@@ -230,6 +263,90 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
         ),
         detail_url=detail_url,
     )
+
+
+def _get_owned_topic(request, topic_uuid: str) -> Topic:
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by != user:
+        raise HttpError(403, "Forbidden")
+
+    return topic
+
+
+def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
+    validated: List[dict] = []
+    seen_keys = set()
+
+    for index, module in enumerate(modules):
+        key = module.module_key
+        base_key, identifier = _split_module_key(key)
+        if base_key not in MODULE_REGISTRY:
+            raise HttpError(400, f"Unknown module key: {key}")
+        if base_key in {"text", "data_visualizations"} and not identifier:
+            raise HttpError(400, f"{base_key.replace('_', ' ').title()} modules must include an identifier")
+        if key in seen_keys:
+            raise HttpError(400, f"Duplicate module key: {key}")
+        seen_keys.add(key)
+
+        if module.placement not in ALLOWED_PLACEMENTS:
+            raise HttpError(400, f"Invalid placement: {module.placement}")
+
+        if module.display_order < 0:
+            raise HttpError(400, "Display order must be non-negative")
+
+        validated.append(
+            {
+                "module_key": key,
+                "placement": module.placement,
+                "display_order": module.display_order if module.display_order is not None else index,
+            }
+        )
+
+    return validated
+
+
+@api.get("/{topic_uuid}/layout", response=TopicLayoutResponse)
+def get_topic_layout_configuration(request, topic_uuid: str):
+    """Return the saved module layout for the authenticated owner."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    layout = get_topic_layout(topic)
+    return TopicLayoutResponse(modules=serialize_layout(layout))
+
+
+@api.put("/{topic_uuid}/layout", response=TopicLayoutResponse)
+def update_topic_layout_configuration(
+    request, topic_uuid: str, payload: TopicLayoutUpdateRequest
+):
+    """Persist a custom module layout for the authenticated owner."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    validated_modules = _validate_layout_modules(payload.modules)
+
+    with transaction.atomic():
+        TopicModuleLayout.objects.filter(topic=topic).delete()
+        TopicModuleLayout.objects.bulk_create(
+            [
+                TopicModuleLayout(
+                    topic=topic,
+                    module_key=module["module_key"],
+                    placement=module["placement"],
+                    display_order=module["display_order"],
+                )
+                for module in validated_modules
+            ]
+        )
+
+    layout = get_topic_layout(topic)
+    return TopicLayoutResponse(modules=serialize_layout(layout))
 
 
 class TopicEventAddRequest(Schema):

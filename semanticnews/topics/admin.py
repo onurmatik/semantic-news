@@ -2,7 +2,7 @@ from asgiref.sync import async_to_sync
 from django.contrib import admin
 from .models import Topic, TopicContent, TopicEntity
 from .utils.recaps import admin as recaps_admin  # noqa: F401
-from .utils.narratives import admin as narratives_admin  # noqa: F401
+from .utils.text import admin as text_admin  # noqa: F401
 from .utils.relations import admin as relations_admin  # noqa: F401
 from .utils.documents import admin as documents_admin  # noqa: F401
 from .utils.timeline import admin as timeline_admin  # noqa: F401

@@ -1,0 +1,49 @@
+{% load i18n markdown_extras %}
+{% with text=module.text %}
+<div
+    class="my-3{% if edit_mode %} card{% endif %}"
+    data-text-card
+    data-text-id="{{ text.id|default:'' }}"
+    data-module-key="{{ module.module_key }}"
+    {% if text %}data-text-raw="{{ text.content|default:''|escape }}"{% endif %}
+>
+    {% if edit_mode %}
+        <div class="card-header d-flex align-items-center">
+            <h6 class="fs-6 mb-0">{% trans "Text" %}</h6>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                {% if text %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        data-action="edit-text"
+                        data-text-id="{{ text.id }}"
+                    >
+                        <i class="bi bi-pencil"></i>
+                        <span class="visually-hidden">{% trans "Edit text" %}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        data-action="delete-text"
+                        data-text-id="{{ text.id }}"
+                    >
+                        <i class="bi bi-trash"></i>
+                        <span class="visually-hidden">{% trans "Delete text" %}</span>
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
+        {% if text and text.content %}
+            <div class="text-body" data-text-content>
+                {{ text.content|markdownify }}
+            </div>
+        {% elif text %}
+            <p class="text-secondary fst-italic mb-0">{% trans "This text block is empty." %}</p>
+        {% else %}
+            <p class="text-secondary fst-italic mb-0">{% trans "This text block could not be found." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endwith %}

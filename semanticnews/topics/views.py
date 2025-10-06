@@ -4,14 +4,18 @@ from django.http import HttpResponseForbidden, Http404
 from pgvector.django import L2Distance
 import json
 
+from django.db.models import Prefetch
+
 from semanticnews.agenda.models import Event
 from semanticnews.agenda.localities import (
     get_default_locality_label,
     get_locality_options,
 )
 
-from .models import Topic
+from .models import Topic, TopicModuleLayout
+from .layouts import annotate_module_content, get_layout_for_mode
 from .utils.timeline.models import TopicEvent
+from .utils.data.models import TopicDataVisualization
 from .utils.mcps.models import MCPServer
 
 
@@ -47,10 +51,15 @@ def topics_detail_redirect(request, topic_uuid, username):
 def topics_list(request):
     """Display the most recently updated published topics."""
 
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
     topics = (
         Topic.objects.filter(status="published")
         .select_related("created_by")
-        .prefetch_related("recaps", "images")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-updated_at", "-created_at")
     )
 
@@ -68,7 +77,7 @@ def topics_detail(request, slug, username):
         Topic.objects.prefetch_related(
             "events",
             "recaps",
-            "narratives",
+            "texts",
             "images",
             "documents",
             "webpages",
@@ -78,6 +87,7 @@ def topics_detail(request, slug, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
+            "module_layouts",
         ),
         slug=slug,
         created_by__username=username,
@@ -86,9 +96,6 @@ def topics_detail(request, slug, username):
     related_events = topic.events.all()
 
     # Only the “finished/latest” versions are used on the read-only page
-    latest_narrative = (
-        topic.narratives.filter(status="finished").order_by("-created_at").first()
-    )
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
     )
@@ -114,6 +121,10 @@ def topics_detail(request, slug, username):
         relations_json = ""
         relations_json_pretty = ""
 
+    layout = get_layout_for_mode(topic, mode="detail")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+
     context = {
         "topic": topic,
         "related_events": related_events,
@@ -121,7 +132,6 @@ def topics_detail(request, slug, username):
         "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "latest_narrative": latest_narrative,
         "latest_data": latest_data,
         "datas": datas,
         "data_insights": data_insights,
@@ -130,7 +140,14 @@ def topics_detail(request, slug, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
+        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
     }
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
 
     return render(request, "topics/topics_detail.html", context)
 
@@ -141,7 +158,7 @@ def topics_detail_edit(request, topic_uuid, username):
         Topic.objects.prefetch_related(
             "events",
             "recaps",
-            "narratives",
+            "texts",
             "images",
             "documents",
             "webpages",
@@ -151,6 +168,7 @@ def topics_detail_edit(request, topic_uuid, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
+            "module_layouts",
         ),
         uuid=topic_uuid,
         created_by__username=username,
@@ -160,10 +178,6 @@ def topics_detail_edit(request, topic_uuid, username):
         return HttpResponseForbidden()
 
     related_events = topic.events.all()
-    current_narrative = topic.narratives.order_by("-created_at").first()
-    latest_narrative = (
-        topic.narratives.filter(status="finished").order_by("-created_at").first()
-    )
     current_recap = topic.recaps.order_by("-created_at").first()
     latest_recap = (
         topic.recaps.filter(status="finished").order_by("-created_at").first()
@@ -202,6 +216,10 @@ def topics_detail_edit(request, topic_uuid, username):
     else:
         suggested_events = Event.objects.none()
 
+    layout = get_layout_for_mode(topic, mode="edit")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+
     context = {
         "topic": topic,
         "related_events": related_events,
@@ -212,8 +230,6 @@ def topics_detail_edit(request, topic_uuid, username):
         "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "current_narrative": current_narrative,
-        "latest_narrative": latest_narrative,
         "mcp_servers": mcp_servers,
         "latest_data": latest_data,
         "datas": datas,
@@ -223,7 +239,13 @@ def topics_detail_edit(request, topic_uuid, username):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "layout_update_url": f"/api/topics/{topic.uuid}/layout",
     }
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid

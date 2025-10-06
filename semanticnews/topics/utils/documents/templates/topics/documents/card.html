@@ -1,12 +1,14 @@
 {% load i18n %}
 
-<div class="card mt-3" id="topicResourcesCard"
-     {% if not documents and not webpages and not edit_mode %}style="display:none;"{% endif %}>
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fs-5 mb-0">{% trans "References" %}</h6>
-        </div>
-
+<div class="mt-3{% if edit_mode %} card{% endif %}" id="topicResourcesCard"
+     {% if not documents and not webpages %}style="display:none;"{% endif %}>
+    {% if edit_mode %}
+    <div class="card-header d-flex align-items-center">
+        <h6 class="fs-5 mb-0">{% trans "References" %}</h6>
+        <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
+    </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
         {% if documents or webpages %}
             {% if documents %}
                 <h6 class="text-uppercase text-secondary small fw-semibold mb-2">{% trans "Documents" %}</h6>

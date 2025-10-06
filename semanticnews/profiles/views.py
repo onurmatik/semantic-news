@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
-from django.db.models import Q, Count, Max, Value, DateTimeField
+from django.db.models import Q, Count, Max, Value, DateTimeField, Prefetch
 from django.db.models.functions import Coalesce, Greatest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
@@ -12,6 +12,7 @@ from django.utils.translation import gettext as _
 from .forms import DisplayNameForm
 from .models import Profile
 from ..topics.models import Topic, TopicContent
+from ..topics.utils.data.models import TopicDataVisualization
 
 
 def user_list(request):
@@ -61,10 +62,19 @@ def user_list(request):
 
 def user_profile(request, username):
     user = get_object_or_404(User, username=username)
-    topics = (Topic.objects
-              .filter(Q(created_by=user) |
-                      Q(contents__created_by=user))
-              .distinct()).order_by('-updated_at')
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
+    topics = (
+        Topic.objects
+        .filter(Q(created_by=user) | Q(contents__created_by=user))
+        .select_related("created_by")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
+        .distinct()
+        .order_by('-updated_at')
+    )
 
     topic_content = TopicContent.objects.filter(created_by=user).select_related(
         'topicarticle__article',

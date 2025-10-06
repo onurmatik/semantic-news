@@ -12,12 +12,43 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 
 from ..utils import get_relevance
 from .utils.recaps.models import TopicRecap
-from .utils.narratives.models import TopicNarrative
+from .utils.text.models import TopicText
 from .utils.images.models import TopicImage
 from .utils.embeds.models import TopicYoutubeVideo
 from .utils.relations.models import TopicEntityRelation
 from .utils.documents.models import TopicDocument, TopicWebpage
 from .utils.timeline.models import TopicEvent
+
+
+class TopicModuleLayout(models.Model):
+    """User-configurable placement information for topic utility modules."""
+
+    PLACEMENT_PRIMARY = "primary"
+    PLACEMENT_SIDEBAR = "sidebar"
+    PLACEMENT_CHOICES = (
+        (PLACEMENT_PRIMARY, "Primary"),
+        (PLACEMENT_SIDEBAR, "Sidebar"),
+    )
+
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="module_layouts",
+    )
+    module_key = models.CharField(max_length=50)
+    placement = models.CharField(
+        max_length=20,
+        choices=PLACEMENT_CHOICES,
+        default=PLACEMENT_PRIMARY,
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        unique_together = ("topic", "module_key")
+
+    def __str__(self):
+        return f"{self.topic} · {self.module_key} ({self.placement})"
 
 
 class Topic(models.Model):
@@ -78,8 +109,16 @@ class Topic(models.Model):
 
     def clean(self):
         super().clean()
-        if self.status == "published" and not self.title:
-            raise ValidationError({"title": "A title is required to publish a topic."})
+        if self.status == "published":
+            if not self.title:
+                raise ValidationError({"title": "A title is required to publish a topic."})
+
+            has_finished_recap = False
+            if self.pk:
+                has_finished_recap = self.recaps.filter(status="finished").exists()
+
+            if not has_finished_recap:
+                raise ValidationError({"status": "A recap is required to publish a topic."})
 
     def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
         """Run validation while skipping the embedding field.
@@ -252,9 +291,9 @@ class Topic(models.Model):
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
             )
-        for narrative in self.narratives.all():
-            TopicNarrative.objects.create(
-                topic=cloned, narrative=narrative.narrative, status="finished"
+        for text in self.texts.all():
+            TopicText.objects.create(
+                topic=cloned, content=text.content, status="finished"
             )
         for relation in self.entity_relations.all():
             TopicEntityRelation.objects.create(

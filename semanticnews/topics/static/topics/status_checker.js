@@ -3,11 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap', 'narrative', 'relation', 'image'];
+  const KEYS_TO_CHECK = ['recap', 'relation', 'image'];
 
   const mapping = {
     recap: 'recapButton',
-    narrative: 'narrativeButton',
     relation: 'relationButton',
     image: 'imageButton',
   };
@@ -37,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   };
 
-  // Fallback applier for text-based keys (recap, narrative)
+  // Fallback applier for text-based keys (e.g., recap)
   const applyTextFallback = (key, text, createdAtIso) => {
     const Cap = key.charAt(0).toUpperCase() + key.slice(1);
     const card = document.getElementById(`topic${Cap}Container`);
@@ -93,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateFromServer = async (key) => {
     const listUrl =
       key === 'recap'      ? `/api/topics/recap/${topicUuid}/list` :
-      key === 'narrative'  ? `/api/topics/narrative/${topicUuid}/list` :
       key === 'relation'   ? `/api/topics/relation/${topicUuid}/list` :
                              `/api/topics/image/${topicUuid}/list`;
 
@@ -107,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const hookName = `__${key}ExternalApply`;
       if (typeof window[hookName] === 'function') {
-        // For text keys, pass the text. For relation, pass the array.
         if (key === 'relation') {
           window[hookName](latest.relations, latest.created_at);
         } else {

@@ -1,0 +1,47 @@
+{% load i18n %}
+{% if timeline %}
+<div class="mt-3{% if edit_mode %} card{% endif %}" data-topic-timeline-card>
+
+  {% if edit_mode %}
+  <div class="card-header d-flex align-items-center">
+      <h6 class="fs-5 mb-0">
+          {% trans "Timeline" %}
+      </h6>
+      <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
+  </div>
+  {% endif %}
+
+  <div{% if edit_mode %} class="card-body"{% endif %}>
+
+    <div class="position-relative{% if edit_mode %} mt-4{% endif %}">
+
+    {% for timeline_topic in timeline %}
+
+      <div class="d-flex">
+        <div class="position-relative me-3">
+            <span class="position-absolute top-0 start-0 translate-middle {% if topic.id == timeline_topic.id %}bg-dark{% else %}bg-dark-subtle{% endif %} rounded-circle p-1">
+            </span>
+            <div class="h-100 border-start border-1 border-dark-subtle"></div>
+        </div>
+        <div class="{% if not forloop.last %}mb-4{% endif %}" style="margin-top: -.65rem;">
+          <small class="text-secondary d-block">{{ timeline_topic.event_date }}</small>
+          {% if topic.id == timeline_topic.id %}
+              <span class="text-dark fw-semibold">
+                  {{ timeline_topic.name }}
+              </span>
+          {% else %}
+              <a href="{{ timeline_topic.get_absolute_url }}" class="text-decoration-none text-info-emphasis">
+                  {{ timeline_topic.name }}
+              </a>
+          {% endif %}
+        </div>
+      </div>
+
+    {% endfor %}
+
+    </div>
+
+  </div>
+
+</div>
+{% endif %}
