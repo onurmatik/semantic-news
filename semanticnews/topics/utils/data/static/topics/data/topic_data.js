@@ -29,20 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   const chartTypeSelect = document.getElementById('visualizeChartType');
   const visualizeInstructionsInput = document.getElementById('visualizeInstructions');
-  const visualizationsContainer = document.getElementById('topicDataVisualizationsContainer');
-  const visualizationCardsWrapper = document.getElementById('topicDataVisualizationCards');
-  const visualizationEditMode = visualizationCardsWrapper
-    ? visualizationCardsWrapper.dataset.editMode === 'true'
-    : false;
-  const visualizationRemoveConfirm = visualizationCardsWrapper
-    ? visualizationCardsWrapper.dataset.removeConfirm || ''
-    : '';
-  const visualizationRemoveLabel = visualizationCardsWrapper
-    ? visualizationCardsWrapper.dataset.removeLabel || ''
-    : '';
-  const visualizationRemoveAriaLabel = visualizationCardsWrapper
-    ? visualizationCardsWrapper.dataset.removeAriaLabel || ''
-    : '';
   const urlMode = document.getElementById('dataModeUrl');
   const searchMode = document.getElementById('dataModeSearch');
   let fetchedData = null;
@@ -136,14 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRequestId = null;
   };
 
-  const updateVisualizationVisibility = () => {
-    if (!visualizationsContainer || !visualizationCardsWrapper) return;
-    const hasCards = Boolean(
-      visualizationCardsWrapper.querySelector('[data-visualization-card]'),
-    );
-    visualizationsContainer.style.display = hasCards ? '' : 'none';
-  };
-
   const registerVisualizationRemoveButton = (button) => {
     if (!button || button.dataset.visualizationRemoveInitialized === 'true') return;
     button.dataset.visualizationRemoveInitialized = 'true';
@@ -152,13 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const visualizationId = button.dataset.visualizationId;
       if (!visualizationId) return;
 
-      const message = button.dataset.confirmMessage || visualizationRemoveConfirm;
+      const message = button.dataset.confirmMessage;
       if (message && !window.confirm(message)) {
         return;
       }
 
       button.disabled = true;
-      let removed = false;
       try {
         const res = await fetch(`/api/topics/data/visualization/${visualizationId}`, {
           method: 'DELETE',
@@ -166,74 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) {
           throw new Error('Request failed');
         }
-
-        const card = button.closest('[data-visualization-card]');
-        if (card) {
-          card.remove();
-        }
-        removed = true;
-        updateVisualizationVisibility();
+        window.location.reload();
       } catch (err) {
         console.error(err);
-      } finally {
-        if (!removed) {
-          button.disabled = false;
-        }
+        button.disabled = false;
       }
     });
-  };
-
-  const createVisualizationCard = (visualizationData) => {
-    const card = document.createElement('div');
-    card.className = 'card mb-3 shadow-sm';
-    card.dataset.visualizationCard = 'true';
-    card.dataset.visualizationId = visualizationData.id;
-
-    const body = document.createElement('div');
-    body.className = 'card-body';
-
-    const header = document.createElement('div');
-    header.className = 'd-flex align-items-start mb-2';
-
-    const insightDiv = document.createElement('div');
-    insightDiv.className = 'flex-grow-1 me-2';
-    insightDiv.textContent = visualizationData.insight;
-    header.appendChild(insightDiv);
-
-    let removeButton = null;
-    if (visualizationEditMode) {
-      removeButton = document.createElement('button');
-      removeButton.type = 'button';
-      removeButton.className = 'btn btn-outline-danger btn-sm';
-      removeButton.dataset.visualizationRemoveBtn = 'true';
-      removeButton.dataset.visualizationId = visualizationData.id;
-      if (visualizationRemoveConfirm) {
-        removeButton.dataset.confirmMessage = visualizationRemoveConfirm;
-      }
-      removeButton.setAttribute('aria-label', visualizationRemoveAriaLabel || 'Remove visualization');
-      removeButton.innerHTML = `
-        <i class="bi bi-trash"></i>
-        <span class="visually-hidden">${visualizationRemoveLabel || 'Remove'}</span>
-      `;
-      header.appendChild(removeButton);
-    }
-
-    body.appendChild(header);
-
-    const chartContainer = document.createElement('div');
-    chartContainer.className = 'chart-container';
-
-    const canvas = document.createElement('canvas');
-    canvas.id = `dataVisualizationChart${visualizationData.id}`;
-    canvas.className = 'data-visualization-chart';
-    canvas.dataset.chartType = visualizationData.chart_type;
-    canvas.dataset.chart = JSON.stringify(visualizationData.chart_data);
-
-    chartContainer.appendChild(canvas);
-    body.appendChild(chartContainer);
-    card.appendChild(body);
-
-    return { card, canvas, removeButton };
   };
 
   const updateSaveButtonState = () => {
@@ -704,12 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initChart(canvas, type, data);
   });
 
-  if (visualizationCardsWrapper) {
-    visualizationCardsWrapper
-      .querySelectorAll('[data-visualization-remove-btn]')
-      .forEach((button) => registerVisualizationRemoveButton(button));
-    updateVisualizationVisibility();
-  }
+  document
+    .querySelectorAll('[data-visualization-remove-btn]')
+    .forEach((button) => registerVisualizationRemoveButton(button));
 
   if (visualizeForm && visualizeOtherInput) {
     const insightRadios = visualizeForm.querySelectorAll('input[name="insight_id"]');
@@ -766,20 +678,14 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error('Request failed');
-        const visualization = await res.json();
-        if (visualizationsContainer && visualizationCardsWrapper) {
-          const { card, canvas, removeButton } = createVisualizationCard(visualization);
-          visualizationCardsWrapper.prepend(card);
-          if (removeButton) {
-            registerVisualizationRemoveButton(removeButton);
-          }
-          initChart(canvas, visualization.chart_type, visualization.chart_data);
-          updateVisualizationVisibility();
-        }
+        await res.json();
         const modalEl = document.getElementById('dataVisualizeModal');
         if (modalEl && window.bootstrap) {
           const modal = window.bootstrap.Modal.getInstance(modalEl);
           if (modal) modal.hide();
+        }
+        if (typeof window.location !== 'undefined') {
+          window.location.reload();
         }
       } catch (err) {
         console.error(err);

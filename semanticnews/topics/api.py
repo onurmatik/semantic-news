@@ -285,8 +285,8 @@ def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
         base_key, identifier = _split_module_key(key)
         if base_key not in MODULE_REGISTRY:
             raise HttpError(400, f"Unknown module key: {key}")
-        if base_key == "text" and not identifier:
-            raise HttpError(400, "Text modules must include an identifier")
+        if base_key in {"text", "data_visualizations"} and not identifier:
+            raise HttpError(400, f"{base_key.replace('_', ' ').title()} modules must include an identifier")
         if key in seen_keys:
             raise HttpError(400, f"Duplicate module key: {key}")
         seen_keys.add(key)

@@ -3,7 +3,7 @@ from django.test import TestCase
 from unittest.mock import MagicMock, patch
 
 from semanticnews.prompting import get_default_language_instruction
-from semanticnews.topics.models import Topic
+from semanticnews.topics.models import Topic, TopicModuleLayout
 from .models import TopicDataInsight, TopicDataVisualization
 
 
@@ -179,6 +179,12 @@ class TopicDataVisualizationDeleteTests(TestCase):
             chart_type="bar",
             chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         )
+        TopicModuleLayout.objects.create(
+            topic=self.topic,
+            module_key=f"data_visualizations:{self.visualization.id}",
+            placement=TopicModuleLayout.PLACEMENT_PRIMARY,
+            display_order=1,
+        )
 
     def test_owner_can_delete_visualization(self):
         self.client.force_login(self.owner)
@@ -190,6 +196,12 @@ class TopicDataVisualizationDeleteTests(TestCase):
         self.assertFalse(
             TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
         )
+        self.assertFalse(
+            TopicModuleLayout.objects.filter(
+                topic=self.topic,
+                module_key=f"data_visualizations:{self.visualization.id}",
+            ).exists()
+        )
 
     def test_other_user_cannot_delete_visualization(self):
         self.client.force_login(self.other)
@@ -199,4 +211,10 @@ class TopicDataVisualizationDeleteTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(
             TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
+        )
+        self.assertTrue(
+            TopicModuleLayout.objects.filter(
+                topic=self.topic,
+                module_key=f"data_visualizations:{self.visualization.id}",
+            ).exists()
         )

@@ -17,7 +17,7 @@ from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
-from .models import Topic, TopicContent, TopicKeyword
+from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout
 from .utils.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
@@ -660,6 +660,10 @@ class VisualizeDataAPITests(TestCase):
             "chart_type": "bar",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
+        layout_entry = TopicModuleLayout.objects.get(
+            topic=topic, module_key=f"data_visualizations:{viz.id}"
+        )
+        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
         called_kwargs = mock_client.responses.parse.call_args.kwargs
         self.assertIn("Highlight revenue trends.", called_kwargs["input"])
 
@@ -702,6 +706,10 @@ class VisualizeDataAPITests(TestCase):
             "chart_type": "pie",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
+        layout_entry = TopicModuleLayout.objects.get(
+            topic=topic, module_key=f"data_visualizations:{viz.id}"
+        )
+        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
 
     @patch("semanticnews.topics.utils.data.api.OpenAI")
     def test_visualizes_custom_insight(self, mock_openai):
@@ -741,6 +749,10 @@ class VisualizeDataAPITests(TestCase):
             "chart_type": "bar",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
+        layout_entry = TopicModuleLayout.objects.get(
+            topic=topic, module_key=f"data_visualizations:{viz.id}"
+        )
+        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
 
 
 class TopicDetailViewTests(TestCase):
