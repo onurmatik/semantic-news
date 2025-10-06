@@ -208,8 +208,13 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     if payload.status not in valid_statuses:
         raise HttpError(400, "Invalid status")
 
-    if payload.status == "published" and not topic.title:
-        raise HttpError(400, "A title is required to publish a topic.")
+    if payload.status == "published":
+        if not topic.title:
+            raise HttpError(400, "A title is required to publish a topic.")
+
+        has_finished_recap = topic.recaps.filter(status="finished").exists()
+        if not has_finished_recap:
+            raise HttpError(400, "A recap is required to publish a topic.")
 
     topic.status = payload.status
     topic.save(update_fields=["status"])

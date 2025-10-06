@@ -109,8 +109,16 @@ class Topic(models.Model):
 
     def clean(self):
         super().clean()
-        if self.status == "published" and not self.title:
-            raise ValidationError({"title": "A title is required to publish a topic."})
+        if self.status == "published":
+            if not self.title:
+                raise ValidationError({"title": "A title is required to publish a topic."})
+
+            has_finished_recap = False
+            if self.pk:
+                has_finished_recap = self.recaps.filter(status="finished").exists()
+
+            if not has_finished_recap:
+                raise ValidationError({"status": "A recap is required to publish a topic."})
 
     def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
         """Run validation while skipping the embedding field.
