@@ -133,27 +133,6 @@ def create_text(request, payload: TopicTextCreateRequest):
     return _serialize_text(text, layout)
 
 
-@router.put("/{text_id}", response=TopicTextResponse)
-def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
-    user = getattr(request, "user", None)
-    if not user or not user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
-    try:
-        text = TopicText.objects.select_related("topic").get(id=text_id)
-    except TopicText.DoesNotExist:
-        raise HttpError(404, "Text block not found")
-    if text.topic.created_by_id != user.id:
-        raise HttpError(403, "Forbidden")
-    if payload.content is not None:
-        text.content = payload.content
-    text.status = "finished"
-    text.error_message = None
-    text.error_code = None
-    text.save(update_fields=["content", "status", "error_message", "error_code", "updated_at"])
-    layout = text.topic.module_layouts.filter(module_key=f"text:{text.id}").first()
-    return _serialize_text(text, layout)
-
-
 def _transform_text(request, payload: TopicTextTransformRequest, mode: str) -> TopicTextTransformResponse:
     topic = _get_owned_topic(request, payload.topic_uuid)
     content = (payload.content or "").strip()
@@ -219,6 +198,27 @@ def shorten_text(request, payload: TopicTextTransformRequest):
 @router.post("/expand", response=TopicTextTransformResponse)
 def expand_text(request, payload: TopicTextTransformRequest):
     return _transform_text(request, payload, mode="expand")
+
+
+@router.put("/{text_id}", response=TopicTextResponse)
+def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+    try:
+        text = TopicText.objects.select_related("topic").get(id=text_id)
+    except TopicText.DoesNotExist:
+        raise HttpError(404, "Text block not found")
+    if text.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+    if payload.content is not None:
+        text.content = payload.content
+    text.status = "finished"
+    text.error_message = None
+    text.error_code = None
+    text.save(update_fields=["content", "status", "error_message", "error_code", "updated_at"])
+    layout = text.topic.module_layouts.filter(module_key=f"text:{text.id}").first()
+    return _serialize_text(text, layout)
 
 
 @router.delete("/{text_id}", response={204: None})
