@@ -2,7 +2,8 @@ import uuid
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
+from django.utils import timezone
 from django.utils.functional import cached_property
 from django.urls import reverse
 from django.conf import settings
@@ -30,6 +31,9 @@ class TopicModuleLayout(models.Model):
         (PLACEMENT_SIDEBAR, "Sidebar"),
     )
 
+    DRAFT_VERSION = "draft"
+    VERSION_CHOICES = ((DRAFT_VERSION, "Draft"),)
+
     topic = models.ForeignKey(
         "Topic",
         on_delete=models.CASCADE,
@@ -42,10 +46,15 @@ class TopicModuleLayout(models.Model):
         default=PLACEMENT_PRIMARY,
     )
     display_order = models.PositiveIntegerField(default=0)
+    version = models.CharField(
+        max_length=20,
+        choices=VERSION_CHOICES,
+        default=DRAFT_VERSION,
+    )
 
     class Meta:
         ordering = ["display_order", "id"]
-        unique_together = ("topic", "module_key")
+        unique_together = ("topic", "module_key", "version")
 
     def __str__(self):
         return f"{self.topic} · {self.module_key} ({self.placement})"
@@ -89,6 +98,14 @@ class Topic(models.Model):
 
     # Updated when the events or contents change
     updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    current_publication = models.ForeignKey(
+        "TopicPublication",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="current_for",
+    )
 
     def __str__(self):
         return f"{self.title or 'Topic'}"
@@ -182,6 +199,163 @@ class Topic(models.Model):
             'slug': str(self.slug),
             'username': self.created_by.username,
         })
+
+    @transaction.atomic
+    def publish(self):
+        """Create a publication snapshot of the topic's current state."""
+
+        if not self.title:
+            raise ValidationError({"title": "A title is required to publish a topic."})
+
+        latest_recap = (
+            self.recaps.filter(status="finished").order_by("-created_at").first()
+            if self.pk
+            else None
+        )
+        if latest_recap is None:
+            raise ValidationError({"status": "A recap is required to publish a topic."})
+
+        publication = TopicPublication.objects.create(
+            topic=self,
+            title=self.title,
+            slug=self.slug,
+        )
+
+        latest_relation = (
+            self.entity_relations.filter(status="finished")
+            .order_by("-created_at")
+            .first()
+        )
+
+        TopicPublicationRecap.objects.create(
+            publication=publication,
+            recap=latest_recap.recap,
+            created_at=latest_recap.created_at,
+        )
+
+        if latest_relation:
+            TopicPublicationEntityRelation.objects.create(
+                publication=publication,
+                relations=latest_relation.relations,
+                created_at=latest_relation.created_at,
+            )
+
+        for text in self.texts.filter(status="finished"):
+            TopicPublicationText.objects.create(
+                publication=publication,
+                content=text.content,
+                created_at=text.created_at,
+                updated_at=text.updated_at,
+            )
+
+        for image in self.images.filter(status="finished"):
+            TopicPublicationImage.objects.create(
+                publication=publication,
+                image=image.image,
+                thumbnail=image.thumbnail,
+                created_at=image.created_at,
+            )
+
+        for document in self.documents.all():
+            TopicPublicationDocument.objects.create(
+                publication=publication,
+                title=document.title,
+                url=document.url,
+                description=document.description,
+                document_type=document.document_type,
+                created_at=document.created_at,
+            )
+
+        for webpage in self.webpages.all():
+            TopicPublicationWebpage.objects.create(
+                publication=publication,
+                title=webpage.title,
+                url=webpage.url,
+                description=webpage.description,
+                created_at=webpage.created_at,
+            )
+
+        for tweet in self.tweets.all():
+            TopicPublicationTweet.objects.create(
+                publication=publication,
+                tweet_id=tweet.tweet_id,
+                url=tweet.url,
+                html=tweet.html,
+                created_at=tweet.created_at,
+            )
+
+        for video in self.youtube_videos.filter(status="finished"):
+            TopicPublicationYoutubeVideo.objects.create(
+                publication=publication,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                description=video.description,
+                thumbnail=video.thumbnail,
+                published_at=video.published_at,
+                created_at=video.created_at,
+            )
+
+        for topic_event in self.topicevent_set.all():
+            TopicPublicationEvent.objects.create(
+                publication=publication,
+                event=topic_event.event,
+                role=topic_event.role,
+                source=topic_event.source,
+                relevance=topic_event.relevance,
+                significance=topic_event.significance,
+            )
+
+        data_map = {}
+        for data in self.datas.all():
+            snapshot = TopicPublicationData.objects.create(
+                publication=publication,
+                name=data.name,
+                data=data.data,
+                sources=data.sources,
+                explanation=data.explanation,
+                created_at=data.created_at,
+            )
+            data_map[data.id] = snapshot
+
+        insight_map = {}
+        for insight in self.data_insights.all():
+            snapshot = TopicPublicationDataInsight.objects.create(
+                publication=publication,
+                insight=insight.insight,
+                created_at=insight.created_at,
+            )
+            linked_sources = [data_map.get(data.id) for data in insight.sources.all()]
+            snapshot.sources.set([item for item in linked_sources if item])
+            insight_map[insight.id] = snapshot
+
+        for visualization in self.data_visualizations.all():
+            TopicPublicationDataVisualization.objects.create(
+                publication=publication,
+                insight=insight_map.get(visualization.insight_id),
+                chart_type=visualization.chart_type,
+                chart_data=visualization.chart_data,
+                created_at=visualization.created_at,
+            )
+
+        for layout in self.module_layouts.filter(version=TopicModuleLayout.DRAFT_VERSION):
+            TopicPublicationModuleLayout.objects.create(
+                publication=publication,
+                module_key=layout.module_key,
+                placement=layout.placement,
+                display_order=layout.display_order,
+            )
+
+        publication.refresh_from_db()
+        self.current_publication = publication
+        self.published_at = timezone.now()
+        self.status = "published"
+        self.save(update_fields=["current_publication", "published_at", "status"])
+
+        publication.published_at = self.published_at
+        publication.save(update_fields=["published_at"])
+
+        return publication
 
     @cached_property
     def image(self):
@@ -388,3 +562,217 @@ class TopicEntity(models.Model):
 
     def __str__(self):
         return f'{self.topic} - {self.entity}'
+
+
+class TopicPublication(models.Model):
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="publications",
+    )
+    title = models.CharField(max_length=200, blank=True, null=True)
+    slug = models.SlugField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"Publication for {self.topic}" if self.topic_id else "Topic publication"
+
+    @cached_property
+    def image(self):
+        latest = self.images.order_by("-created_at").first()
+        return latest.image if latest else None
+
+    @cached_property
+    def thumbnail(self):
+        latest = self.images.order_by("-created_at").first()
+        return latest.thumbnail if latest else None
+
+    @property
+    def created_by(self):
+        return self.topic.created_by
+
+    @property
+    def based_on(self):
+        return self.topic.based_on
+
+    @property
+    def status(self):
+        return "published"
+
+
+class TopicPublicationModuleLayout(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="module_layouts",
+    )
+    module_key = models.CharField(max_length=50)
+    placement = models.CharField(
+        max_length=20,
+        choices=TopicModuleLayout.PLACEMENT_CHOICES,
+        default=TopicModuleLayout.PLACEMENT_PRIMARY,
+    )
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+
+
+class TopicPublicationRecap(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="recaps",
+    )
+    recap = models.TextField()
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationText(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="texts",
+    )
+    content = models.TextField(blank=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationEntityRelation(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="entity_relations",
+    )
+    relations = models.JSONField(default=list)
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationImage(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ImageField(upload_to="topics_publication_images")
+    thumbnail = models.ImageField(upload_to="topics_publication_images", blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationDocument(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    title = models.CharField(max_length=255, blank=True)
+    url = models.URLField(max_length=1000)
+    description = models.TextField(blank=True)
+    document_type = models.CharField(max_length=20, default="other")
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationWebpage(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="webpages",
+    )
+    title = models.CharField(max_length=255, blank=True)
+    url = models.URLField(max_length=1000)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationTweet(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="tweets",
+    )
+    tweet_id = models.CharField(max_length=50)
+    url = models.URLField()
+    html = models.TextField()
+    created_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
+class TopicPublicationYoutubeVideo(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="youtube_videos",
+    )
+    url = models.URLField(blank=True, null=True)
+    video_id = models.CharField(max_length=50)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    thumbnail = models.URLField(blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationEvent(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="events",
+    )
+    event = models.ForeignKey("agenda.Event", on_delete=models.CASCADE)
+    role = models.CharField(max_length=20)
+    source = models.CharField(max_length=10)
+    relevance = models.FloatField(blank=True, null=True)
+    significance = models.PositiveSmallIntegerField(default=1)
+
+
+class TopicPublicationData(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="datas",
+    )
+    name = models.CharField(max_length=200, blank=True, null=True)
+    data = models.JSONField()
+    sources = models.JSONField(default=list)
+    explanation = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+
+
+class TopicPublicationDataInsight(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="data_insights",
+    )
+    insight = models.TextField()
+    created_at = models.DateTimeField(blank=True, null=True)
+    sources = models.ManyToManyField(
+        TopicPublicationData,
+        related_name="insights",
+        blank=True,
+    )
+
+
+class TopicPublicationDataVisualization(models.Model):
+    publication = models.ForeignKey(
+        TopicPublication,
+        on_delete=models.CASCADE,
+        related_name="data_visualizations",
+    )
+    insight = models.ForeignKey(
+        TopicPublicationDataInsight,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visualizations",
+    )
+    chart_type = models.CharField(max_length=50)
+    chart_data = models.JSONField()
+    created_at = models.DateTimeField(blank=True, null=True)

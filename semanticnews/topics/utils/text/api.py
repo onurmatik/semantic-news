@@ -92,7 +92,10 @@ def list_texts(request, topic_uuid: str):
     texts = list(topic.texts.order_by("created_at"))
     layouts = {
         layout.module_key: layout
-        for layout in topic.module_layouts.filter(module_key__startswith="text:")
+        for layout in topic.module_layouts.filter(
+            module_key__startswith="text:",
+            version=TopicModuleLayout.DRAFT_VERSION,
+        )
     }
     items = [
         _serialize_text(text, layouts.get(f"text:{text.id}"))
@@ -118,7 +121,11 @@ def create_text(request, payload: TopicTextCreateRequest):
         # Determine display order within placement
         max_order = (
             TopicModuleLayout.objects
-            .filter(topic=topic, placement=placement)
+            .filter(
+                topic=topic,
+                placement=placement,
+                version=TopicModuleLayout.DRAFT_VERSION,
+            )
             .aggregate(Max("display_order"))
             .get("display_order__max")
         )
@@ -128,8 +135,12 @@ def create_text(request, payload: TopicTextCreateRequest):
             module_key=module_key,
             placement=placement,
             display_order=display_order,
+            version=TopicModuleLayout.DRAFT_VERSION,
         )
-    layout = topic.module_layouts.get(module_key=module_key)
+    layout = topic.module_layouts.filter(
+        module_key=module_key,
+        version=TopicModuleLayout.DRAFT_VERSION,
+    ).first()
     return _serialize_text(text, layout)
 
 
@@ -150,7 +161,10 @@ def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
     text.error_message = None
     text.error_code = None
     text.save(update_fields=["content", "status", "error_message", "error_code", "updated_at"])
-    layout = text.topic.module_layouts.filter(module_key=f"text:{text.id}").first()
+    layout = text.topic.module_layouts.filter(
+        module_key=f"text:{text.id}",
+        version=TopicModuleLayout.DRAFT_VERSION,
+    ).first()
     return _serialize_text(text, layout)
 
 
