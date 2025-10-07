@@ -79,16 +79,21 @@
                 {% trans "Clone" %}
             </a>
         {% elif user == topic.created_by %}
-            {% if topic.status == 'draft' %}
-                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
-                    {% trans "Publish" %}
+            {% if topic.status == 'draft' or topic.status == 'published' %}
+                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
+                    {% if topic.last_published_at %}
+                        {% trans "Re-publish" %}
+                    {% else %}
+                        {% trans "Publish" %}
+                    {% endif %}
                 </button>
-            {% elif topic.status == 'published' %}
-                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="archived">
+            {% endif %}
+            {% if topic.status == 'published' %}
+                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="archived">
                     {% trans "Archive" %}
                 </button>
             {% elif topic.status == 'archived' %}
-                <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
+                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
                     {% trans "Unarchive" %}
                 </button>
             {% endif %}

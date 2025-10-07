@@ -12,6 +12,7 @@ from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
 from .models import Topic, TopicModuleLayout
+from .publishing.service import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
     MODULE_REGISTRY,
@@ -216,8 +217,10 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
         if not has_finished_recap:
             raise HttpError(400, "A recap is required to publish a topic.")
 
-    topic.status = payload.status
-    topic.save(update_fields=["status"])
+        publish_topic(topic, user)
+    else:
+        topic.status = payload.status
+        topic.save(update_fields=["status"])
 
     return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
 

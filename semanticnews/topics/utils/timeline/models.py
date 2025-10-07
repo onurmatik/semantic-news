@@ -31,6 +31,8 @@ class TopicEvent(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,

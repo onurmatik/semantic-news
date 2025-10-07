@@ -19,6 +19,8 @@ class TopicDocument(models.Model):
     url = models.URLField(max_length=1000)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,
@@ -117,6 +119,8 @@ class TopicWebpage(models.Model):
     url = models.URLField(max_length=1000)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,

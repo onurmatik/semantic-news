@@ -75,9 +75,13 @@
 
     <div class="d-flex align-items-start">
 
-        {% if topic.status == 'draft' %}
-            <button class="btn btn-outline-primary btn-sm me-1" id="publishTopicBtn" data-status="published">
-                {% trans "Publish" %}
+        {% if topic.status == 'draft' or topic.status == 'published' %}
+            <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
+                {% if topic.last_published_at %}
+                    {% trans "Re-publish" %}
+                {% else %}
+                    {% trans "Publish" %}
+                {% endif %}
             </button>
         {% endif %}
 

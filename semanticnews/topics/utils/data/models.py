@@ -64,6 +64,8 @@ class TopicData(models.Model):
     sources = models.JSONField(default=list)
     explanation = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         app_label = 'topics'
@@ -79,6 +81,8 @@ class TopicDataInsight(models.Model):
     insight = models.TextField()
     sources = models.ManyToManyField('TopicData', related_name='insights')
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         app_label = 'topics'
@@ -97,6 +101,8 @@ class TopicDataVisualization(models.Model):
     chart_type = models.CharField(max_length=50)
     chart_data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         app_label = 'topics'

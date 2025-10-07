@@ -103,7 +103,7 @@ def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
         title=info.get("title", video_id),
         description=info.get("description", ""),
         thumbnail=info.get("thumbnail"),
-        published_at=published_at,
+        video_published_at=published_at,
         status="finished",
     )
 
@@ -140,6 +140,7 @@ def add_tweet_embed(request, payload: TweetCreateRequest):
             tweet_id=tweet_id,
             url=payload.url,
             html=html,
+            published_at=django_timezone.now(),
         )
     except IntegrityError:
         raise HttpError(400, 'Tweet already added')

@@ -9,6 +9,8 @@ class TopicTweet(models.Model):
     url = models.URLField()
     html = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         app_label = 'topics'
@@ -30,7 +32,9 @@ class TopicYoutubeVideo(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     thumbnail = models.URLField(blank=True, null=True)
-    published_at = models.DateTimeField(db_index=True)
+    video_published_at = models.DateTimeField(db_index=True, blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

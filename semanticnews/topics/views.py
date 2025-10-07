@@ -14,6 +14,7 @@ from semanticnews.agenda.localities import (
 
 from .models import Topic, TopicModuleLayout
 from .layouts import annotate_module_content, get_layout_for_mode
+from .publishing.service import build_publication_context, build_publication_modules
 from .utils.timeline.models import TopicEvent
 from .utils.data.models import TopicDataVisualization
 from .utils.mcps.models import MCPServer
@@ -93,61 +94,25 @@ def topics_detail(request, slug, username):
         created_by__username=username,
     )
 
-    related_events = topic.events.all()
+    publication = topic.latest_publication
 
-    # Only the “finished/latest” versions are used on the read-only page
-    latest_recap = (
-        topic.recaps.filter(status="finished").order_by("-created_at").first()
-    )
-    latest_relation = (
-        topic.entity_relations.filter(status="finished").order_by("-created_at").first()
-    )
-
-    documents = list(topic.documents.all())
-    webpages = list(topic.webpages.all())
-
-    latest_data = topic.datas.order_by("-created_at").first()
-    datas = topic.datas.order_by("-created_at")  # used by data card
-    data_insights = topic.data_insights.order_by("-created_at")
-    data_visualizations = topic.data_visualizations.order_by("-created_at")
-
-    youtube_video = topic.youtube_videos.order_by("-created_at").first()
-    tweets = topic.tweets.order_by("-created_at")
-
-    if latest_relation:
-        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
-        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
-    else:
-        relations_json = ""
-        relations_json_pretty = ""
-
-    layout = get_layout_for_mode(topic, mode="detail")
-    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+    if publication:
+        context = build_publication_context(topic, publication)
+        modules = build_publication_modules(publication, context)
+        primary_modules = modules.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+        sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+        annotate_module_content(primary_modules, context)
+        annotate_module_content(sidebar_modules, context)
+        context["primary_modules"] = primary_modules
+        context["sidebar_modules"] = sidebar_modules
+        return render(request, "topics/topics_detail.html", context)
 
     context = {
         "topic": topic,
-        "related_events": related_events,
-        "latest_recap": latest_recap,
-        "latest_relation": latest_relation,
-        "relations_json": relations_json,
-        "relations_json_pretty": relations_json_pretty,
-        "latest_data": latest_data,
-        "datas": datas,
-        "data_insights": data_insights,
-        "data_visualizations": data_visualizations,
-        "youtube_video": youtube_video,
-        "tweets": tweets,
-        "documents": documents,
-        "webpages": webpages,
-        "primary_modules": layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, []),
-        "sidebar_modules": layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, []),
+        "primary_modules": [],
+        "sidebar_modules": [],
+        "is_unpublished": True,
     }
-
-    annotate_module_content(primary_modules, context)
-    annotate_module_content(sidebar_modules, context)
-    context["primary_modules"] = primary_modules
-    context["sidebar_modules"] = sidebar_modules
 
     return render(request, "topics/topics_detail.html", context)
 
