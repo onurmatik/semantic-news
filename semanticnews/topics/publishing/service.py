@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from django.db import transaction
 from django.utils import timezone
 
+from ...agenda.models import Event
+
 from ..layouts import (
     MODULE_REGISTRY,
     annotate_module_content,
@@ -352,7 +354,9 @@ class LiveTopicContent:
 
 
 def _collect_live_content(topic: Topic) -> LiveTopicContent:
-    texts = list(topic.texts.filter(is_deleted=False).order_by("created_at"))
+    texts = list(
+        topic.texts.filter(is_deleted=False, status="finished").order_by("created_at")
+    )
     recaps_qs = topic.recaps.filter(status="finished", is_deleted=False).order_by(
         "-created_at"
     )
@@ -684,18 +688,18 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     topic.save(update_fields=["status", "latest_publication", "last_published_at"])
 
     # Update publish metadata on utility models
-    topic.texts.update(published_at=now)
-    topic.recaps.update(published_at=now)
-    topic.documents.update(published_at=now)
-    topic.webpages.update(published_at=now)
-    topic.datas.update(published_at=now)
-    topic.data_insights.update(published_at=now)
-    topic.data_visualizations.update(published_at=now)
-    topic.entity_relations.update(published_at=now)
-    topic.images.update(published_at=now)
-    topic.tweets.update(published_at=now)
-    topic.youtube_videos.update(published_at=now)
-    TopicEvent.objects.filter(topic=topic).update(published_at=now)
+    topic.texts.filter(is_deleted=False).update(published_at=now)
+    topic.recaps.filter(is_deleted=False).update(published_at=now)
+    topic.documents.filter(is_deleted=False).update(published_at=now)
+    topic.webpages.filter(is_deleted=False).update(published_at=now)
+    topic.datas.filter(is_deleted=False).update(published_at=now)
+    topic.data_insights.filter(is_deleted=False).update(published_at=now)
+    topic.data_visualizations.filter(is_deleted=False).update(published_at=now)
+    topic.entity_relations.filter(is_deleted=False).update(published_at=now)
+    topic.images.filter(is_deleted=False).update(published_at=now)
+    topic.tweets.filter(is_deleted=False).update(published_at=now)
+    topic.youtube_videos.filter(is_deleted=False).update(published_at=now)
+    TopicEvent.objects.filter(topic=topic, is_deleted=False).update(published_at=now)
 
     return publication
 
@@ -710,11 +714,59 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
             return None
         return SimpleNamespace(**data)
 
+    related_event_ids: List[int] = snapshot.get("related_event_ids", [])
+    published_event_rows = list(publication.published_events.all())
+    if not related_event_ids:
+        related_event_ids = [row.event_id for row in published_event_rows]
+
+    event_map = {
+        event.id: event
+        for event in Event.objects.filter(id__in=related_event_ids)
+    }
+    published_event_map = {row.event_id: row for row in published_event_rows}
+
+    class PublishedEventProxy:
+        __slots__ = ("event", "_metadata")
+
+        def __init__(self, event: Event, metadata: Optional[TopicPublishedEvent]):
+            self.event = event
+            self._metadata = metadata
+
+        def __getattr__(self, item):
+            return getattr(self.event, item)
+
+        @property
+        def role(self) -> Optional[str]:
+            return getattr(self._metadata, "role", None)
+
+        @property
+        def significance(self) -> Optional[int]:
+            meta_value = getattr(self._metadata, "significance", None)
+            if meta_value is not None:
+                return meta_value
+            return getattr(self.event, "significance", None)
+
+        @property
+        def event_significance(self) -> Optional[int]:
+            return getattr(self.event, "significance", None)
+
+        @property
+        def topic_event_id(self) -> Optional[int]:
+            return getattr(self._metadata, "original_id", None)
+
+        @property
+        def topic_event_created_at(self) -> Optional[datetime]:
+            return getattr(self._metadata, "created_at", None)
+
+    related_events = [
+        PublishedEventProxy(event_map[event_id], published_event_map.get(event_id))
+        for event_id in related_event_ids
+        if event_id in event_map
+    ]
+
     context: Dict[str, Any] = {
         "topic": topic,
-        "related_events": list(
-            topic.events.filter(id__in=snapshot.get("related_event_ids", []))
-        ),
+        "related_events": related_events,
         "latest_recap": _ns(snapshot.get("latest_recap")),
         "latest_relation": _ns(snapshot.get("latest_relation")),
         "relations_json": snapshot.get("relations_json", ""),
