@@ -4,18 +4,7 @@ from .models import Topic, TopicContent, TopicEntity
 from .publishing.models import (
     TopicPublication,
     TopicPublicationModule,
-    TopicPublishedData,
-    TopicPublishedDataInsight,
-    TopicPublishedDataVisualization,
-    TopicPublishedDocument,
-    TopicPublishedEvent,
-    TopicPublishedImage,
-    TopicPublishedRecap,
-    TopicPublishedRelation,
-    TopicPublishedText,
-    TopicPublishedTweet,
-    TopicPublishedWebpage,
-    TopicPublishedYoutubeVideo,
+    TopicPublicationSnapshot
 )
 from .utils.recaps import admin as recaps_admin  # noqa: F401
 from .utils.text import admin as text_admin  # noqa: F401
@@ -80,73 +69,14 @@ class TopicPublicationModuleAdmin(admin.ModelAdmin):
     raw_id_fields = ("publication",)
 
 
-@admin.register(TopicPublishedText)
-class TopicPublishedTextAdmin(admin.ModelAdmin):
-    list_display = ("publication", "original_id", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedImage)
-class TopicPublishedImageAdmin(admin.ModelAdmin):
-    list_display = ("publication", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedRecap)
-class TopicPublishedRecapAdmin(admin.ModelAdmin):
-    list_display = ("publication", "original_id", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedRelation)
-class TopicPublishedRelationAdmin(admin.ModelAdmin):
-    list_display = ("publication", "original_id", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedDocument)
-class TopicPublishedDocumentAdmin(admin.ModelAdmin):
-    list_display = ("publication", "title", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedWebpage)
-class TopicPublishedWebpageAdmin(admin.ModelAdmin):
-    list_display = ("publication", "title", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedYoutubeVideo)
-class TopicPublishedYoutubeVideoAdmin(admin.ModelAdmin):
-    list_display = ("publication", "title", "published_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedTweet)
-class TopicPublishedTweetAdmin(admin.ModelAdmin):
-    list_display = ("publication", "tweet_id", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedData)
-class TopicPublishedDataAdmin(admin.ModelAdmin):
-    list_display = ("publication", "name", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedDataInsight)
-class TopicPublishedDataInsightAdmin(admin.ModelAdmin):
-    list_display = ("publication", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedDataVisualization)
-class TopicPublishedDataVisualizationAdmin(admin.ModelAdmin):
-    list_display = ("publication", "chart_type", "created_at")
-    raw_id_fields = ("publication",)
-
-
-@admin.register(TopicPublishedEvent)
-class TopicPublishedEventAdmin(admin.ModelAdmin):
-    list_display = ("publication", "event_id", "role", "created_at")
-    raw_id_fields = ("publication",)
+@admin.register(TopicPublicationSnapshot)
+class TopicPublicationSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "publication",
+        "component_type",
+        "module_key",
+        "object_id",
+        "created_at",
+    )
+    list_filter = ("component_type",)
+    search_fields = ("publication__topic__title", "component_type", "module_key")

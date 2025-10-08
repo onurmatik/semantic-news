@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 import json
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from types import SimpleNamespace
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 
@@ -26,22 +28,7 @@ from ..utils.recaps.models import TopicRecap
 from ..utils.relations.models import TopicEntityRelation
 from ..utils.text.models import TopicText
 from ..utils.timeline.models import TopicEvent
-from .models import (
-    TopicPublication,
-    TopicPublicationModule,
-    TopicPublishedData,
-    TopicPublishedDataInsight,
-    TopicPublishedDataVisualization,
-    TopicPublishedDocument,
-    TopicPublishedEvent,
-    TopicPublishedImage,
-    TopicPublishedRecap,
-    TopicPublishedRelation,
-    TopicPublishedText,
-    TopicPublishedTweet,
-    TopicPublishedWebpage,
-    TopicPublishedYoutubeVideo,
-)
+from .models import TopicPublication, TopicPublicationModule, TopicPublicationSnapshot
 
 
 @dataclass
@@ -140,6 +127,49 @@ class SerializableTweet:
     url: str
     html: str
     created_at: str
+
+
+@dataclass
+class SnapshotRecord:
+    payload: Dict[str, Any]
+    content_object: Optional[Any] = None
+    module_key: str = ""
+
+
+@dataclass
+class LiveTopicContent:
+    """Container for the draft-side content that will be snapshotted."""
+
+    hero_image: Optional[TopicImage]
+    images: List[TopicImage]
+    texts: List[TopicText]
+    latest_recap: Optional[TopicRecap]
+    recaps: List[TopicRecap]
+    latest_relation: Optional[TopicEntityRelation]
+    latest_data: Optional[TopicData]
+    datas: List[TopicData]
+    data_insights: List[TopicDataInsight]
+    data_visualizations: List[TopicDataVisualization]
+    youtube_video: Optional[TopicYoutubeVideo]
+    tweets: List[TopicTweet]
+    documents: List[TopicDocument]
+    webpages: List[TopicWebpage]
+    events: List[TopicEvent]
+
+
+SnapshotSerializer = Callable[[Topic, LiveTopicContent], Iterable[SnapshotRecord]]
+
+SNAPSHOT_SERIALIZER_REGISTRY: Dict[str, SnapshotSerializer] = {}
+
+
+def register_snapshot_serializer(component_type: str) -> Callable[[SnapshotSerializer], SnapshotSerializer]:
+    """Decorator used by utility apps to register snapshot serializers."""
+
+    def decorator(func: SnapshotSerializer) -> SnapshotSerializer:
+        SNAPSHOT_SERIALIZER_REGISTRY[component_type] = func
+        return func
+
+    return decorator
 
 
 def _serialize_dt(value: Optional[datetime]) -> Optional[str]:
@@ -310,7 +340,167 @@ def _serialize_tweets(tweets: Iterable[TopicTweet]) -> List[SerializableTweet]:
     return output
 
 
-def _module_payload(module: Dict[str, Any]) -> Dict[str, Any]:
+def _payload_with_original_id(
+    payload: Dict[str, Any], original_id: Optional[int]
+) -> Dict[str, Any]:
+    data = dict(payload)
+    if original_id is not None:
+        data.setdefault("id", original_id)
+        data.setdefault("original_id", original_id)
+    return data
+
+
+def _payload_from_snapshot(snapshot: TopicPublicationSnapshot) -> Dict[str, Any]:
+    payload = _payload_with_original_id(dict(snapshot.payload or {}), snapshot.object_id)
+    payload["snapshot_id"] = snapshot.id
+    return payload
+
+
+@register_snapshot_serializer("image")
+def _snapshot_images(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    for index, image in enumerate(content.images):
+        serialized = _serialize_image(image)
+        if not serialized:
+            continue
+        payload = _payload_with_original_id(asdict(serialized), image.id)
+        payload["is_hero"] = index == 0
+        records.append(SnapshotRecord(payload=payload, content_object=image))
+    return records
+
+
+@register_snapshot_serializer("text")
+def _snapshot_texts(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_texts = _serialize_texts(content.texts)
+    for text_obj, serialized in zip(content.texts, serialized_texts):
+        payload = _payload_with_original_id(asdict(serialized), text_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=text_obj))
+    return records
+
+
+@register_snapshot_serializer("recap")
+def _snapshot_recaps(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    for recap_obj in content.recaps:
+        serialized = _serialize_recap(recap_obj)
+        if not serialized:
+            continue
+        payload = _payload_with_original_id(asdict(serialized), recap_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=recap_obj))
+    return records
+
+
+@register_snapshot_serializer("relation")
+def _snapshot_relations(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    if not content.latest_relation:
+        return []
+    serialized = _serialize_relation(content.latest_relation)
+    if not serialized:
+        return []
+    payload = _payload_with_original_id(
+        asdict(serialized), content.latest_relation.id
+    )
+    return [SnapshotRecord(payload=payload, content_object=content.latest_relation)]
+
+
+@register_snapshot_serializer("document")
+def _snapshot_documents(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_docs = _serialize_documents(content.documents)
+    for document_obj, serialized in zip(content.documents, serialized_docs):
+        payload = _payload_with_original_id(asdict(serialized), document_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=document_obj))
+    return records
+
+
+@register_snapshot_serializer("webpage")
+def _snapshot_webpages(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_pages = _serialize_webpages(content.webpages)
+    for page_obj, serialized in zip(content.webpages, serialized_pages):
+        payload = _payload_with_original_id(asdict(serialized), page_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=page_obj))
+    return records
+
+
+@register_snapshot_serializer("data")
+def _snapshot_data(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_data = _serialize_data(content.datas)
+    for data_obj, serialized in zip(content.datas, serialized_data):
+        payload = _payload_with_original_id(asdict(serialized), data_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=data_obj))
+    return records
+
+
+@register_snapshot_serializer("data_insight")
+def _snapshot_data_insights(
+    topic: Topic, content: LiveTopicContent
+) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_insights = _serialize_data_insights(content.data_insights)
+    for insight_obj, serialized in zip(content.data_insights, serialized_insights):
+        payload = _payload_with_original_id(asdict(serialized), insight_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=insight_obj))
+    return records
+
+
+@register_snapshot_serializer("data_visualization")
+def _snapshot_data_visualizations(
+    topic: Topic, content: LiveTopicContent
+) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_viz = _serialize_data_visualizations(content.data_visualizations)
+    for viz_obj, serialized in zip(content.data_visualizations, serialized_viz):
+        payload = _payload_with_original_id(asdict(serialized), viz_obj.id)
+        payload.setdefault("insight_text", getattr(viz_obj.insight, "insight", ""))
+        records.append(SnapshotRecord(payload=payload, content_object=viz_obj))
+    return records
+
+
+@register_snapshot_serializer("tweet")
+def _snapshot_tweets(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_tweets = _serialize_tweets(content.tweets)
+    for tweet_obj, serialized in zip(content.tweets, serialized_tweets):
+        payload = _payload_with_original_id(asdict(serialized), tweet_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=tweet_obj))
+    return records
+
+
+@register_snapshot_serializer("youtube_video")
+def _snapshot_youtube_videos(
+    topic: Topic, content: LiveTopicContent
+) -> Iterable[SnapshotRecord]:
+    if not content.youtube_video:
+        return []
+    serialized = _serialize_youtube_video(content.youtube_video)
+    if not serialized:
+        return []
+    payload = _payload_with_original_id(asdict(serialized), content.youtube_video.id)
+    return [SnapshotRecord(payload=payload, content_object=content.youtube_video)]
+
+
+@register_snapshot_serializer("event")
+def _snapshot_events(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    for event in content.events:
+        payload = {
+            "event_id": event.event_id,
+            "role": event.role,
+            "significance": event.significance,
+            "created_at": _serialize_dt(event.created_at) or "",
+        }
+        payload = _payload_with_original_id(payload, event.id)
+        records.append(SnapshotRecord(payload=payload, content_object=event))
+    return records
+
+
+def _module_payload(
+    module: Dict[str, Any],
+    snapshot_lookup: Dict[Tuple[str, Optional[int]], TopicPublicationSnapshot],
+) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "base_module_key": module.get("base_module_key", module.get("module_key")),
         "module_identifier": module.get("module_identifier"),
@@ -319,38 +509,34 @@ def _module_payload(module: Dict[str, Any]) -> Dict[str, Any]:
     }
     base_key = payload["base_module_key"]
     if base_key == "text" and module.get("text"):
-        payload["text_id"] = getattr(module["text"], "id", None)
+        text_obj = module["text"]
+        text_id = getattr(text_obj, "id", None)
+        payload["text_id"] = text_id
+        snapshot = snapshot_lookup.get(("text", text_id)) if text_id else None
+        if snapshot:
+            payload["snapshot_id"] = snapshot.id
+            payload["text_snapshot_id"] = snapshot.id
     if base_key == "data":
         data_obj = module.get("data") or module.get("context_overrides", {}).get("data")
         if data_obj is not None:
-            payload["data_id"] = getattr(data_obj, "id", None)
+            data_id = getattr(data_obj, "id", None)
+            payload["data_id"] = data_id
+            snapshot = snapshot_lookup.get(("data", data_id)) if data_id else None
+            if snapshot:
+                payload["snapshot_id"] = snapshot.id
+                payload["data_snapshot_id"] = snapshot.id
         payload["show_data_insights"] = (
             module.get("context_overrides", {}).get("show_data_insights", False)
         )
     if base_key == "data_visualizations" and module.get("visualization"):
-        payload["visualization_id"] = getattr(module["visualization"], "id", None)
+        viz_obj = module["visualization"]
+        viz_id = getattr(viz_obj, "id", None)
+        payload["visualization_id"] = viz_id
+        snapshot = snapshot_lookup.get(("data_visualization", viz_id)) if viz_id else None
+        if snapshot:
+            payload["snapshot_id"] = snapshot.id
+            payload["visualization_snapshot_id"] = snapshot.id
     return payload
-
-
-@dataclass
-class LiveTopicContent:
-    """Container for the draft-side content that will be snapshotted."""
-
-    hero_image: Optional[TopicImage]
-    images: List[TopicImage]
-    texts: List[TopicText]
-    latest_recap: Optional[TopicRecap]
-    recaps: List[TopicRecap]
-    latest_relation: Optional[TopicEntityRelation]
-    latest_data: Optional[TopicData]
-    datas: List[TopicData]
-    data_insights: List[TopicDataInsight]
-    data_visualizations: List[TopicDataVisualization]
-    youtube_video: Optional[TopicYoutubeVideo]
-    tweets: List[TopicTweet]
-    documents: List[TopicDocument]
-    webpages: List[TopicWebpage]
-    events: List[TopicEvent]
 
 
 def _collect_live_content(topic: Topic) -> LiveTopicContent:
@@ -413,52 +599,66 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
     )
 
 
-def _build_context_snapshot(topic: Topic, content: LiveTopicContent) -> Dict[str, Any]:
-    latest_recap = content.latest_recap
-    latest_relation = content.latest_relation
-    recaps = content.recaps
-    latest_data = content.latest_data
-    datas = content.datas
-    data_insights = content.data_insights
-    data_visualizations = content.data_visualizations
-    youtube_video = content.youtube_video
-    tweets = content.tweets
-    documents = content.documents
-    webpages = content.webpages
-    texts = content.texts
-    hero_image = content.hero_image
+def _build_context_snapshot_from_snapshots(
+    snapshots_by_type: Dict[str, List[TopicPublicationSnapshot]]
+) -> Dict[str, Any]:
+    def _payloads(component_type: str) -> List[Dict[str, Any]]:
+        return [
+            _payload_from_snapshot(snapshot)
+            for snapshot in snapshots_by_type.get(component_type, [])
+        ]
+
+    image_payloads = _payloads("image")
+    hero_image = next((img for img in image_payloads if img.get("is_hero")), None)
+    if not hero_image and image_payloads:
+        hero_image = image_payloads[0]
+
+    texts = _payloads("text")
+    recaps = _payloads("recap")
+    relation_list = _payloads("relation")
+    latest_relation = relation_list[0] if relation_list else None
+    datas = _payloads("data")
+    data_insights = _payloads("data_insight")
+    data_visualizations = _payloads("data_visualization")
+    youtube_videos = _payloads("youtube_video")
+    tweets = _payloads("tweet")
+    documents = _payloads("document")
+    webpages = _payloads("webpage")
+    events = _payloads("event")
 
     relations_json = ""
     relations_json_pretty = ""
     if latest_relation:
-        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
-        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
+        relations = latest_relation.get("relations") or []
+        if relations:
+            relations_json = json.dumps(relations, separators=(",", ":"))
+            relations_json_pretty = json.dumps(relations, indent=2)
+
+    related_event_ids = [
+        payload.get("event_id")
+        for payload in events
+        if payload.get("event_id") is not None
+    ]
 
     return {
-        "image": asdict(_serialize_image(hero_image)) if hero_image else None,
-        "texts": [asdict(text) for text in _serialize_texts(texts)],
-        "latest_recap": asdict(_serialize_recap(latest_recap)) if latest_recap else None,
-        "recaps": [asdict(_serialize_recap(recap)) for recap in recaps],
-        "latest_relation": asdict(_serialize_relation(latest_relation))
-        if latest_relation
-        else None,
+        "image": hero_image,
+        "images": image_payloads,
+        "texts": texts,
+        "latest_recap": recaps[0] if recaps else None,
+        "recaps": recaps,
+        "latest_relation": latest_relation,
         "relations_json": relations_json,
         "relations_json_pretty": relations_json_pretty,
-        "latest_data": asdict(_serialize_data([latest_data])[0]) if latest_data else None,
-        "datas": [asdict(data) for data in _serialize_data(datas)],
-        "data_insights": [
-            asdict(insight) for insight in _serialize_data_insights(data_insights)
-        ],
-        "data_visualizations": [
-            asdict(viz) for viz in _serialize_data_visualizations(data_visualizations)
-        ],
-        "youtube_video": asdict(_serialize_youtube_video(youtube_video))
-        if youtube_video
-        else None,
-        "tweets": [asdict(tweet) for tweet in _serialize_tweets(tweets)],
-        "documents": [asdict(doc) for doc in _serialize_documents(documents)],
-        "webpages": [asdict(page) for page in _serialize_webpages(webpages)],
-        "related_event_ids": [event.event_id for event in content.events],
+        "latest_data": datas[0] if datas else None,
+        "datas": datas,
+        "data_insights": data_insights,
+        "data_visualizations": data_visualizations,
+        "youtube_video": youtube_videos[0] if youtube_videos else None,
+        "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
+        "related_event_ids": related_event_ids,
+        "events": events,
     }
 
 
@@ -472,14 +672,56 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     )
 
     content = _collect_live_content(topic)
-    context_snapshot = _build_context_snapshot(topic, content)
+    content_type_cache: Dict[type, ContentType] = {}
+    snapshot_metadata: List[Tuple[str, Optional[int]]] = []
+    snapshot_rows: List[TopicPublicationSnapshot] = []
+
+    for component_type, serializer in SNAPSHOT_SERIALIZER_REGISTRY.items():
+        for record in serializer(topic, content):
+            payload = dict(record.payload)
+            module_key = record.module_key or ""
+            content_type_obj = None
+            object_id: Optional[int] = None
+            if record.content_object is not None:
+                model_cls = record.content_object.__class__
+                if model_cls not in content_type_cache:
+                    content_type_cache[model_cls] = ContentType.objects.get_for_model(
+                        model_cls, for_concrete_model=False
+                    )
+                content_type_obj = content_type_cache[model_cls]
+                object_id = getattr(record.content_object, "pk", None)
+
+            snapshot_rows.append(
+                TopicPublicationSnapshot(
+                    publication=publication,
+                    component_type=component_type,
+                    module_key=module_key,
+                    content_type=content_type_obj,
+                    object_id=object_id,
+                    payload=payload,
+                )
+            )
+            snapshot_metadata.append((component_type, object_id))
+
+    created_snapshots: List[TopicPublicationSnapshot] = []
+    if snapshot_rows:
+        created_snapshots = TopicPublicationSnapshot.objects.bulk_create(snapshot_rows)
+
+    snapshots_by_type: Dict[str, List[TopicPublicationSnapshot]] = defaultdict(list)
+    snapshot_lookup: Dict[Tuple[str, Optional[int]], TopicPublicationSnapshot] = {}
+    for snapshot, (component_type, object_id) in zip(created_snapshots, snapshot_metadata):
+        snapshots_by_type[component_type].append(snapshot)
+        if object_id is not None:
+            snapshot_lookup[(component_type, object_id)] = snapshot
+
+    context_snapshot = _build_context_snapshot_from_snapshots(snapshots_by_type)
     publication.context_snapshot = context_snapshot
 
     layout = get_layout_for_mode(topic, mode="detail")
     module_records: List[TopicPublicationModule] = []
     for placement, modules in layout.items():
         for module in modules:
-            payload = _module_payload(module)
+            payload = _module_payload(module, snapshot_lookup)
             module_records.append(
                 TopicPublicationModule(
                     publication=publication,
@@ -489,7 +731,8 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
                     payload=payload,
                 )
             )
-    TopicPublicationModule.objects.bulk_create(module_records)
+    if module_records:
+        TopicPublicationModule.objects.bulk_create(module_records)
 
     layout_snapshot = {
         TopicModuleLayout.PLACEMENT_PRIMARY: [
@@ -515,171 +758,6 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     }
     publication.layout_snapshot = layout_snapshot
     publication.save(update_fields=["context_snapshot", "layout_snapshot"])
-
-    # Snapshot utility payloads for admin/debugging views.
-    TopicPublishedText.objects.bulk_create(
-        [
-            TopicPublishedText(
-                publication=publication,
-                original_id=text.id,
-                content=text.content,
-                status=text.status,
-                created_at=text.created_at,
-                updated_at=text.updated_at,
-            )
-            for text in content.texts
-        ]
-    )
-
-    TopicPublishedRecap.objects.bulk_create(
-        [
-            TopicPublishedRecap(
-                publication=publication,
-                original_id=recap.id,
-                recap=recap.recap,
-                status=recap.status,
-                created_at=recap.created_at,
-            )
-            for recap in content.recaps
-        ]
-    )
-
-    TopicPublishedDocument.objects.bulk_create(
-        [
-            TopicPublishedDocument(
-                publication=publication,
-                original_id=document.id,
-                title=document.title,
-                url=document.url,
-                description=document.description,
-                document_type=document.document_type,
-                created_at=document.created_at,
-            )
-            for document in content.documents
-        ]
-    )
-
-    TopicPublishedWebpage.objects.bulk_create(
-        [
-            TopicPublishedWebpage(
-                publication=publication,
-                original_id=page.id,
-                title=page.title,
-                url=page.url,
-                description=page.description,
-                created_at=page.created_at,
-            )
-            for page in content.webpages
-        ]
-    )
-
-    TopicPublishedData.objects.bulk_create(
-        [
-            TopicPublishedData(
-                publication=publication,
-                original_id=data.id,
-                name=data.name,
-                data=data.data,
-                sources=data.sources,
-                explanation=data.explanation,
-                created_at=data.created_at,
-            )
-            for data in content.datas
-        ]
-    )
-
-    TopicPublishedDataInsight.objects.bulk_create(
-        [
-            TopicPublishedDataInsight(
-                publication=publication,
-                original_id=insight.id,
-                insight=insight.insight,
-                source_ids=list(insight.sources.values_list("id", flat=True)),
-                created_at=insight.created_at,
-            )
-            for insight in content.data_insights
-        ]
-    )
-
-    TopicPublishedDataVisualization.objects.bulk_create(
-        [
-            TopicPublishedDataVisualization(
-                publication=publication,
-                original_id=viz.id,
-                chart_type=viz.chart_type,
-                chart_data=viz.chart_data,
-                insight_text=(viz.insight.insight if viz.insight else ""),
-                created_at=viz.created_at,
-            )
-            for viz in content.data_visualizations
-        ]
-    )
-
-    TopicPublishedRelation.objects.bulk_create(
-        [
-            TopicPublishedRelation(
-                publication=publication,
-                original_id=relation.id,
-                relations=relation.relations,
-                status=relation.status,
-                created_at=relation.created_at,
-            )
-            for relation in ([content.latest_relation] if content.latest_relation else [])
-        ]
-    )
-
-    TopicPublishedTweet.objects.bulk_create(
-        [
-            TopicPublishedTweet(
-                publication=publication,
-                original_id=tweet.id,
-                tweet_id=tweet.tweet_id,
-                url=tweet.url,
-                html=tweet.html,
-                created_at=tweet.created_at,
-            )
-            for tweet in content.tweets
-        ]
-    )
-
-    if content.youtube_video:
-        TopicPublishedYoutubeVideo.objects.create(
-            publication=publication,
-            original_id=content.youtube_video.id,
-            url=content.youtube_video.url,
-            video_id=content.youtube_video.video_id,
-            title=content.youtube_video.title,
-            description=content.youtube_video.description,
-            thumbnail=content.youtube_video.thumbnail,
-            published_at=content.youtube_video.video_published_at,
-        )
-
-    TopicPublishedImage.objects.bulk_create(
-        [
-            TopicPublishedImage(
-                publication=publication,
-                original_id=image.id,
-                image=getattr(getattr(image, "image", None), "url", ""),
-                thumbnail=getattr(getattr(image, "thumbnail", None), "url", ""),
-                created_at=image.created_at,
-            )
-            for image in content.images
-        ]
-    )
-
-    TopicPublishedEvent.objects.bulk_create(
-        [
-            TopicPublishedEvent(
-                publication=publication,
-                original_id=event.id,
-                event_id=event.event_id,
-                role=event.role,
-                significance=event.significance,
-                created_at=event.created_at,
-            )
-            for event in content.events
-        ]
-    )
 
     now = timezone.now()
     topic.status = "published"
@@ -714,21 +792,37 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
             return None
         return SimpleNamespace(**data)
 
+    event_payloads = snapshot.get("events")
+    if event_payloads is None:
+        event_payloads = [
+            _payload_from_snapshot(row)
+            for row in publication.snapshots.filter(component_type="event")
+        ]
+
+    event_metadata = [SimpleNamespace(**payload) for payload in event_payloads]
+
     related_event_ids: List[int] = snapshot.get("related_event_ids", [])
-    published_event_rows = list(publication.published_events.all())
     if not related_event_ids:
-        related_event_ids = [row.event_id for row in published_event_rows]
+        related_event_ids = [
+            getattr(meta, "event_id", None)
+            for meta in event_metadata
+            if getattr(meta, "event_id", None) is not None
+        ]
 
     event_map = {
         event.id: event
         for event in Event.objects.filter(id__in=related_event_ids)
     }
-    published_event_map = {row.event_id: row for row in published_event_rows}
+    event_metadata_map = {
+        getattr(meta, "event_id", None): meta
+        for meta in event_metadata
+        if getattr(meta, "event_id", None) is not None
+    }
 
     class PublishedEventProxy:
         __slots__ = ("event", "_metadata")
 
-        def __init__(self, event: Event, metadata: Optional[TopicPublishedEvent]):
+        def __init__(self, event: Event, metadata: Optional[SimpleNamespace]):
             self.event = event
             self._metadata = metadata
 
@@ -756,10 +850,16 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
 
         @property
         def topic_event_created_at(self) -> Optional[datetime]:
-            return getattr(self._metadata, "created_at", None)
+            value = getattr(self._metadata, "created_at", None)
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value)
+                except ValueError:
+                    return None
+            return value
 
     related_events = [
-        PublishedEventProxy(event_map[event_id], published_event_map.get(event_id))
+        PublishedEventProxy(event_map[event_id], event_metadata_map.get(event_id))
         for event_id in related_event_ids
         if event_id in event_map
     ]
@@ -783,6 +883,8 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
         "webpages": [_ns(page) for page in snapshot.get("webpages", [])],
         "texts": [_ns(text) for text in snapshot.get("texts", [])],
         "recaps": [_ns(recap) for recap in snapshot.get("recaps", [])],
+        "images": [_ns(image) for image in snapshot.get("images", [])],
+        "event_snapshots": event_metadata,
     }
 
     if not context["latest_recap"]:
@@ -823,16 +925,24 @@ def build_publication_modules(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Return module descriptors recreated from a publication snapshot."""
 
-    text_map = {
-        str(getattr(text, "id", "")): text for text in context.get("texts", [])
-    }
-    data_map = {
-        str(getattr(data, "id", "")): data for data in context.get("datas", [])
-    }
-    visualization_map = {
-        str(getattr(viz, "id", "")): viz
-        for viz in context.get("data_visualizations", [])
-    }
+    def _index_by(objects: List[Any], attr: str) -> Dict[str, Any]:
+        mapping: Dict[str, Any] = {}
+        for obj in objects:
+            value = getattr(obj, attr, None)
+            if value is not None:
+                mapping[str(value)] = obj
+        return mapping
+
+    texts = context.get("texts", [])
+    datas = context.get("datas", [])
+    visualizations = context.get("data_visualizations", [])
+
+    text_by_snapshot = _index_by(texts, "snapshot_id")
+    text_by_id = _index_by(texts, "id")
+    data_by_snapshot = _index_by(datas, "snapshot_id")
+    data_by_id = _index_by(datas, "id")
+    viz_by_snapshot = _index_by(visualizations, "snapshot_id")
+    viz_by_id = _index_by(visualizations, "id")
 
     modules: Dict[str, List[Dict[str, Any]]] = {
         TopicModuleLayout.PLACEMENT_PRIMARY: [],
@@ -873,13 +983,33 @@ def build_publication_modules(
             }
 
             if base_key == "text":
-                text_id = payload.get("text_id") or identifier
-                text_obj = text_map.get(str(text_id))
+                snapshot_id = (
+                    payload.get("text_snapshot_id")
+                    or payload.get("snapshot_id")
+                )
+                text_obj = None
+                if snapshot_id is not None:
+                    text_obj = text_by_snapshot.get(str(snapshot_id))
+                if text_obj is None:
+                    text_id = payload.get("text_id") or identifier
+                    if text_id is not None:
+                        key = str(text_id)
+                        text_obj = text_by_snapshot.get(key) or text_by_id.get(key)
                 descriptor["text"] = text_obj
 
             if base_key == "data":
-                data_id = payload.get("data_id") or identifier
-                data_obj = data_map.get(str(data_id))
+                snapshot_id = (
+                    payload.get("data_snapshot_id")
+                    or payload.get("snapshot_id")
+                )
+                data_obj = None
+                if snapshot_id is not None:
+                    data_obj = data_by_snapshot.get(str(snapshot_id))
+                if data_obj is None:
+                    data_id = payload.get("data_id") or identifier
+                    if data_id is not None:
+                        key = str(data_id)
+                        data_obj = data_by_snapshot.get(key) or data_by_id.get(key)
                 if data_obj:
                     descriptor["data"] = data_obj
                     descriptor["context_overrides"]["data"] = data_obj
@@ -888,8 +1018,18 @@ def build_publication_modules(
                 )
 
             if base_key == "data_visualizations":
-                viz_id = payload.get("visualization_id") or identifier
-                viz_obj = visualization_map.get(str(viz_id))
+                snapshot_id = (
+                    payload.get("visualization_snapshot_id")
+                    or payload.get("snapshot_id")
+                )
+                viz_obj = None
+                if snapshot_id is not None:
+                    viz_obj = viz_by_snapshot.get(str(snapshot_id))
+                if viz_obj is None:
+                    viz_id = payload.get("visualization_id") or identifier
+                    if viz_id is not None:
+                        key = str(viz_id)
+                        viz_obj = viz_by_snapshot.get(key) or viz_by_id.get(key)
                 descriptor["visualization"] = viz_obj
 
             modules[placement].append(descriptor)

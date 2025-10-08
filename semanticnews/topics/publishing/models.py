@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
 
@@ -52,209 +54,33 @@ class TopicPublicationModule(models.Model):
         return f"{self.module_key} ({self.placement}) for {self.publication_id}"
 
 
-class TopicPublishedImage(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_images',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    image = models.CharField(max_length=500, blank=True)
-    thumbnail = models.CharField(max_length=500, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedText(models.Model):
-    """Snapshot of a text block included in a publication."""
+class TopicPublicationSnapshot(models.Model):
+    """Generic snapshot payload captured during publication."""
 
     publication = models.ForeignKey(
         TopicPublication,
         on_delete=models.CASCADE,
-        related_name='published_texts',
+        related_name='snapshots',
     )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    content = models.TextField(blank=True)
-    status = models.CharField(max_length=20, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(null=True, blank=True)
+    component_type = models.CharField(max_length=100)
+    module_key = models.CharField(max_length=100, blank=True)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         app_label = 'topics'
         ordering = ('publication', 'id')
+        indexes = [
+            models.Index(fields=('publication', 'component_type')),
+        ]
 
-
-class TopicPublishedRecap(models.Model):
-    """Snapshot of the recap that was live at publish time."""
-
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_recaps',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    recap = models.TextField(blank=True)
-    status = models.CharField(max_length=20, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedDocument(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_documents',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    title = models.CharField(max_length=255, blank=True)
-    url = models.URLField(max_length=1000)
-    description = models.TextField(blank=True)
-    document_type = models.CharField(max_length=20, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedWebpage(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_webpages',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    title = models.CharField(max_length=255, blank=True)
-    url = models.URLField(max_length=1000)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedYoutubeVideo(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_youtube_videos',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    url = models.URLField(blank=True, null=True)
-    video_id = models.CharField(max_length=50, blank=True)
-    title = models.CharField(max_length=200, blank=True)
-    description = models.TextField(blank=True)
-    thumbnail = models.URLField(blank=True, null=True)
-    published_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedTweet(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_tweets',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    tweet_id = models.CharField(max_length=50)
-    url = models.URLField()
-    html = models.TextField()
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedRelation(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_relations',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    relations = models.JSONField(default=list)
-    status = models.CharField(max_length=20, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedData(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_data',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    name = models.CharField(max_length=200, blank=True, null=True)
-    data = models.JSONField(default=dict)
-    sources = models.JSONField(default=list)
-    explanation = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedDataInsight(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_data_insights',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    insight = models.TextField()
-    source_ids = models.JSONField(default=list)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedDataVisualization(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_data_visualizations',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    chart_type = models.CharField(max_length=50)
-    chart_data = models.JSONField(default=dict)
-    insight_text = models.TextField(blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
-
-
-class TopicPublishedEvent(models.Model):
-    publication = models.ForeignKey(
-        TopicPublication,
-        on_delete=models.CASCADE,
-        related_name='published_events',
-    )
-    original_id = models.PositiveIntegerField(null=True, blank=True)
-    event_id = models.PositiveIntegerField()
-    role = models.CharField(max_length=20, blank=True)
-    significance = models.PositiveSmallIntegerField(default=1)
-    created_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'topics'
-        ordering = ('publication', 'id')
+    def __str__(self):
+        return f"Snapshot {self.component_type} for publication {self.publication_id}"
