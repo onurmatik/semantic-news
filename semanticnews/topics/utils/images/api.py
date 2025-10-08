@@ -147,7 +147,11 @@ def list_images(request, topic_uuid: str):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    images = TopicImage.objects.filter(topic=topic, status="finished").order_by("created_at")
+    images = (
+        TopicImage.objects
+        .filter(topic=topic, status="finished", is_deleted=False)
+        .order_by("created_at")
+    )
 
     items = [
         TopicImageItem(
@@ -175,5 +179,9 @@ def delete_image(request, image_id: int):
     if obj.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    obj.delete()
+    if obj.is_deleted:
+        return 204, None
+
+    obj.is_deleted = True
+    obj.save(update_fields=["is_deleted"])
     return 204, None

@@ -779,6 +779,9 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     topic.youtube_videos.filter(is_deleted=False).update(published_at=now)
     TopicEvent.objects.filter(topic=topic, is_deleted=False).update(published_at=now)
 
+    # Remove older publications to avoid retaining orphaned snapshots
+    topic.publications.exclude(id=publication.id).delete()
+
     return publication
 
 

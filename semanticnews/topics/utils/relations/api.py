@@ -119,7 +119,7 @@ def list_entity_relations(request, topic_uuid: str):
 
     relations = (
         TopicEntityRelation.objects
-        .filter(topic=topic, status="finished")
+        .filter(topic=topic, status="finished", is_deleted=False)
         .order_by("created_at")
         .values("id", "relations", "created_at")
     )
@@ -149,5 +149,9 @@ def delete_entity_relation(request, relation_id: int):
     if relation.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    relation.delete()
+    if relation.is_deleted:
+        return 204, None
+
+    relation.is_deleted = True
+    relation.save(update_fields=["is_deleted"])
     return 204, None

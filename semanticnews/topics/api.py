@@ -83,10 +83,10 @@ def generation_status(request, topic_uuid: str):
 
     return GenerationStatusResponse(
         current=timezone.now(),
-        recap=latest(topic.recaps),
-        text=latest(topic.texts),
-        relation=latest(topic.entity_relations),
-        image=latest(topic.images),
+        recap=latest(topic.recaps.filter(is_deleted=False)),
+        text=latest(topic.texts.filter(is_deleted=False)),
+        relation=latest(topic.entity_relations.filter(is_deleted=False)),
+        image=latest(topic.images.filter(is_deleted=False)),
     )
 
 
@@ -213,7 +213,7 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
         if not topic.title:
             raise HttpError(400, "A title is required to publish a topic.")
 
-        has_finished_recap = topic.recaps.filter(status="finished").exists()
+        has_finished_recap = topic.recaps.filter(status="finished", is_deleted=False).exists()
         if not has_finished_recap:
             raise HttpError(400, "A recap is required to publish a topic.")
 
@@ -409,14 +409,24 @@ def add_event_to_topic(request, payload: TopicEventAddRequest):
     except Event.DoesNotExist:
         raise HttpError(404, "Event not found")
 
-    topic_event, created = TopicEvent.objects.get_or_create(
-        topic=topic,
-        event=event,
-        defaults={"role": payload.role, "created_by": user},
-    )
+    with transaction.atomic():
+        topic_event, created = TopicEvent.objects.select_for_update().get_or_create(
+            topic=topic,
+            event=event,
+            defaults={"role": payload.role, "created_by": user},
+        )
 
-    if not created:
-        raise HttpError(400, "Event already linked to topic")
+        if not created:
+            if topic_event.is_deleted:
+                topic_event.is_deleted = False
+                topic_event.role = payload.role
+                topic_event.save(update_fields=["is_deleted", "role"])
+            else:
+                raise HttpError(400, "Event already linked to topic")
+
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
 
     return TopicEventAddResponse(
         topic_uuid=str(topic.uuid),
@@ -449,7 +459,6 @@ class TopicEventRemoveResponse(Schema):
     event_uuid: str
 
 
-@api.post("/remove-event", response=TopicEventRemoveResponse)
 def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     """Remove an agenda event from a topic for the authenticated user.
 
@@ -475,9 +484,17 @@ def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     except Event.DoesNotExist:
         raise HttpError(404, "Event not found")
 
-    deleted, _ = TopicEvent.objects.filter(topic=topic, event=event).delete()
-    if deleted == 0:
+    updated = TopicEvent.objects.filter(
+        topic=topic,
+        event=event,
+        is_deleted=False,
+    ).update(is_deleted=True)
+    if updated == 0:
         raise HttpError(404, "Event not linked to topic")
+
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
 
     return TopicEventRemoveResponse(
         topic_uuid=str(topic.uuid),

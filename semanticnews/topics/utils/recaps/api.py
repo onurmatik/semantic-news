@@ -133,7 +133,7 @@ def list_recaps(request, topic_uuid: str):
 
     recaps = (
         TopicRecap.objects
-        .filter(topic=topic, status="finished")
+        .filter(topic=topic, status="finished", is_deleted=False)
         .order_by("created_at")
         .values("id", "recap", "created_at")
     )
@@ -163,5 +163,9 @@ def delete_recap(request, recap_id: int):
     if recap.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    recap.delete()
+    if recap.is_deleted:
+        return 204, None
+
+    recap.is_deleted = True
+    recap.save(update_fields=["is_deleted"])
     return 204, None

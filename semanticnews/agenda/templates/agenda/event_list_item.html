@@ -30,7 +30,7 @@
             <ul class="dropdown-menu">
                 {# Quick-add to the current topic if provided #}
                 {% if topic %}
-                    {% if event not in topic.events.all %}
+                    {% if event not in topic.active_events %}
                         <li>
                             <a class="dropdown-item small add-to-topic"
                                href="#"

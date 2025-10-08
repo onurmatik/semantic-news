@@ -89,7 +89,7 @@ def _serialize_text(text: TopicText, layout: Optional[TopicModuleLayout]) -> Top
 @router.get("/{topic_uuid}/list", response=TopicTextListResponse)
 def list_texts(request, topic_uuid: str):
     topic = _get_owned_topic(request, topic_uuid)
-    texts = list(topic.texts.order_by("created_at"))
+    texts = list(topic.texts.filter(is_deleted=False).order_by("created_at"))
     layouts = {
         layout.module_key: layout
         for layout in topic.module_layouts.filter(module_key__startswith="text:")
@@ -211,6 +211,8 @@ def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
         raise HttpError(404, "Text block not found")
     if text.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
+    if text.is_deleted:
+        raise HttpError(404, "Text block not found")
     if payload.content is not None:
         text.content = payload.content
     text.status = "finished"
@@ -232,9 +234,12 @@ def delete_text(request, text_id: int):
         raise HttpError(404, "Text block not found")
     if text.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
+    if text.is_deleted:
+        return 204, None
     topic = text.topic
     module_key = f"text:{text.id}"
     with transaction.atomic():
         TopicModuleLayout.objects.filter(topic=topic, module_key=module_key).delete()
-        text.delete()
+        text.is_deleted = True
+        text.save(update_fields=["is_deleted", "updated_at"])
     return 204, None

@@ -339,7 +339,11 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     if payload.insights:
         if not payload.data_ids:
             raise HttpError(400, "No data selected")
-        datas = TopicData.objects.filter(topic=topic, id__in=payload.data_ids)
+        datas = TopicData.objects.filter(
+            topic=topic,
+            id__in=payload.data_ids,
+            is_deleted=False,
+        )
         if not datas.exists():
             raise HttpError(404, "No data found")
         for insight in payload.insights:
@@ -350,7 +354,11 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     if not payload.data_ids:
         raise HttpError(400, "No data selected")
 
-    datas = TopicData.objects.filter(topic=topic, id__in=payload.data_ids)
+    datas = TopicData.objects.filter(
+        topic=topic,
+        id__in=payload.data_ids,
+        is_deleted=False,
+    )
     if not datas.exists():
         raise HttpError(404, "No data found")
 
@@ -440,7 +448,11 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
 
     if payload.insight_id is not None:
         try:
-            insight_obj = TopicDataInsight.objects.get(id=payload.insight_id, topic=topic)
+            insight_obj = TopicDataInsight.objects.get(
+                id=payload.insight_id,
+                topic=topic,
+                is_deleted=False,
+            )
         except TopicDataInsight.DoesNotExist:
             raise HttpError(404, "Insight not found")
         insight_text = insight_obj.insight
@@ -448,7 +460,7 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
     elif payload.insight:
         insight_obj = None
         insight_text = payload.insight
-        sources = TopicData.objects.filter(topic=topic)
+        sources = TopicData.objects.filter(topic=topic, is_deleted=False)
     else:
         raise HttpError(400, "Insight not provided")
 
@@ -517,10 +529,15 @@ def delete_visualization(request, visualization_id: int):
         raise HttpError(403, "Forbidden")
 
     module_key = f"data_visualizations:{visualization.id}"
+    if visualization.is_deleted:
+        return TopicDataSaveResponse(success=True)
+
     with transaction.atomic():
         TopicModuleLayout.objects.filter(
             topic=visualization.topic, module_key=module_key
         ).delete()
         visualization.delete()
+        visualization.is_deleted = True
+        visualization.save(update_fields=["is_deleted"])
 
     return TopicDataSaveResponse(success=True)

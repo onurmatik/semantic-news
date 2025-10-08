@@ -50,7 +50,7 @@
         {% if topic.thumbnail %}
             <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
         {% else %}
-            {% with topic.data_visualizations.all|first as first_visualization %}
+            {% with topic.active_data_visualizations.all|first as first_visualization %}
                 {% if first_visualization %}
                     <div
                         class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
@@ -67,7 +67,7 @@
             {% endwith %}
         {% endif %}
 
-        {% with topic.recaps.last as latest_recap %}
+        {% with topic.active_recaps.last as latest_recap %}
             {% if latest_recap %}
                 <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
             {% endif %}

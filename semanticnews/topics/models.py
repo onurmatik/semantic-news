@@ -191,6 +191,54 @@ class Topic(models.Model):
             'username': self.created_by.username,
         })
 
+    @property
+    def active_events(self):
+        return self.events.filter(topicevent__is_deleted=False)
+
+    @property
+    def active_recaps(self):
+        return self.recaps.filter(is_deleted=False)
+
+    @property
+    def active_texts(self):
+        return self.texts.filter(is_deleted=False)
+
+    @property
+    def active_entity_relations(self):
+        return self.entity_relations.filter(is_deleted=False)
+
+    @property
+    def active_images(self):
+        return self.images.filter(is_deleted=False)
+
+    @property
+    def active_documents(self):
+        return self.documents.filter(is_deleted=False)
+
+    @property
+    def active_webpages(self):
+        return self.webpages.filter(is_deleted=False)
+
+    @property
+    def active_datas(self):
+        return self.datas.filter(is_deleted=False)
+
+    @property
+    def active_data_insights(self):
+        return self.data_insights.filter(is_deleted=False)
+
+    @property
+    def active_data_visualizations(self):
+        return self.data_visualizations.filter(is_deleted=False)
+
+    @property
+    def active_youtube_videos(self):
+        return self.youtube_videos.filter(is_deleted=False)
+
+    @property
+    def active_tweets(self):
+        return self.tweets.filter(is_deleted=False)
+
     @cached_property
     def image(self):
         latest = (
@@ -218,7 +266,10 @@ class Topic(models.Model):
         if not self.pk:
             return content_md
 
-        events_qs = self.events.all().order_by("date")
+        events_qs = (
+            self.events.filter(topicevent__is_deleted=False).order_by("date")
+        )
+
         if events_qs.exists():
             content_md += "## Events\n\n"
             for event in events_qs:
@@ -274,7 +325,7 @@ class Topic(models.Model):
             status="draft",
         )
 
-        for te in TopicEvent.objects.filter(topic=self):
+        for te in TopicEvent.objects.filter(topic=self, is_deleted=False):
             TopicEvent.objects.create(
                 topic=cloned,
                 event=te.event,
@@ -295,28 +346,28 @@ class Topic(models.Model):
                 created_by=user,
             )
 
-        for recap in self.recaps.all():
+        for recap in self.recaps.filter(is_deleted=False):
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
             )
-        for text in self.texts.all():
+        for text in self.texts.filter(is_deleted=False):
             TopicText.objects.create(
                 topic=cloned, content=text.content, status="finished"
             )
-        for relation in self.entity_relations.all():
+        for relation in self.entity_relations.filter(is_deleted=False):
             TopicEntityRelation.objects.create(
                 topic=cloned,
                 relations=relation.relations,
                 status="finished",
             )
-        for image in self.images.all():
+        for image in self.images.filter(is_deleted=False):
             TopicImage.objects.create(
                 topic=cloned,
                 image=image.image,
                 thumbnail=image.thumbnail,
             )
 
-        for document in self.documents.all():
+        for document in self.documents.filter(is_deleted=False):
             TopicDocument.objects.create(
                 topic=cloned,
                 title=document.title,
@@ -326,7 +377,7 @@ class Topic(models.Model):
                 created_by=user,
             )
 
-        for webpage in self.webpages.all():
+        for webpage in self.webpages.filter(is_deleted=False):
             TopicWebpage.objects.create(
                 topic=cloned,
                 title=webpage.title,

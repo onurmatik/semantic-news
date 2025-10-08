@@ -168,10 +168,11 @@ def suggest_topic_events(request, payload: TimelineSuggestRequest):
             text_format=TimelineEventList,
         )
 
-        existing_titles = set(
+        existing_titles = {
             title.lower()
-            for title in topic.events.values_list("title", flat=True)
-        )
+            for title in topic.events.filter(topicevent__is_deleted=False)
+            .values_list("title", flat=True)
+        }
         suggestions = [
             ev for ev in response.output_parsed.events if ev.title.lower() not in existing_titles
         ]

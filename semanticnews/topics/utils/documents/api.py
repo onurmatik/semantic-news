@@ -233,7 +233,7 @@ def list_documents(request, topic_uuid: str):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    documents = TopicDocument.objects.filter(topic=topic).order_by("-created_at")
+    documents = TopicDocument.objects.filter(topic=topic, is_deleted=False).order_by("-created_at")
 
     items = [
         TopicDocumentResponse(
@@ -267,7 +267,11 @@ def delete_document(request, document_id: int):
     if document.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    document.delete()
+    if document.is_deleted:
+        return 204, None
+
+    document.is_deleted = True
+    document.save(update_fields=["is_deleted"])
     return 204, None
 
 
@@ -353,7 +357,7 @@ def list_webpages(request, topic_uuid: str):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    webpages = TopicWebpage.objects.filter(topic=topic).order_by("-created_at")
+    webpages = TopicWebpage.objects.filter(topic=topic, is_deleted=False).order_by("-created_at")
 
     items = [
         TopicWebpageResponse(
@@ -386,5 +390,9 @@ def delete_webpage(request, webpage_id: int):
     if webpage.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    webpage.delete()
+    if webpage.is_deleted:
+        return 204, None
+
+    webpage.is_deleted = True
+    webpage.save(update_fields=["is_deleted"])
     return 204, None

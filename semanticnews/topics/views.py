@@ -142,25 +142,29 @@ def topics_detail_edit(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    related_events = topic.events.all()
-    current_recap = topic.recaps.order_by("-created_at").first()
+    related_events = topic.active_events
+    current_recap = topic.active_recaps.order_by("-created_at").first()
     latest_recap = (
-        topic.recaps.filter(status="finished").order_by("-created_at").first()
-    )
-    current_relation = topic.entity_relations.order_by("-created_at").first()
-    latest_relation = (
-        topic.entity_relations.filter(status="finished")
+        topic.active_recaps.filter(status="finished")
         .order_by("-created_at")
         .first()
     )
-    documents = list(topic.documents.all())
-    webpages = list(topic.webpages.all())
-    latest_data = topic.datas.order_by("-created_at").first()
-    datas = topic.datas.order_by("-created_at")
-    data_insights = topic.data_insights.order_by("-created_at")
-    data_visualizations = topic.data_visualizations.order_by("-created_at")
-    youtube_video = topic.youtube_videos.order_by("-created_at").first()
-    tweets = topic.tweets.order_by("-created_at")
+    current_relation = (
+        topic.active_entity_relations.order_by("-created_at").first()
+    )
+    latest_relation = (
+        topic.active_entity_relations.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    documents = list(topic.active_documents)
+    webpages = list(topic.active_webpages)
+    latest_data = topic.active_datas.order_by("-created_at").first()
+    datas = topic.active_datas.order_by("-created_at")
+    data_insights = topic.active_data_insights.order_by("-created_at")
+    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
+    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
+    tweets = topic.active_tweets.order_by("-created_at")
     if latest_relation:
         relations_json = json.dumps(
             latest_relation.relations, separators=(",", ":")
@@ -247,7 +251,14 @@ def topic_remove_event(request, slug, username, event_uuid):
         return HttpResponseForbidden()
 
     event = get_object_or_404(Event, uuid=event_uuid)
-    TopicEvent.objects.filter(topic=topic, event=event).delete()
+    TopicEvent.objects.filter(
+        topic=topic,
+        event=event,
+        is_deleted=False,
+    ).update(is_deleted=True)
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
 
     return redirect("topics_detail", slug=topic.slug, username=username)
 
