@@ -59,7 +59,7 @@ def topics_list(request):
 
     topics = (
         Topic.objects.filter(status="published")
-        .select_related("created_by")
+        .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-updated_at", "-created_at")
     )

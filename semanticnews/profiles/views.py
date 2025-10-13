@@ -70,7 +70,7 @@ def user_profile(request, username):
     topics = (
         Topic.objects
         .filter(Q(created_by=user) | Q(contents__created_by=user))
-        .select_related("created_by")
+        .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .distinct()
         .order_by('-updated_at')
