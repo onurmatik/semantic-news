@@ -87,6 +87,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Empty-state refresh
         refreshEmptyMessages();
 
+        document.dispatchEvent(new CustomEvent('topic:changed'));
+
         deleteModal?.hide();
       } catch (err) {
         console.error(err);

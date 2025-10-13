@@ -356,6 +356,10 @@ def update_topic_layout_configuration(
             ]
         )
 
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
+
     layout = get_topic_layout(topic)
     return TopicLayoutResponse(modules=serialize_layout(layout))
 
