@@ -471,6 +471,7 @@ class TopicEventRemoveResponse(Schema):
     event_uuid: str
 
 
+@api.post("/remove-event", response=TopicEventRemoveResponse)
 def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     """Remove an agenda event from a topic for the authenticated user.
 
