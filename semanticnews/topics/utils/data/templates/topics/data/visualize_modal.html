@@ -9,6 +9,7 @@
             <div class="modal-body">
                 <form id="dataVisualizeForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <input type="hidden" name="request_id" id="visualizeRequestId">
                     <div class="mb-3">
                         {% for insight in data_insights %}
                         <div class="form-check">
@@ -37,8 +38,13 @@
                         <label for="visualizeInstructions" class="form-label">{% trans "Extra instructions" %}</label>
                         <textarea class="form-control" id="visualizeInstructions" name="instructions" rows="3" placeholder="{% trans 'Optional additional guidance for the visualization' %}"></textarea>
                     </div>
+                    <div id="visualizeStatusMessage" class="alert d-none" role="alert"></div>
+                    <div id="visualizePreviewWrapper" class="mb-3 d-none">
+                        <canvas id="visualizePreviewChart"></canvas>
+                    </div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="visualizeDataBtn">{% trans "Visualize" %}</button>
+                        <button type="button" class="btn btn-primary" id="saveVisualizationBtn" disabled>{% trans "Save" %}</button>
                     </div>
                 </form>
             </div>

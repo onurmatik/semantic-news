@@ -1,7 +1,7 @@
-"""Celery tasks for topic data fetch and search operations."""
+"""Celery tasks for topic data operations."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from celery import shared_task
 from django.conf import settings
@@ -11,7 +11,12 @@ from pydantic import Field
 
 from ....openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
-from .models import TopicDataRequest
+from .models import (
+    TopicData,
+    TopicDataRequest,
+    TopicDataAnalysisRequest,
+    TopicDataVisualizationRequest,
+)
 
 
 _UNSET = object()
@@ -26,6 +31,25 @@ class _TopicDataResponseSchema(Schema):
 class _TopicDataSearchResponseSchema(_TopicDataResponseSchema):
     sources: List[str] = Field(default_factory=list)
     explanation: str | None = None
+
+
+class _TopicDataInsightsResponseSchema(Schema):
+    insights: List[str] = Field(default_factory=list)
+
+
+class _ChartDatasetSchema(Schema):
+    label: str
+    data: List[float]
+
+
+class _ChartDataSchema(Schema):
+    labels: List[str]
+    datasets: List[_ChartDatasetSchema]
+
+
+class _TopicDataVisualizationResponseSchema(Schema):
+    chart_type: str
+    data: _ChartDataSchema
 
 
 def _update_request(
@@ -48,6 +72,46 @@ def _update_request(
     TopicDataRequest.objects.filter(id=request_id).update(**updates)
 
 
+def _update_analysis_request(
+    request_id: int,
+    *,
+    status: TopicDataAnalysisRequest.Status | None = None,
+    result: Dict[str, Any] | None | object = _UNSET,
+    error_message: str | None | object = _UNSET,
+) -> None:
+    """Persist status updates for a TopicDataAnalysisRequest instance."""
+
+    updates: Dict[str, Any] = {"updated_at": timezone.now()}
+    if status is not None:
+        updates["status"] = status
+    if result is not _UNSET:
+        updates["result"] = result
+    if error_message is not _UNSET:
+        updates["error_message"] = error_message
+
+    TopicDataAnalysisRequest.objects.filter(id=request_id).update(**updates)
+
+
+def _update_visualization_request(
+    request_id: int,
+    *,
+    status: TopicDataVisualizationRequest.Status | None = None,
+    result: Dict[str, Any] | None | object = _UNSET,
+    error_message: str | None | object = _UNSET,
+) -> None:
+    """Persist status updates for a TopicDataVisualizationRequest instance."""
+
+    updates: Dict[str, Any] = {"updated_at": timezone.now()}
+    if status is not None:
+        updates["status"] = status
+    if result is not _UNSET:
+        updates["result"] = result
+    if error_message is not _UNSET:
+        updates["error_message"] = error_message
+
+    TopicDataVisualizationRequest.objects.filter(id=request_id).update(**updates)
+
+
 def _call_openai(prompt: str, *, model: str, schema: type[Schema]) -> Schema:
     """Execute the OpenAI call and return the parsed response."""
     with OpenAI() as client:
@@ -65,6 +129,18 @@ def _resolve_model(model: str | None) -> str:
     if model:
         return model
     return settings.DEFAULT_AI_MODEL
+
+
+def _build_tables_text(datas: Iterable[TopicData]) -> str:
+    """Convert TopicData rows to a textual representation for prompting."""
+
+    tables_text = ""
+    for data in datas:
+        name = data.name or "Dataset"
+        headers = ", ".join(data.data.get("headers", []))
+        rows = [", ".join(row) for row in data.data.get("rows", [])]
+        tables_text += f"{name}\n{headers}\n" + "\n".join(rows) + "\n\n"
+    return tables_text
 
 
 @shared_task(
@@ -189,6 +265,182 @@ def search_topic_data_task(
     _update_request(
         request_id,
         status=TopicDataRequest.Status.SUCCESS,
+        result=result,
+        error_message=None,
+    )
+    return result
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 2},
+)
+def analyze_topic_data_task(
+    self,
+    *,
+    request_id: int,
+    topic_id: int,
+    data_ids: List[int],
+    instructions: str | None = None,
+    model: str | None = None,
+) -> Dict[str, Any]:
+    """Analyze selected topic data tables and return insights."""
+
+    _update_analysis_request(
+        request_id,
+        status=TopicDataAnalysisRequest.Status.STARTED,
+        result=None,
+        error_message=None,
+    )
+
+    datas = list(
+        TopicData.objects.filter(
+            topic_id=topic_id,
+            id__in=data_ids,
+            is_deleted=False,
+        )
+    )
+    if not datas:
+        message = "No data available for analysis"
+        _update_analysis_request(
+            request_id,
+            status=TopicDataAnalysisRequest.Status.FAILURE,
+            result=None,
+            error_message=message,
+        )
+        raise ValueError(message)
+
+    resolved_model = _resolve_model(model)
+    tables_text = _build_tables_text(datas)
+    prompt = (
+        "Analyze the following data tables and provide up to three of the most "
+        "significant insights. Return a JSON object with a key 'insights' "
+        "containing a list of strings."
+    )
+    if instructions:
+        prompt += f" Please consider the following user instructions: {instructions}"
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{tables_text}"
+
+    try:
+        parsed = _call_openai(
+            prompt,
+            model=resolved_model,
+            schema=_TopicDataInsightsResponseSchema,
+        )
+    except Exception as exc:
+        _update_analysis_request(
+            request_id,
+            status=TopicDataAnalysisRequest.Status.FAILURE,
+            result=None,
+            error_message=str(exc),
+        )
+        raise
+
+    insights = [
+        insight.strip()
+        for insight in parsed.insights
+        if isinstance(insight, str) and insight.strip()
+    ][:3]
+    result: Dict[str, Any] = {"insights": insights}
+    _update_analysis_request(
+        request_id,
+        status=TopicDataAnalysisRequest.Status.SUCCESS,
+        result=result,
+        error_message=None,
+    )
+    return result
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 2},
+)
+def visualize_topic_data_task(
+    self,
+    *,
+    request_id: int,
+    topic_id: int,
+    data_ids: List[int],
+    insight: str,
+    chart_type: str | None = None,
+    instructions: str | None = None,
+    model: str | None = None,
+) -> Dict[str, Any]:
+    """Generate chart data for a topic insight."""
+
+    _update_visualization_request(
+        request_id,
+        status=TopicDataVisualizationRequest.Status.STARTED,
+        result=None,
+        error_message=None,
+    )
+
+    datas = list(
+        TopicData.objects.filter(
+            topic_id=topic_id,
+            id__in=data_ids,
+            is_deleted=False,
+        )
+    )
+    if not datas:
+        message = "No data available for visualization"
+        _update_visualization_request(
+            request_id,
+            status=TopicDataVisualizationRequest.Status.FAILURE,
+            result=None,
+            error_message=message,
+        )
+        raise ValueError(message)
+
+    resolved_model = _resolve_model(model)
+    tables_section = f"Insight: {insight}\n\n{_build_tables_text(datas)}"
+    if chart_type:
+        prompt = (
+            "Given the following insight and data tables, provide the chart data for a "
+            f"{chart_type} chart in JSON with keys 'chart_type' and 'data'. "
+            "The 'data' should include 'labels' and 'datasets' formatted for Chart.js."
+        )
+    else:
+        prompt = (
+            "Given the following insight and data tables, choose an appropriate basic chart "
+            "type (bar, line, pie, etc.) and provide the chart data in JSON with keys "
+            "'chart_type' and 'data'. The 'data' should include 'labels' and 'datasets' "
+            "formatted for Chart.js."
+        )
+    if instructions:
+        prompt += f" Please consider the following user instructions: {instructions}"
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{tables_section}"
+
+    try:
+        parsed = _call_openai(
+            prompt,
+            model=resolved_model,
+            schema=_TopicDataVisualizationResponseSchema,
+        )
+    except Exception as exc:
+        _update_visualization_request(
+            request_id,
+            status=TopicDataVisualizationRequest.Status.FAILURE,
+            result=None,
+            error_message=str(exc),
+        )
+        raise
+
+    final_chart_type = chart_type or parsed.chart_type
+    result: Dict[str, Any] = {
+        "chart_type": final_chart_type,
+        "chart_data": parsed.data.dict(),
+        "insight": insight,
+    }
+    _update_visualization_request(
+        request_id,
+        status=TopicDataVisualizationRequest.Status.SUCCESS,
         result=result,
         error_message=None,
     )

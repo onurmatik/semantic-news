@@ -24,22 +24,261 @@ document.addEventListener('DOMContentLoaded', () => {
   const analyzeForm = document.getElementById('dataAnalyzeForm');
   const insightsContainer = document.getElementById('dataInsights');
   const saveInsightsBtn = document.getElementById('saveInsightsBtn');
+  const analyzeStatusMessage = document.getElementById('analyzeStatusMessage');
+  const analyzeRequestInput = document.getElementById('analyzeRequestId');
   const visualizeBtn = document.getElementById('visualizeDataBtn');
   const visualizeForm = document.getElementById('dataVisualizeForm');
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
   const chartTypeSelect = document.getElementById('visualizeChartType');
   const visualizeInstructionsInput = document.getElementById('visualizeInstructions');
+  const visualizeStatusMessage = document.getElementById('visualizeStatusMessage');
+  const visualizeRequestInput = document.getElementById('visualizeRequestId');
+  const visualizePreviewWrapper = document.getElementById('visualizePreviewWrapper');
+  const visualizePreviewCanvas = document.getElementById('visualizePreviewChart');
+  const saveVisualizationBtn = document.getElementById('saveVisualizationBtn');
+  const analyzeModalEl = document.getElementById('dataAnalyzeModal');
+  const visualizeModalEl = document.getElementById('dataVisualizeModal');
   const urlMode = document.getElementById('dataModeUrl');
   const searchMode = document.getElementById('dataModeSearch');
   let fetchedData = null;
   let pollTimer = null;
   let currentTaskId = null;
   let currentRequestId = null;
+  let analyzePollTimer = null;
+  let analyzeRequestId = null;
+  let analyzeTaskId = null;
+  let visualizePollTimer = null;
+  let visualizeRequestId = null;
+  let visualizeTaskId = null;
+  let visualizeChartInstance = null;
 
   const topicUuid = form
     ? form.querySelector('input[name="topic_uuid"]').value
     : null;
   const storageKey = topicUuid ? `topicDataTask:${topicUuid}` : null;
+  const analyzeStorageKey = topicUuid ? `topicDataAnalyzeTask:${topicUuid}` : null;
+  const visualizeStorageKey = topicUuid ? `topicDataVisualizeTask:${topicUuid}` : null;
+
+  const hideVisualizationPreview = () => {
+    if (visualizePreviewWrapper) visualizePreviewWrapper.classList.add('d-none');
+    if (visualizeChartInstance) {
+      visualizeChartInstance.destroy();
+      visualizeChartInstance = null;
+    }
+  };
+
+  const renderVisualizationPreview = (chartType, chartData) => {
+    if (!visualizePreviewCanvas || typeof Chart === 'undefined') return;
+    try {
+      if (visualizeChartInstance) {
+        visualizeChartInstance.destroy();
+      }
+      visualizeChartInstance = new Chart(visualizePreviewCanvas.getContext('2d'), {
+        type: chartType || 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        },
+      });
+      if (visualizePreviewWrapper) visualizePreviewWrapper.classList.remove('d-none');
+    } catch (err) {
+      console.error(err);
+      hideVisualizationPreview();
+      showAlert(visualizeStatusMessage, 'error', 'Unable to render the preview.');
+    }
+  };
+
+  const clearVisualizeState = () => {
+    if (visualizeStorageKey) {
+      try {
+        localStorage.removeItem(visualizeStorageKey);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    visualizeRequestId = null;
+    visualizeTaskId = null;
+    if (visualizeRequestInput) visualizeRequestInput.value = '';
+    if (visualizePollTimer) {
+      clearInterval(visualizePollTimer);
+      visualizePollTimer = null;
+    }
+  };
+
+  const saveVisualizeState = (payload) => {
+    if (!visualizeStorageKey || !payload || typeof payload.request_id !== 'number') return;
+    const state = {
+      requestId: payload.request_id,
+      taskId: payload.task_id || null,
+      status: payload.status,
+      chartType: payload.chart_type || null,
+      chartData: payload.chart_data || null,
+      insight: payload.insight || null,
+      error: payload.error || null,
+      saved: Boolean(payload.saved),
+    };
+    try {
+      localStorage.setItem(visualizeStorageKey, JSON.stringify(state));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadVisualizeState = () => {
+    if (!visualizeStorageKey) return null;
+    try {
+      const raw = localStorage.getItem(visualizeStorageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
+  const fetchVisualizeStatus = async (silent = false) => {
+    if (!topicUuid || !visualizeRequestId) return null;
+    const params = new URLSearchParams({ topic_uuid: topicUuid, request_id: visualizeRequestId });
+    if (visualizeTaskId) params.set('task_id', visualizeTaskId);
+    try {
+      const res = await fetch(`/api/topics/data/visualize/status?${params.toString()}`);
+      if (res.status === 404) {
+        if (!silent) resetAlert(visualizeStatusMessage);
+        clearVisualizeState();
+        hideVisualizationPreview();
+        return null;
+      }
+      if (!res.ok) throw new Error('Request failed');
+      return await res.json();
+    } catch (err) {
+      console.error(err);
+      if (!silent) showAlert(visualizeStatusMessage, 'error', 'Unable to check visualization status.');
+      return null;
+    }
+  };
+
+  const handleVisualizationTaskPayload = (payload, { persist = true } = {}) => {
+    if (!payload) return 'none';
+    if (typeof payload.request_id === 'number') {
+      visualizeRequestId = payload.request_id;
+      if (visualizeRequestInput) visualizeRequestInput.value = String(payload.request_id);
+    }
+    if (typeof payload.task_id === 'string') {
+      visualizeTaskId = payload.task_id;
+    } else if (!payload.task_id) {
+      visualizeTaskId = null;
+    }
+    if (persist) {
+      saveVisualizeState(payload);
+    }
+
+    const status = payload.status;
+    const saved = Boolean(payload.saved);
+
+    if (status === 'pending' || status === 'started') {
+      showAlert(visualizeStatusMessage, 'info', 'We started building your visualization. Feel free to close this modal.');
+      if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+      hideVisualizationPreview();
+      return 'pending';
+    }
+
+    if (status === 'failure') {
+      showAlert(visualizeStatusMessage, 'error', payload.error || 'Unable to generate a visualization.');
+      if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+      if (visualizeBtn) visualizeBtn.disabled = false;
+      clearVisualizeState();
+      return 'failure';
+    }
+
+    if (status === 'success') {
+      if (visualizeBtn) visualizeBtn.disabled = false;
+      if (saved) {
+        showAlert(visualizeStatusMessage, 'success', 'Visualization saved to the topic.');
+        hideVisualizationPreview();
+        if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+        clearVisualizeState();
+        return 'success';
+      }
+      if (payload.chart_type && payload.chart_data) {
+        renderVisualizationPreview(payload.chart_type, payload.chart_data);
+        showAlert(visualizeStatusMessage, 'success', 'Review the preview and click Save to add it to the topic.');
+        if (saveVisualizationBtn) saveVisualizationBtn.disabled = false;
+      } else {
+        hideVisualizationPreview();
+        showAlert(visualizeStatusMessage, 'info', 'The visualization completed without chart data.');
+        if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+      }
+      return 'success';
+    }
+
+    return 'none';
+  };
+
+  const startVisualizePolling = () => {
+    if (visualizePollTimer) {
+      clearInterval(visualizePollTimer);
+      visualizePollTimer = null;
+    }
+    if (!visualizeRequestId) return;
+    visualizePollTimer = setInterval(async () => {
+      if (!visualizeRequestId) {
+        if (visualizePollTimer) {
+          clearInterval(visualizePollTimer);
+          visualizePollTimer = null;
+        }
+        return;
+      }
+      const data = await fetchVisualizeStatus(true);
+      if (!data) return;
+      const outcome = handleVisualizationTaskPayload(data);
+      if (outcome === 'success' || outcome === 'failure') {
+        if (visualizePollTimer) {
+          clearInterval(visualizePollTimer);
+          visualizePollTimer = null;
+        }
+      }
+    }, 3000);
+  };
+
+  const resumeVisualizeRequest = async () => {
+    if (!visualizeForm || !topicUuid) return;
+    const stored = loadVisualizeState();
+    if (!stored) return;
+    if (visualizePollTimer) {
+      clearInterval(visualizePollTimer);
+      visualizePollTimer = null;
+    }
+    visualizeRequestId = stored.requestId || null;
+    visualizeTaskId = stored.taskId || null;
+    if (visualizeRequestInput) visualizeRequestInput.value = visualizeRequestId || '';
+    const payload = {
+      request_id: stored.requestId,
+      task_id: stored.taskId,
+      status: stored.status,
+      chart_type: stored.chartType,
+      chart_data: stored.chartData,
+      insight: stored.insight,
+      error: stored.error,
+      saved: stored.saved,
+    };
+    const outcome = handleVisualizationTaskPayload(payload, { persist: false });
+    if (outcome === 'pending') {
+      if (visualizeBtn) visualizeBtn.disabled = true;
+      const latest = await fetchVisualizeStatus(true);
+      if (latest) {
+        const latestOutcome = handleVisualizationTaskPayload(latest);
+        if (latestOutcome === 'pending') {
+          startVisualizePolling();
+        }
+      } else {
+        startVisualizePolling();
+      }
+    } else if (outcome === 'success' && !stored.saved && stored.chartType && stored.chartData) {
+      renderVisualizationPreview(stored.chartType, stored.chartData);
+      if (saveVisualizationBtn) saveVisualizationBtn.disabled = false;
+    }
+  };
+
 
   const normalizeResult = (result) => {
     if (!result || typeof result !== 'object') {
@@ -174,6 +413,25 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'alert-info';
     statusMessage.classList.add(className);
     statusMessage.textContent = message;
+  };
+
+  const resetAlert = (element) => {
+    if (!element) return;
+    element.classList.add('d-none');
+    element.classList.remove('alert-info', 'alert-success', 'alert-danger');
+    element.textContent = '';
+  };
+
+  const showAlert = (element, type, message) => {
+    if (!element) return;
+    element.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+    const className = type === 'success'
+      ? 'alert-success'
+      : type === 'error'
+        ? 'alert-danger'
+        : 'alert-info';
+    element.classList.add(className);
+    element.textContent = message;
   };
 
   const resetPreview = () => {
@@ -557,35 +815,289 @@ document.addEventListener('DOMContentLoaded', () => {
   loadExistingRequest();
 
 
+  const updateSaveInsightsState = () => {
+    if (!saveInsightsBtn) return;
+    if (!insightsContainer) {
+      saveInsightsBtn.disabled = true;
+      return;
+    }
+    const hasSelection = insightsContainer.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+    saveInsightsBtn.disabled = !hasSelection || !analyzeRequestId;
+  };
+
+  const renderInsights = (insights) => {
+    if (!insightsContainer) return;
+    insightsContainer.innerHTML = '';
+    if (!Array.isArray(insights) || insights.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'text-muted mb-0';
+      empty.textContent = 'No insights generated.';
+      insightsContainer.appendChild(empty);
+      insightsContainer.classList.remove('d-none');
+      updateSaveInsightsState();
+      return;
+    }
+    insights.forEach((insight, idx) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'form-check';
+      const input = document.createElement('input');
+      input.className = 'form-check-input';
+      input.type = 'checkbox';
+      input.id = `insight${idx}`;
+      input.checked = true;
+      input.value = typeof insight === 'string' ? insight : String(insight ?? '');
+      const label = document.createElement('label');
+      label.className = 'form-check-label';
+      label.htmlFor = input.id;
+      label.textContent = input.value;
+      wrapper.appendChild(input);
+      wrapper.appendChild(label);
+      insightsContainer.appendChild(wrapper);
+    });
+    insightsContainer.classList.remove('d-none');
+    updateSaveInsightsState();
+  };
+
+  if (insightsContainer) {
+    insightsContainer.addEventListener('change', updateSaveInsightsState);
+  }
+
+  const clearAnalyzeState = () => {
+    if (analyzeStorageKey) {
+      try {
+        localStorage.removeItem(analyzeStorageKey);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    analyzeRequestId = null;
+    analyzeTaskId = null;
+    if (analyzeRequestInput) analyzeRequestInput.value = '';
+    if (analyzePollTimer) {
+      clearInterval(analyzePollTimer);
+      analyzePollTimer = null;
+    }
+    updateSaveInsightsState();
+  };
+
+  const saveAnalyzeState = (payload) => {
+    if (!analyzeStorageKey || !payload || typeof payload.request_id !== 'number') return;
+    const state = {
+      requestId: payload.request_id,
+      taskId: payload.task_id || null,
+      status: payload.status,
+      insights: payload.insights || [],
+      error: payload.error || null,
+      saved: Boolean(payload.saved),
+    };
+    try {
+      localStorage.setItem(analyzeStorageKey, JSON.stringify(state));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadAnalyzeState = () => {
+    if (!analyzeStorageKey) return null;
+    try {
+      const raw = localStorage.getItem(analyzeStorageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
+  const fetchAnalyzeStatus = async (silent = false) => {
+    if (!topicUuid || !analyzeRequestId) return null;
+    const params = new URLSearchParams({ topic_uuid: topicUuid, request_id: analyzeRequestId });
+    if (analyzeTaskId) params.set('task_id', analyzeTaskId);
+    try {
+      const res = await fetch(`/api/topics/data/analyze/status?${params.toString()}`);
+      if (res.status === 404) {
+        if (!silent) resetAlert(analyzeStatusMessage);
+        clearAnalyzeState();
+        if (insightsContainer) {
+          insightsContainer.classList.add('d-none');
+          insightsContainer.innerHTML = '';
+        }
+        return null;
+      }
+      if (!res.ok) throw new Error('Request failed');
+      return await res.json();
+    } catch (err) {
+      console.error(err);
+      if (!silent) showAlert(analyzeStatusMessage, 'error', 'Unable to check analysis status.');
+      return null;
+    }
+  };
+
+  const handleAnalyzeTaskPayload = (payload, { persist = true } = {}) => {
+    if (!payload) return 'none';
+    if (typeof payload.request_id === 'number') {
+      analyzeRequestId = payload.request_id;
+      if (analyzeRequestInput) analyzeRequestInput.value = String(payload.request_id);
+    }
+    if (typeof payload.task_id === 'string') {
+      analyzeTaskId = payload.task_id;
+    } else if (!payload.task_id) {
+      analyzeTaskId = null;
+    }
+    if (persist) {
+      saveAnalyzeState(payload);
+    }
+
+    const status = payload.status;
+    const saved = Boolean(payload.saved);
+
+    if (status === 'pending' || status === 'started') {
+      showAlert(analyzeStatusMessage, 'info', 'We started analyzing your data. You can close this modal while we work.');
+      if (insightsContainer) {
+        insightsContainer.classList.add('d-none');
+        insightsContainer.innerHTML = '';
+      }
+      if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+      return 'pending';
+    }
+
+    if (status === 'failure') {
+      showAlert(analyzeStatusMessage, 'error', payload.error || 'Unable to analyze the selected data.');
+      if (insightsContainer) {
+        insightsContainer.classList.add('d-none');
+        insightsContainer.innerHTML = '';
+      }
+      if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+      if (analyzeBtn) analyzeBtn.disabled = false;
+      clearAnalyzeState();
+      return 'failure';
+    }
+
+    if (status === 'success') {
+      if (analyzeBtn) analyzeBtn.disabled = false;
+      if (saved) {
+        showAlert(analyzeStatusMessage, 'success', 'Insights saved to the topic.');
+        clearAnalyzeState();
+        return 'success';
+      }
+      if (Array.isArray(payload.insights) && payload.insights.length > 0) {
+        renderInsights(payload.insights);
+        showAlert(analyzeStatusMessage, 'success', 'Analysis complete. Select the insights you want to keep.');
+      } else {
+        renderInsights([]);
+        showAlert(analyzeStatusMessage, 'info', 'The analysis finished but did not produce insights.');
+      }
+      return 'success';
+    }
+
+    return 'none';
+  };
+
+  const startAnalyzePolling = () => {
+    if (analyzePollTimer) {
+      clearInterval(analyzePollTimer);
+      analyzePollTimer = null;
+    }
+    if (!analyzeRequestId) return;
+    analyzePollTimer = setInterval(async () => {
+      if (!analyzeRequestId) {
+        if (analyzePollTimer) {
+          clearInterval(analyzePollTimer);
+          analyzePollTimer = null;
+        }
+        return;
+      }
+      const data = await fetchAnalyzeStatus(true);
+      if (!data) return;
+      const outcome = handleAnalyzeTaskPayload(data);
+      if (outcome === 'success' || outcome === 'failure') {
+        if (analyzePollTimer) {
+          clearInterval(analyzePollTimer);
+          analyzePollTimer = null;
+        }
+      }
+    }, 3000);
+  };
+
+  const resumeAnalyzeRequest = async () => {
+    if (!analyzeForm || !topicUuid) return;
+    const stored = loadAnalyzeState();
+    if (!stored) return;
+    if (analyzePollTimer) {
+      clearInterval(analyzePollTimer);
+      analyzePollTimer = null;
+    }
+    analyzeRequestId = stored.requestId || null;
+    analyzeTaskId = stored.taskId || null;
+    if (analyzeRequestInput) analyzeRequestInput.value = analyzeRequestId || '';
+    const payload = {
+      request_id: stored.requestId,
+      task_id: stored.taskId,
+      status: stored.status,
+      insights: stored.insights,
+      error: stored.error,
+      saved: stored.saved,
+    };
+    const outcome = handleAnalyzeTaskPayload(payload, { persist: false });
+    if (outcome === 'pending') {
+      if (analyzeBtn) analyzeBtn.disabled = true;
+      const latest = await fetchAnalyzeStatus(true);
+      if (latest) {
+        const latestOutcome = handleAnalyzeTaskPayload(latest);
+        if (latestOutcome === 'pending') {
+          startAnalyzePolling();
+        }
+      } else {
+        startAnalyzePolling();
+      }
+    }
+    updateSaveInsightsState();
+  };
+
+  updateSaveInsightsState();
+
   if (analyzeBtn && analyzeForm) {
     analyzeBtn.addEventListener('click', async () => {
-      analyzeBtn.disabled = true;
-      const topicUuid = analyzeForm.querySelector('input[name="topic_uuid"]').value;
-      const dataIds = Array.from(analyzeForm.querySelectorAll('input[name="data_ids"]:checked')).map(cb => parseInt(cb.value));
+      if (!topicUuid) return;
+      const dataIds = Array.from(analyzeForm.querySelectorAll('input[name="data_ids"]:checked'))
+        .map((cb) => parseInt(cb.value, 10))
+        .filter((id) => !Number.isNaN(id));
+      if (dataIds.length === 0) {
+        showAlert(analyzeStatusMessage, 'error', 'Select at least one data table to analyze.');
+        return;
+      }
       const instructionsEl = analyzeForm.querySelector('textarea[name="instructions"]');
       const instructions = instructionsEl ? instructionsEl.value.trim() : '';
+      analyzeBtn.disabled = true;
+      if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+      if (insightsContainer) {
+        insightsContainer.classList.add('d-none');
+        insightsContainer.innerHTML = '';
+      }
+      if (analyzePollTimer) {
+        clearInterval(analyzePollTimer);
+        analyzePollTimer = null;
+      }
+      clearAnalyzeState();
       try {
+        showAlert(analyzeStatusMessage, 'info', 'We started analyzing your data. You can close this modal while we work.');
         const body = { topic_uuid: topicUuid, data_ids: dataIds };
         if (instructions) body.instructions = instructions;
         const res = await fetch('/api/topics/data/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error('Request failed');
         const data = await res.json();
-        insightsContainer.innerHTML = data.insights.map((insight, idx) => {
-          return `<div class="form-check">
-            <input class="form-check-input" type="checkbox" id="insight${idx}" value="${insight.replace(/"/g, '&quot;')}" checked>
-            <label class="form-check-label" for="insight${idx}">${insight}</label>
-          </div>`;
-        }).join('');
-        insightsContainer.classList.remove('d-none');
-        if (saveInsightsBtn) saveInsightsBtn.disabled = false;
+        const outcome = handleAnalyzeTaskPayload(data);
+        if (outcome === 'pending') {
+          startAnalyzePolling();
+        }
       } catch (err) {
         console.error(err);
-      } finally {
+        showAlert(analyzeStatusMessage, 'error', 'Unable to start the analysis. Please try again.');
         analyzeBtn.disabled = false;
+        clearAnalyzeState();
       }
     });
   }
@@ -593,18 +1105,133 @@ document.addEventListener('DOMContentLoaded', () => {
   if (analyzeForm) {
     analyzeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const selected = Array.from(insightsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
-      if (selected.length === 0) return;
-      const topicUuid = analyzeForm.querySelector('input[name="topic_uuid"]').value;
-      const dataIds = Array.from(analyzeForm.querySelectorAll('input[name="data_ids"]:checked')).map(cb => parseInt(cb.value));
-      const res = await fetch('/api/topics/data/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic_uuid: topicUuid, data_ids: dataIds, insights: selected })
-      });
-      if (res.ok) {
-        window.location.reload();
+      if (!topicUuid || !analyzeRequestId) return;
+      const selected = insightsContainer
+        ? Array.from(insightsContainer.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value)
+        : [];
+      if (selected.length === 0) {
+        updateSaveInsightsState();
+        return;
       }
+      if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+      try {
+        const res = await fetch('/api/topics/data/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic_uuid: topicUuid, request_id: analyzeRequestId, insights: selected }),
+        });
+        if (!res.ok) throw new Error('Request failed');
+        clearAnalyzeState();
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        showAlert(analyzeStatusMessage, 'error', 'Unable to save the selected insights. Please try again.');
+        updateSaveInsightsState();
+      }
+    });
+  }
+
+
+  if (visualizeBtn && visualizeForm) {
+    visualizeBtn.addEventListener('click', async () => {
+      if (!topicUuid) return;
+      const insightInput = visualizeForm.querySelector('input[name="insight_id"]:checked');
+      if (!insightInput) {
+        showAlert(visualizeStatusMessage, 'error', 'Select an insight to visualize.');
+        return;
+      }
+      let body;
+      if (insightInput.value === 'other') {
+        const insight = visualizeOtherInput ? visualizeOtherInput.value.trim() : '';
+        if (!insight) {
+          showAlert(visualizeStatusMessage, 'error', 'Enter an insight to visualize.');
+          return;
+        }
+        body = { topic_uuid: topicUuid, insight };
+      } else {
+        const insightId = parseInt(insightInput.value, 10);
+        if (Number.isNaN(insightId)) {
+          showAlert(visualizeStatusMessage, 'error', 'Select a valid insight to visualize.');
+          return;
+        }
+        body = { topic_uuid: topicUuid, insight_id: insightId };
+      }
+      const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+      if (chartType) body.chart_type = chartType;
+      if (visualizeInstructionsInput) {
+        const instructions = visualizeInstructionsInput.value.trim();
+        if (instructions) body.instructions = instructions;
+      }
+      visualizeBtn.disabled = true;
+      if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+      if (visualizePollTimer) {
+        clearInterval(visualizePollTimer);
+        visualizePollTimer = null;
+      }
+      clearVisualizeState();
+      hideVisualizationPreview();
+      try {
+        showAlert(visualizeStatusMessage, 'info', 'We started building your visualization. Feel free to close this modal.');
+        const res = await fetch('/api/topics/data/visualize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Request failed');
+        const data = await res.json();
+        const outcome = handleVisualizationTaskPayload(data);
+        if (outcome === 'pending') {
+          startVisualizePolling();
+        }
+      } catch (err) {
+        console.error(err);
+        showAlert(visualizeStatusMessage, 'error', 'Unable to start the visualization. Please try again.');
+        visualizeBtn.disabled = false;
+        clearVisualizeState();
+      }
+    });
+  }
+
+  if (saveVisualizationBtn) {
+    saveVisualizationBtn.addEventListener('click', async () => {
+      if (!topicUuid || !visualizeRequestId) return;
+      saveVisualizationBtn.disabled = true;
+      try {
+        const res = await fetch('/api/topics/data/visualize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic_uuid: topicUuid, request_id: visualizeRequestId }),
+        });
+        if (!res.ok) throw new Error('Request failed');
+        clearVisualizeState();
+        const modalEl = document.getElementById('dataVisualizeModal');
+        if (modalEl && window.bootstrap) {
+          const modal = window.bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
+        }
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        showAlert(visualizeStatusMessage, 'error', 'Unable to save the visualization. Please try again.');
+        if (visualizeRequestId) {
+          saveVisualizationBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  resumeAnalyzeRequest();
+  resumeVisualizeRequest();
+
+  if (analyzeModalEl) {
+    analyzeModalEl.addEventListener('show.bs.modal', () => {
+      resumeAnalyzeRequest();
+    });
+  }
+
+  if (visualizeModalEl) {
+    visualizeModalEl.addEventListener('show.bs.modal', () => {
+      resumeVisualizeRequest();
     });
   }
 
@@ -639,59 +1266,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (visualizeBtn && visualizeForm) {
-    visualizeBtn.addEventListener('click', async () => {
-      visualizeBtn.disabled = true;
-      const topicUuid = visualizeForm.querySelector('input[name="topic_uuid"]').value;
-      const insightInput = visualizeForm.querySelector('input[name="insight_id"]:checked');
-      if (!insightInput) {
-        visualizeBtn.disabled = false;
-        return;
-      }
-      const value = insightInput.value;
-      let body;
-      if (value === 'other') {
-        const insight = visualizeOtherInput ? visualizeOtherInput.value.trim() : '';
-        if (!insight) {
-          visualizeBtn.disabled = false;
-          return;
-        }
-        body = { topic_uuid: topicUuid, insight };
-      } else {
-        const insightId = parseInt(value);
-        body = { topic_uuid: topicUuid, insight_id: insightId };
-      }
-      const chartType = chartTypeSelect ? chartTypeSelect.value : '';
-      if (chartType) {
-        body.chart_type = chartType;
-      }
-      if (visualizeInstructionsInput) {
-        const instructions = visualizeInstructionsInput.value.trim();
-        if (instructions) {
-          body.instructions = instructions;
-        }
-      }
-      try {
-        const res = await fetch('/api/topics/data/visualize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
-        const modalEl = document.getElementById('dataVisualizeModal');
-        if (modalEl && window.bootstrap) {
-          const modal = window.bootstrap.Modal.getInstance(modalEl);
-          if (modal) modal.hide();
-        }
-        if (typeof window.location !== 'undefined') {
-          window.location.reload();
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        visualizeBtn.disabled = false;
-      }
-    });
-  }
 });

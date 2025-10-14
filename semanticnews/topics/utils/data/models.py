@@ -55,6 +55,95 @@ class TopicDataRequest(models.Model):
         return f"Data request {self.id} for {self.topic}"
 
 
+
+class TopicDataAnalysisRequest(models.Model):
+    """Track asynchronous data analysis requests for a topic."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        STARTED = "started", "Started"
+        SUCCESS = "success", "Success"
+        FAILURE = "failure", "Failure"
+
+    topic = models.ForeignKey(
+        "topics.Topic",
+        on_delete=models.CASCADE,
+        related_name="data_analysis_requests",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="topic_data_analysis_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    task_id = models.CharField(max_length=255, blank=True, null=True)
+    input_payload = models.JSONField(default=dict)
+    result = models.JSONField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    saved_insight_ids = models.JSONField(default=list, blank=True)
+    saved_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "topics"
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Data analysis request {self.id} for {self.topic}"
+
+
+class TopicDataVisualizationRequest(models.Model):
+    """Track asynchronous data visualization requests for a topic."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        STARTED = "started", "Started"
+        SUCCESS = "success", "Success"
+        FAILURE = "failure", "Failure"
+
+    topic = models.ForeignKey(
+        "topics.Topic",
+        on_delete=models.CASCADE,
+        related_name="data_visualization_requests",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="topic_data_visualization_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    task_id = models.CharField(max_length=255, blank=True, null=True)
+    input_payload = models.JSONField(default=dict)
+    result = models.JSONField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    saved_visualization = models.ForeignKey(
+        "topics.TopicDataVisualization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_visualization_requests",
+    )
+    saved_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "topics"
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Data visualization request {self.id} for {self.topic}"
+
+
 class TopicData(models.Model):
     topic = models.ForeignKey(
         'topics.Topic', on_delete=models.CASCADE, related_name='datas'
