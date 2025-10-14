@@ -26,6 +26,10 @@ window.setupTopicHistory = function (options) {
   const modalEl = document.getElementById(`${key}Modal`);
   const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
 
+  const notifyTopicChanged = () => {
+    document.dispatchEvent(new CustomEvent('topic:changed'));
+  };
+
   if (easyMDE && modalEl) {
     modalEl.addEventListener('shown.bs.modal', () => {
       easyMDE.codemirror.refresh();
@@ -125,23 +129,39 @@ window.setupTopicHistory = function (options) {
     return JSON.stringify(v, null, 2);
   };
 
-  let reload = async () => {};
+  let reload = async ({ notify = true } = {}) => {
+    if (notify) {
+      notifyTopicChanged();
+    }
+    return true;
+  };
+  let lastSerializedItems = null;
   if (pagerEl) {
-    reload = async () => {
-      if (!topicUuid) return;
+    reload = async ({ notify = true } = {}) => {
+      if (!topicUuid) return false;
       try {
         const res = await fetch(listUrl(topicUuid));
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        const serialized = JSON.stringify(items);
+        const changed = serialized !== lastSerializedItems;
+        lastSerializedItems = serialized;
+
         recs.length = 0;
-        data.items && data.items.forEach(r => recs.push(r));
+        items.forEach(r => recs.push(r));
         if (recs.length) {
           applyIndex(recs.length - 1);
         } else {
           pagerEl.style.display = 'none';
         }
+        if (notify && changed) {
+          notifyTopicChanged();
+        }
+        return changed;
       } catch (e) {
         console.error(e);
+        return false;
       }
     };
 
@@ -170,13 +190,14 @@ window.setupTopicHistory = function (options) {
             year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
           });
         }
+        notifyTopicChanged();
       };
     } catch (err) {
       console.error('history hooks expose failed:', err);
     }
 
     // initial load (only when pager exists = edit mode)
-    reload();
+    reload({ notify: false });
 
     // pager controls
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
@@ -211,7 +232,10 @@ window.setupTopicHistory = function (options) {
 
   const afterPersistedChange = async () => {
     // After AI suggestion or manual Update, ensure list/card/editor/baseline are correct
-    await reload();
+    const notified = await reload();
+    if (!notified) {
+      notifyTopicChanged();
+    }
   };
 
   // Suggest flow
