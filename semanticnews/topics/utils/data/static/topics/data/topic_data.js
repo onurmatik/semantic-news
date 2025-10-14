@@ -52,6 +52,97 @@ document.addEventListener('DOMContentLoaded', () => {
   let visualizeTaskId = null;
   let visualizeChartInstance = null;
 
+  const createStatusIndicator = ({ spinnerId, errorIconId, successIconId }) => {
+    const spinner = spinnerId ? document.getElementById(spinnerId) : null;
+    const errorIcon = errorIconId ? document.getElementById(errorIconId) : null;
+    const successIcon = successIconId ? document.getElementById(successIconId) : null;
+
+    const hide = (el) => el && el.classList.add('d-none');
+    const show = (el) => el && el.classList.remove('d-none');
+
+    const setState = (state) => {
+      switch (state) {
+        case 'loading':
+          show(spinner);
+          hide(errorIcon);
+          hide(successIcon);
+          break;
+        case 'error':
+          hide(spinner);
+          show(errorIcon);
+          hide(successIcon);
+          break;
+        case 'success':
+          hide(spinner);
+          hide(errorIcon);
+          show(successIcon);
+          break;
+        default:
+          hide(spinner);
+          hide(errorIcon);
+          hide(successIcon);
+          break;
+      }
+    };
+
+    setState('idle');
+
+    return {
+      showLoading: () => setState('loading'),
+      showError: () => setState('error'),
+      showSuccess: () => setState('success'),
+      reset: () => setState('idle'),
+    };
+  };
+
+  const dataAddIndicator = createStatusIndicator({
+    spinnerId: 'dataAddSpinner',
+    errorIconId: 'dataAddErrorIcon',
+    successIconId: 'dataAddSuccessIcon',
+  });
+
+  const analyzeIndicator = createStatusIndicator({
+    spinnerId: 'dataAnalyzeSpinner',
+    errorIconId: 'dataAnalyzeErrorIcon',
+    successIconId: 'dataAnalyzeSuccessIcon',
+  });
+
+  const visualizeIndicator = createStatusIndicator({
+    spinnerId: 'dataVisualizeSpinner',
+    errorIconId: 'dataVisualizeErrorIcon',
+    successIconId: 'dataVisualizeSuccessIcon',
+  });
+
+  let activeDataOperation = null;
+
+  const setDataOperationState = (operation, status) => {
+    if (!dataButtonController) return;
+
+    if (status === 'reset') {
+      if (activeDataOperation === operation) {
+        activeDataOperation = null;
+        dataButtonController.reset();
+      }
+      return;
+    }
+
+    activeDataOperation = operation;
+
+    if (status === 'loading') {
+      dataButtonController.showLoading();
+      return;
+    }
+
+    if (status === 'success') {
+      dataButtonController.showSuccess();
+      return;
+    }
+
+    if (status === 'error') {
+      dataButtonController.showError();
+    }
+  };
+
   const topicUuid = form
     ? form.querySelector('input[name="topic_uuid"]').value
     : null;
@@ -146,6 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!silent) resetAlert(visualizeStatusMessage);
         clearVisualizeState();
         hideVisualizationPreview();
+        visualizeIndicator.reset();
+        setDataOperationState('visualize', 'reset');
         return null;
       }
       if (!res.ok) throw new Error('Request failed');
@@ -179,6 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showAlert(visualizeStatusMessage, 'info', 'We started building your visualization. Feel free to close this modal.');
       if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
       hideVisualizationPreview();
+      visualizeIndicator.showLoading();
+      setDataOperationState('visualize', 'loading');
       return 'pending';
     }
 
@@ -187,10 +282,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
       if (visualizeBtn) visualizeBtn.disabled = false;
       clearVisualizeState();
+      visualizeIndicator.showError();
+      setDataOperationState('visualize', 'error');
       return 'failure';
     }
 
     if (status === 'success') {
+      visualizeIndicator.showSuccess();
+      setDataOperationState('visualize', 'success');
       if (visualizeBtn) visualizeBtn.disabled = false;
       if (saved) {
         showAlert(visualizeStatusMessage, 'success', 'Visualization saved to the topic.');
@@ -531,6 +630,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSaved = Boolean(payload.saved);
 
     if (isSaved) {
+      dataAddIndicator.showSuccess();
+      setDataOperationState('add', 'success');
       clearStoredState();
       currentTaskId = null;
       currentRequestId = null;
@@ -552,9 +653,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (status === 'pending' || status === 'started') {
       setStatusMessage('info', 'We started gathering your data. You can close this modal while we work.');
-      if (dataButtonController && dataButtonController.showLoading) {
-        dataButtonController.showLoading();
-      }
+      dataAddIndicator.showLoading();
+      setDataOperationState('add', 'loading');
       fetchedData = null;
       updateSaveButtonState();
       saveStoredState({ taskId, status, mode, requestId: currentRequestId, saved: false });
@@ -566,9 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
         applyResult(normalizedResult, mode);
       }
       setStatusMessage('success', 'Your data is ready. Review the preview and click Save to add it to the topic.');
-      if (dataButtonController && dataButtonController.showSuccess) {
-        dataButtonController.showSuccess();
-      }
+      dataAddIndicator.showSuccess();
+      setDataOperationState('add', 'success');
       stopPolling();
       saveStoredState({
         taskId,
@@ -584,9 +683,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (status === 'failure') {
       const message = payload.error || 'We were unable to fetch data. Please try again.';
       setStatusMessage('error', message);
-      if (dataButtonController && dataButtonController.showError) {
-        dataButtonController.showError();
-      }
+      dataAddIndicator.showError();
+      setDataOperationState('add', 'error');
       fetchedData = null;
       updateSaveButtonState();
       stopPolling();
@@ -622,10 +720,9 @@ document.addEventListener('DOMContentLoaded', () => {
           resetPreview();
           hideStatusMessage();
           updateSaveButtonState();
-          if (dataButtonController && dataButtonController.reset) {
-            dataButtonController.reset();
-          }
         }
+        dataAddIndicator.reset();
+        setDataOperationState('add', 'reset');
         clearStoredState();
         currentTaskId = null;
         currentRequestId = null;
@@ -683,9 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
       currentTaskId = null;
       currentRequestId = null;
       clearStoredState();
-      if (dataButtonController && dataButtonController.reset) {
-        dataButtonController.reset();
-      }
+      dataAddIndicator.reset();
+      setDataOperationState('add', 'reset');
 
       if (!topicUuid) {
         fetchBtn.disabled = false;
@@ -729,9 +825,8 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         console.error(err);
         setStatusMessage('error', 'Unable to start the data request. Please try again.');
-        if (dataButtonController && dataButtonController.showError) {
-          dataButtonController.showError();
-        }
+        dataAddIndicator.showError();
+        setDataOperationState('add', 'error');
       } finally {
         fetchBtn.disabled = false;
       }
@@ -921,6 +1016,8 @@ document.addEventListener('DOMContentLoaded', () => {
           insightsContainer.classList.add('d-none');
           insightsContainer.innerHTML = '';
         }
+        analyzeIndicator.reset();
+        setDataOperationState('analyze', 'reset');
         return null;
       }
       if (!res.ok) throw new Error('Request failed');
@@ -957,6 +1054,8 @@ document.addEventListener('DOMContentLoaded', () => {
         insightsContainer.innerHTML = '';
       }
       if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+      analyzeIndicator.showLoading();
+      setDataOperationState('analyze', 'loading');
       return 'pending';
     }
 
@@ -968,11 +1067,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (saveInsightsBtn) saveInsightsBtn.disabled = true;
       if (analyzeBtn) analyzeBtn.disabled = false;
+      analyzeIndicator.showError();
+      setDataOperationState('analyze', 'error');
       clearAnalyzeState();
       return 'failure';
     }
 
     if (status === 'success') {
+      analyzeIndicator.showSuccess();
+      setDataOperationState('analyze', 'success');
       if (analyzeBtn) analyzeBtn.disabled = false;
       if (saved) {
         showAlert(analyzeStatusMessage, 'success', 'Insights saved to the topic.');
@@ -1080,6 +1183,8 @@ document.addEventListener('DOMContentLoaded', () => {
       clearAnalyzeState();
       try {
         showAlert(analyzeStatusMessage, 'info', 'We started analyzing your data. You can close this modal while we work.');
+        analyzeIndicator.showLoading();
+        setDataOperationState('analyze', 'loading');
         const body = { topic_uuid: topicUuid, data_ids: dataIds };
         if (instructions) body.instructions = instructions;
         const res = await fetch('/api/topics/data/analyze', {
@@ -1098,6 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert(analyzeStatusMessage, 'error', 'Unable to start the analysis. Please try again.');
         analyzeBtn.disabled = false;
         clearAnalyzeState();
+        analyzeIndicator.showError();
+        setDataOperationState('analyze', 'error');
       }
     });
   }
@@ -1172,6 +1279,8 @@ document.addEventListener('DOMContentLoaded', () => {
       hideVisualizationPreview();
       try {
         showAlert(visualizeStatusMessage, 'info', 'We started building your visualization. Feel free to close this modal.');
+        visualizeIndicator.showLoading();
+        setDataOperationState('visualize', 'loading');
         const res = await fetch('/api/topics/data/visualize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1188,6 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert(visualizeStatusMessage, 'error', 'Unable to start the visualization. Please try again.');
         visualizeBtn.disabled = false;
         clearVisualizeState();
+        visualizeIndicator.showError();
+        setDataOperationState('visualize', 'error');
       }
     });
   }

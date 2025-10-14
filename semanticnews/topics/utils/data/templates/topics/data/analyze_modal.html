@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="modal fade" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-lg" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -10,6 +10,7 @@
                 <form id="dataAnalyzeForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
                     <input type="hidden" name="request_id" id="analyzeRequestId">
+                    <div id="analyzeStatusMessage" class="alert alert-info d-none" role="alert"></div>
                     <div class="mb-3">
                         {% for data in datas %}
                         <div class="form-check">
@@ -26,7 +27,6 @@
                         <label for="analyzeInstructions" class="form-label">{% trans "Additional instructions" %}</label>
                         <textarea class="form-control" id="analyzeInstructions" name="instructions" rows="3" placeholder="{% trans 'e.g., Focus on anomalies' %}"></textarea>
                     </div>
-                    <div id="analyzeStatusMessage" class="alert d-none" role="alert"></div>
                     <div id="dataInsights" class="mb-3 d-none"></div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="analyzeDataBtn">{% trans "Analyze" %}</button>

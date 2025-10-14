@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="modal fade" id="dataVisualizeModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-lg" id="dataVisualizeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -10,6 +10,7 @@
                 <form id="dataVisualizeForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
                     <input type="hidden" name="request_id" id="visualizeRequestId">
+                    <div id="visualizeStatusMessage" class="alert alert-info d-none" role="alert"></div>
                     <div class="mb-3">
                         {% for insight in data_insights %}
                         <div class="form-check">
@@ -38,7 +39,6 @@
                         <label for="visualizeInstructions" class="form-label">{% trans "Extra instructions" %}</label>
                         <textarea class="form-control" id="visualizeInstructions" name="instructions" rows="3" placeholder="{% trans 'Optional additional guidance for the visualization' %}"></textarea>
                     </div>
-                    <div id="visualizeStatusMessage" class="alert d-none" role="alert"></div>
                     <div id="visualizePreviewWrapper" class="mb-3 d-none">
                         <canvas id="visualizePreviewChart"></canvas>
                     </div>
