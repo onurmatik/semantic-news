@@ -14,8 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateButtonStates = () => {
     buttons.forEach((button) => {
-      const status = button.dataset.status;
-      const disableForNoChanges = !hasPendingChanges && status === 'published';
+      const isPublishButton = button.dataset.topicPublishButton === 'true';
+      const disableForNoChanges = !hasPendingChanges && isPublishButton;
       button.disabled = isProcessing || disableForNoChanges;
     });
   };
