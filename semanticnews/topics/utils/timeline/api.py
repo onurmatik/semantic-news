@@ -77,7 +77,10 @@ def list_related_events(request, payload: TimelineRelatedRequest):
 
     queryset = (
         Event.objects.exclude(embedding__isnull=True)
-        .exclude(topics=topic)
+        .exclude(
+            topicevent__topic=topic,
+            topicevent__is_deleted=False,
+        )
         .annotate(distance=CosineDistance("embedding", topic.embedding))
         .annotate(similarity=Value(1.0) - F("distance"))
         .filter(similarity__gte=payload.threshold)
