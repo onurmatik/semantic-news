@@ -566,3 +566,37 @@ class EventManagerTests(TestCase):
 
         self.assertTrue(created)
         self.assertEqual(obj.title, "Different")
+
+    @patch("semanticnews.agenda.models.OpenAI")
+    @patch("semanticnews.agenda.models.suggest_events")
+    def test_find_major_events_respects_min_significance(self, mock_suggest, mock_openai):
+        from datetime import date
+
+        low = AgendaEventResponse(
+            title="Low impact",
+            date=date(2024, 6, 1),
+            categories=["Politics"],
+            significance=2,
+        )
+        high = AgendaEventResponse(
+            title="High impact",
+            date=date(2024, 6, 2),
+            categories=["Economy"],
+            significance=5,
+        )
+        mock_suggest.return_value = [low, high]
+
+        mock_client = mock_openai.return_value.__enter__.return_value
+        mock_client.embeddings.create.return_value.data = [type("obj", (), {"embedding": [0.0] * 1536})()]
+
+        created = Event.objects.find_major_events(
+            start_date=date(2024, 6, 1),
+            end_date=date(2024, 6, 30),
+            min_significance=4,
+        )
+
+        self.assertEqual(len(created), 1)
+        event = created[0]
+        self.assertEqual(event.title, "High impact")
+        self.assertEqual(event.significance, 5)
+        self.assertFalse(Event.objects.filter(title="Low impact").exists())

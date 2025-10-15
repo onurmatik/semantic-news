@@ -52,6 +52,13 @@ class FindMajorEventsForm(forms.Form):
     )
 
     limit = forms.IntegerField(min_value=1, initial=1, label="Max events to create")
+    min_significance = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        initial=4,
+        label="Minimum significance rating",
+        help_text="Ignore suggestions rated below this value (1=very low, 5=very high)",
+    )
     distance_threshold = forms.FloatField(initial=0.15, min_value=0.0, label="Semantic distance threshold")
 
     def clean_month(self):

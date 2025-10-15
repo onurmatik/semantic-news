@@ -332,12 +332,14 @@ class AgendaEventResponse(Schema):
         date (date): Date of the event in ISO format (YYYY-MM-DD).
         categories (List[str]): 1-3 high-level categories describing the event.
         sources (List[str]): Source URLs supporting the event.
+        significance (int): Rating from 1 (very low) to 5 (very high) describing the event's impact.
     """
 
     title: str
     date: date
     categories: List[str] = []
     sources: List[str] = []
+    significance: int = 3
 
 
 class AgendaEventList(Schema):
@@ -420,6 +422,7 @@ def suggest_events(
         "- Avoid newspaper or narrative style.\n"
         "- Use past tense verbs.\n"
         "For each event, include a few source URLs as citations. "
+        "Each event must include a 'significance' rating from 1 (very low) to 5 (very high) summarizing its impact."
     )
     prompt = append_default_language_instruction(prompt)
 

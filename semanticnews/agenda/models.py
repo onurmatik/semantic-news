@@ -71,6 +71,7 @@ class EventManager(models.Manager):
         locality: str | None = None,
         categories: str | None = None,
         limit: int = 1,
+        min_significance: int = 1,
         distance_threshold: float = 0.15,
     ) -> list["Event"]:
         from semanticnews.agenda.api import suggest_events, AgendaEventResponse
@@ -142,6 +143,14 @@ class EventManager(models.Manager):
         if window_start > window_end:
             raise ValueError("Start date must be on or before end date")
 
+        try:
+            min_significance = int(min_significance)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("min_significance must be an integer.") from exc
+
+        if not 1 <= min_significance <= 5:
+            raise ValueError("min_significance must be between 1 and 5.")
+
         locality_code = resolve_locality_code(locality)
         locality_label = get_locality_label(locality_code) if locality_code else None
 
@@ -157,6 +166,7 @@ class EventManager(models.Manager):
                 date=e.date,
                 categories=[c.name for c in e.categories.all()],
                 sources=[s.url for s in e.sources.all()],
+                significance=e.significance,
             )
             for e in existing_qs
         ] or None
@@ -174,9 +184,29 @@ class EventManager(models.Manager):
         if not suggestions:
             return created_events
 
+        def _normalized_significance(value: int | None) -> int:
+            if value is None:
+                return 3
+            try:
+                coerced = int(value)
+            except (TypeError, ValueError):
+                return 3
+            return max(1, min(5, coerced))
+
+        filtered_suggestions = []
+        for suggestion in suggestions:
+            rating = _normalized_significance(getattr(suggestion, "significance", None))
+            if rating < min_significance:
+                continue
+            suggestion.significance = rating
+            filtered_suggestions.append(suggestion)
+
+        if not filtered_suggestions:
+            return created_events
+
         # Reuse one OpenAI client for all suggestions
         with OpenAI() as client:
-            for suggestion in suggestions:
+            for suggestion in filtered_suggestions:
                 with transaction.atomic():
                     embed_text = f"{suggestion.title} - {suggestion.date}\n{', '.join(suggestion.categories or [])}"
                     embedding = client.embeddings.create(
@@ -193,14 +223,24 @@ class EventManager(models.Manager):
                             "confidence": None,
                             "status": "draft",
                             "locality": locality_code,
+                            "significance": suggestion.significance,
                         },
                         distance_threshold=distance_threshold,
                     )
 
+                    updated_fields: list[str] = []
+
                     # If matched existing and it lacks locality, attach it (don’t override if set)
                     if not created and locality_code and not event.locality:
                         event.locality = locality_code
-                        event.save(update_fields=["locality"])
+                        updated_fields.append("locality")
+
+                    if not created and event.significance != suggestion.significance:
+                        event.significance = suggestion.significance
+                        updated_fields.append("significance")
+
+                    if updated_fields:
+                        event.save(update_fields=updated_fields)
 
                     # Attach categories
                     for name in suggestion.categories or []:
