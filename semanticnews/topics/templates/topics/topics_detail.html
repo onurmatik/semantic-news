@@ -13,7 +13,10 @@
 
 <div class="d-flex justify-content-between pb-2 align-items-start">
 
-    <div data-topic-uuid="{{ topic.uuid }}">
+    <div
+        data-topic-uuid="{{ topic.uuid }}"
+        data-topic-has-unpublished-changes="{{ topic.has_unpublished_changes|yesno:'true,false' }}"
+    >
 
         <h3 class="fs-5 d-flex align-items-center">
 
@@ -80,7 +83,7 @@
             </a>
         {% elif user == topic.created_by %}
             {% if topic.status == 'draft' or topic.status == 'published' %}
-                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
+                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-topic-publish-button="true" data-status="published" {% if not topic.has_unpublished_changes %}disabled{% endif %}>
                     {% if topic.last_published_at %}
                         {% trans "Re-publish" %}
                     {% else %}

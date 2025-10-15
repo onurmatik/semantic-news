@@ -210,14 +210,22 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
         raise HttpError(400, "Invalid status")
 
     if payload.status == "published":
-        if not topic.title:
-            raise HttpError(400, "A title is required to publish a topic.")
+        is_republishing_archived_topic = (
+            topic.status == "archived" and topic.latest_publication_id is not None
+        )
 
-        has_finished_recap = topic.recaps.filter(status="finished", is_deleted=False).exists()
-        if not has_finished_recap:
-            raise HttpError(400, "A recap is required to publish a topic.")
+        if is_republishing_archived_topic:
+            topic.status = "published"
+            topic.save(update_fields=["status"])
+        else:
+            if not topic.title:
+                raise HttpError(400, "A title is required to publish a topic.")
 
-        publish_topic(topic, user)
+            has_finished_recap = topic.recaps.filter(status="finished", is_deleted=False).exists()
+            if not has_finished_recap:
+                raise HttpError(400, "A recap is required to publish a topic.")
+
+            publish_topic(topic, user)
     else:
         topic.status = payload.status
         topic.save(update_fields=["status"])
@@ -348,6 +356,10 @@ def update_topic_layout_configuration(
             ]
         )
 
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
+
     layout = get_topic_layout(topic)
     return TopicLayoutResponse(modules=serialize_layout(layout))
 
@@ -459,6 +471,7 @@ class TopicEventRemoveResponse(Schema):
     event_uuid: str
 
 
+@api.post("/remove-event", response=TopicEventRemoveResponse)
 def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     """Remove an agenda event from a topic for the authenticated user.
 

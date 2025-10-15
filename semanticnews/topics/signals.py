@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from .models import Topic, TopicContent
+from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .utils.timeline.models import TopicEvent
 from .utils.recaps.models import TopicRecap
 from .utils.text.models import TopicText
@@ -42,6 +43,7 @@ def update_topic_timestamp_from_content(sender, instance, **kwargs):
 def update_topic_timestamp_from_recap(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
 
+
 @receiver([post_save, post_delete], sender=TopicText)
 def update_topic_timestamp_from_text(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
@@ -55,6 +57,21 @@ def update_topic_timestamp_from_image(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=TopicEntityRelation)
 def update_topic_timestamp_from_relation(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicData)
+def update_topic_timestamp_from_data(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicDataInsight)
+def update_topic_timestamp_from_data_insight(sender, instance, **kwargs):
+    touch_topic(instance.topic_id)
+
+
+@receiver([post_save, post_delete], sender=TopicDataVisualization)
+def update_topic_timestamp_from_data_visualization(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
 
 

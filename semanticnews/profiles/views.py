@@ -70,16 +70,28 @@ def user_profile(request, username):
     topics = (
         Topic.objects
         .filter(Q(created_by=user) | Q(contents__created_by=user))
-        .select_related("created_by")
+        .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .distinct()
         .order_by('-updated_at')
     )
 
+    if request.user.is_authenticated:
+        topics = topics.exclude(Q(status="draft") & ~Q(created_by=request.user))
+    else:
+        topics = topics.exclude(status="draft")
+
     topic_content = TopicContent.objects.filter(created_by=user).select_related(
         'topicarticle__article',
         'topicvideo__video_chunk',
     )
+
+    if request.user.is_authenticated:
+        topic_content = topic_content.exclude(
+            Q(topic__status="draft") & ~Q(topic__created_by=request.user)
+        )
+    else:
+        topic_content = topic_content.exclude(topic__status="draft")
 
     profile, c = Profile.objects.get_or_create(user=user)
 

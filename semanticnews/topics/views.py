@@ -34,6 +34,18 @@ def topic_create(request):
     return redirect("topics_list")
 
 
+def _topic_is_visible_to_user(topic, user):
+    """Return True if the topic should be visible to the given user."""
+
+    if topic.status != "draft":
+        return True
+
+    if topic.created_by_id is None:
+        return False
+
+    return user.is_authenticated and user == topic.created_by
+
+
 def topics_detail_redirect(request, topic_uuid, username):
     """Redirect topics accessed via UUID to their canonical slug URL."""
 
@@ -42,6 +54,9 @@ def topics_detail_redirect(request, topic_uuid, username):
         uuid=topic_uuid,
         created_by__username=username,
     )
+
+    if not _topic_is_visible_to_user(topic, request.user):
+        raise Http404("Topic not found")
 
     if not topic.slug:
         raise Http404("Topic does not have a slug yet.")
@@ -59,7 +74,7 @@ def topics_list(request):
 
     topics = (
         Topic.objects.filter(status="published")
-        .select_related("created_by")
+        .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-updated_at", "-created_at")
     )
@@ -93,6 +108,9 @@ def topics_detail(request, slug, username):
         slug=slug,
         created_by__username=username,
     )
+
+    if not _topic_is_visible_to_user(topic, request.user):
+        raise Http404("Topic not found")
 
     publication = topic.latest_publication
 
@@ -279,6 +297,9 @@ def topic_clone(request, slug, username):
 
     if request.user == original.created_by:
         return HttpResponseForbidden()
+
+    if not _topic_is_visible_to_user(original, request.user):
+        raise Http404("Topic not found")
 
     cloned = original.clone_for_user(request.user)
 

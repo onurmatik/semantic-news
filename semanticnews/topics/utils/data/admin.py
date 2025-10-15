@@ -2,7 +2,14 @@ from django.contrib import admin
 from django.db import models
 from django.forms import Textarea
 
-from .models import TopicData, TopicDataInsight, TopicDataVisualization, TopicDataRequest
+from .models import (
+    TopicData,
+    TopicDataInsight,
+    TopicDataVisualization,
+    TopicDataRequest,
+    TopicDataAnalysisRequest,
+    TopicDataVisualizationRequest,
+)
 
 
 @admin.register(TopicDataRequest)
@@ -46,6 +53,89 @@ class TopicDataRequestAdmin(admin.ModelAdmin):
     has_saved.short_description = "Saved"
 
 
+@admin.register(TopicDataAnalysisRequest)
+class TopicDataAnalysisRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "topic",
+        "user",
+        "status",
+        "short_task_id",
+        "saved_count",
+        "created_at",
+        "saved_at",
+        "updated_at",
+    )
+    list_filter = ("status", "created_at", "updated_at", "saved_at")
+    search_fields = ("topic__title", "user__username", "task_id")
+    readonly_fields = ("created_at", "updated_at", "saved_at")
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    list_select_related = ("topic", "user")
+    autocomplete_fields = ("topic", "user")
+
+    formfield_overrides = {
+        models.JSONField: {"widget": Textarea(attrs={"rows": 12, "style": "font-family: monospace"})},
+    }
+
+    fieldsets = (
+        (None, {"fields": ("topic", "user", "status", "task_id")}),
+        ("Payload & Result", {"fields": ("input_payload", "result", "error_message"), "classes": ("collapse",)}),
+        ("Persistence", {"fields": ("saved_insight_ids", "saved_at")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+    def short_task_id(self, obj):
+        return (obj.task_id[:10] + "…") if obj.task_id and len(obj.task_id) > 10 else (obj.task_id or "—")
+
+    short_task_id.short_description = "Task ID"
+
+    def saved_count(self, obj):
+        if isinstance(obj.saved_insight_ids, list):
+            return len(obj.saved_insight_ids)
+        return 0
+
+    saved_count.short_description = "Saved insights"
+
+
+@admin.register(TopicDataVisualizationRequest)
+class TopicDataVisualizationRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "topic",
+        "user",
+        "status",
+        "short_task_id",
+        "saved_visualization",
+        "created_at",
+        "saved_at",
+        "updated_at",
+    )
+    list_filter = ("status", "created_at", "updated_at", "saved_at")
+    search_fields = ("topic__title", "user__username", "task_id")
+    readonly_fields = ("created_at", "updated_at", "saved_at")
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    list_select_related = ("topic", "user", "saved_visualization")
+    autocomplete_fields = ("topic", "user", "saved_visualization")
+
+    formfield_overrides = {
+        models.JSONField: {"widget": Textarea(attrs={"rows": 12, "style": "font-family: monospace"})},
+    }
+
+    fieldsets = (
+        (None, {"fields": ("topic", "user", "status", "task_id")}),
+        ("Payload & Result", {"fields": ("input_payload", "result", "error_message"), "classes": ("collapse",)}),
+        ("Persistence", {"fields": ("saved_visualization", "saved_at")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+    def short_task_id(self, obj):
+        return (obj.task_id[:10] + "…") if obj.task_id and len(obj.task_id) > 10 else (obj.task_id or "—")
+
+    short_task_id.short_description = "Task ID"
+
+
 @admin.register(TopicData)
 class TopicDataAdmin(admin.ModelAdmin):
     list_display = ("topic", "name", "primary_source", "created_at")
@@ -73,3 +163,4 @@ class TopicDataVisualizationAdmin(admin.ModelAdmin):
     list_display = ("topic", "insight", "chart_type")
     list_filter = ("chart_type",)
     readonly_fields = ("created_at",)
+    search_fields = ("topic__title", "insight__insight", "chart_type")

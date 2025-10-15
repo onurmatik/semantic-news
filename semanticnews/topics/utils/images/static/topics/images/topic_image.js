@@ -38,5 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
       });
     }
+    document.dispatchEvent(new CustomEvent('topic:changed'));
   };
 });

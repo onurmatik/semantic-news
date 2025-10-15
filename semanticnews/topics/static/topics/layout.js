@@ -89,6 +89,7 @@
 
     let draggedModule = null;
     let saveTimeout = null;
+    let lastKnownLayoutSignature = null;
 
     function scheduleSave() {
       if (saveTimeout) {
@@ -116,6 +117,15 @@
     async function saveLayout() {
       saveTimeout = null;
       const modules = collectLayout();
+      const signature = JSON.stringify(modules);
+      if (lastKnownLayoutSignature !== signature) {
+        lastKnownLayoutSignature = signature;
+        const changeEvent = new CustomEvent('topic:changed', { bubbles: true });
+        layoutRoot.dispatchEvent(changeEvent);
+        if (changeEvent.bubbles) {
+          document.dispatchEvent(new CustomEvent('topic:changed'));
+        }
+      }
       if (!modules.length) {
         return;
       }
@@ -366,6 +376,7 @@
     });
 
     Array.from(layoutRoot.querySelectorAll('[data-module]')).forEach(initModule);
+    lastKnownLayoutSignature = JSON.stringify(collectLayout());
 
     layoutRoot.addEventListener('topicLayout:save', () => {
       scheduleSave();

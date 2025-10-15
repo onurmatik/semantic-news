@@ -239,6 +239,18 @@ class Topic(models.Model):
     def active_tweets(self):
         return self.tweets.filter(is_deleted=False)
 
+    @property
+    def has_unpublished_changes(self) -> bool:
+        """Return whether the topic has edits not reflected in a publication."""
+
+        if not self.last_published_at:
+            return True
+
+        if not self.updated_at:
+            return False
+
+        return self.updated_at > self.last_published_at
+
     @cached_property
     def image(self):
         latest = (

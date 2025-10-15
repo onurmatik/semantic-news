@@ -8,11 +8,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const errorEl = document.getElementById('publishTopicError');
 
-  const setButtonsDisabled = (disabled) => {
+  const rawChangeFlag = topicEl.dataset.topicHasUnpublishedChanges;
+  let hasPendingChanges = rawChangeFlag === undefined ? true : rawChangeFlag === 'true';
+  let isProcessing = false;
+
+  const updateButtonStates = () => {
     buttons.forEach((button) => {
-      button.disabled = disabled;
+      const isPublishButton = button.dataset.topicPublishButton === 'true';
+      const disableForNoChanges = !hasPendingChanges && isPublishButton;
+      button.disabled = isProcessing || disableForNoChanges;
     });
   };
+
+  const markPendingChanges = () => {
+    if (!hasPendingChanges) {
+      hasPendingChanges = true;
+      topicEl.dataset.topicHasUnpublishedChanges = 'true';
+      updateButtonStates();
+    }
+  };
+
+  updateButtonStates();
+
+  document.addEventListener('topic:changed', markPendingChanges);
 
   buttons.forEach((button) => {
     button.addEventListener('click', async (event) => {
@@ -22,7 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      setButtonsDisabled(true);
+      isProcessing = true;
+      updateButtonStates();
 
       if (errorEl) {
         errorEl.classList.add('d-none');
@@ -66,7 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
           window.alert(message);
         }
       } finally {
-        setButtonsDisabled(false);
+        isProcessing = false;
+        updateButtonStates();
       }
     });
   });

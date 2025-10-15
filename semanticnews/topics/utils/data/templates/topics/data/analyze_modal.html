@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="modal fade" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-lg" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -9,6 +9,8 @@
             <div class="modal-body">
                 <form id="dataAnalyzeForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <input type="hidden" name="request_id" id="analyzeRequestId">
+                    <div id="analyzeStatusMessage" class="alert alert-info d-none" role="alert"></div>
                     <div class="mb-3">
                         {% for data in datas %}
                         <div class="form-check">

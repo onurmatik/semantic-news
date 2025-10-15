@@ -8,13 +8,34 @@
   </button>
   <ul class="dropdown-menu">
     <li>
-      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataModal">{% trans "Add" %}</button>
+      <button type="button" class="dropdown-item d-flex align-items-center justify-content-between" data-bs-toggle="modal" data-bs-target="#dataModal">
+        <span>{% trans "Add" %}</span>
+        <span class="ms-2 d-inline-flex align-items-center">
+          <span id="dataAddSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+          <i id="dataAddErrorIcon" class="bi bi-exclamation-triangle text-danger d-none" aria-hidden="true"></i>
+          <i id="dataAddSuccessIcon" class="bi bi-check-circle text-success d-none" aria-hidden="true"></i>
+        </span>
+      </button>
     </li>
     <li>
-      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataAnalyzeModal">{% trans "Analyze" %}</button>
+      <button type="button" class="dropdown-item d-flex align-items-center justify-content-between" data-bs-toggle="modal" data-bs-target="#dataAnalyzeModal">
+        <span>{% trans "Analyze" %}</span>
+        <span class="ms-2 d-inline-flex align-items-center">
+          <span id="dataAnalyzeSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+          <i id="dataAnalyzeErrorIcon" class="bi bi-exclamation-triangle text-danger d-none" aria-hidden="true"></i>
+          <i id="dataAnalyzeSuccessIcon" class="bi bi-check-circle text-success d-none" aria-hidden="true"></i>
+        </span>
+      </button>
     </li>
     <li>
-      <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dataVisualizeModal">{% trans "Visualize" %}</button>
+      <button type="button" class="dropdown-item d-flex align-items-center justify-content-between" data-bs-toggle="modal" data-bs-target="#dataVisualizeModal">
+        <span>{% trans "Visualize" %}</span>
+        <span class="ms-2 d-inline-flex align-items-center">
+          <span id="dataVisualizeSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+          <i id="dataVisualizeErrorIcon" class="bi bi-exclamation-triangle text-danger d-none" aria-hidden="true"></i>
+          <i id="dataVisualizeSuccessIcon" class="bi bi-check-circle text-success d-none" aria-hidden="true"></i>
+        </span>
+      </button>
     </li>
   </ul>
 </div>
