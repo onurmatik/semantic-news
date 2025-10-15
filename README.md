@@ -34,3 +34,13 @@ To include Semantic News in another project, reference the Git repository direct
 ```bash
 pip install "semantic-news @ git+https://github.com/onurmatik/semantic-news.git@main"
 ```
+
+## Agenda utilities
+
+Use the `find_major_events` management command to request suggested agenda entries for a given window. The command now supports filtering by the LLM-provided significance rating:
+
+```bash
+python manage.py find_major_events 2024 6 --min-significance 4
+```
+
+Set `--min-significance` (1 = very low, 5 = very high) to discard low-impact suggestions when running the command manually or from cron jobs.

@@ -304,6 +304,7 @@ class EventAdmin(admin.ModelAdmin):
                     locality=locality_code,
                     categories=categories,
                     limit=limit,
+                    min_significance=form.cleaned_data["min_significance"],
                     distance_threshold=distance_threshold,
                 )
             except Exception as exc:

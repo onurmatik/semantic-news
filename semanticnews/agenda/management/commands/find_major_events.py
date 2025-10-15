@@ -24,6 +24,13 @@ class Command(BaseCommand):
         parser.add_argument("--categories", default=None, help="Optional comma separated categories")
         parser.add_argument("--limit", type=int, default=1, help="Maximum number of events to suggest")
         parser.add_argument(
+            "--min-significance",
+            type=int,
+            default=1,
+            dest="min_significance",
+            help="Ignore suggestions rated below this value (1=very low, 5=very high)",
+        )
+        parser.add_argument(
             "--start-date",
             type=self._parse_date,
             dest="start_date",
@@ -82,6 +89,7 @@ class Command(BaseCommand):
                 locality=options.get("locality"),
                 categories=options.get("categories"),
                 limit=options.get("limit", 1),
+                min_significance=options.get("min_significance", 1),
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
