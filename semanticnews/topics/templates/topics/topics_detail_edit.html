@@ -115,7 +115,13 @@
         </div>
 
         <div class="gap-2">
-            <span class="small text-secondary mx-2">This topic is {{ topic.status }}.</span>
+            <span class="small text-secondary mx-2">
+                {% if topic.status == "published" and topic.last_published_at %}
+                    {% blocktrans with published_on=topic.last_published_at|date published_ago=topic.last_published_at|timesince %}Published on {{ published_on }}; {{ published_ago }} ago.{% endblocktrans %}
+                {% else %}
+                    {% blocktrans with topic_status=topic.status %}This topic is {{ topic_status }}.{% endblocktrans %}
+                {% endif %}
+            </span>
         </div>
 
     </div>
