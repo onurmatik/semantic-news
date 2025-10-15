@@ -495,6 +495,46 @@ class EventDetailLocalityTests(TestCase):
 class EventManagerTests(TestCase):
     """Tests for the :class:`EventManager` semantic get_or_create method."""
 
+    @patch("semanticnews.agenda.models.suggest_events")
+    def test_find_major_events_monthly_window(self, mock_suggest):
+        from datetime import date
+
+        mock_suggest.return_value = []
+
+        Event.objects.create(title="Existing", date=date(2024, 6, 10))
+
+        Event.objects.find_major_events(year=2024, month=6)
+
+        self.assertTrue(mock_suggest.called)
+        kwargs = mock_suggest.call_args.kwargs
+        self.assertEqual(kwargs["start_date"], date(2024, 6, 1))
+        self.assertEqual(kwargs["end_date"], date(2024, 6, 30))
+        exclude = kwargs["exclude"]
+        self.assertEqual(len(exclude), 1)
+        self.assertEqual(exclude[0].date, date(2024, 6, 10))
+
+    @patch("semanticnews.agenda.models.suggest_events")
+    def test_find_major_events_custom_range(self, mock_suggest):
+        from datetime import date
+
+        mock_suggest.return_value = []
+
+        Event.objects.create(title="Existing", date=date(2024, 6, 5))
+        Event.objects.create(title="Outside", date=date(2024, 7, 1))
+
+        start = date(2024, 6, 1)
+        end = date(2024, 6, 15)
+
+        Event.objects.find_major_events(start_date=start, end_date=end)
+
+        self.assertTrue(mock_suggest.called)
+        kwargs = mock_suggest.call_args.kwargs
+        self.assertEqual(kwargs["start_date"], start)
+        self.assertEqual(kwargs["end_date"], end)
+        exclude = kwargs["exclude"]
+        self.assertEqual(len(exclude), 1)
+        self.assertEqual(exclude[0].date, date(2024, 6, 5))
+
     def test_semantic_get_or_create_returns_existing_event(self):
         from datetime import date
 
