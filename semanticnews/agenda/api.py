@@ -328,11 +328,16 @@ class AgendaEventResponse(Schema):
     """Schema for suggested agenda events.
 
     Attributes:
-        title (str): Title of the event. Avoid newspaper heading style and state the core fact directly and neutrally.
+        title (str): The concise factual statement in direct neutral language; avoid newspaper heading style.
         date (date): Date of the event in ISO format (YYYY-MM-DD).
         categories (List[str]): 1-3 high-level categories describing the event.
-        sources (List[str]): Source URLs supporting the event.
-        significance (int): Rating from 1 (very low) to 5 (very high) describing the event's impact.
+        sources (List[str]): A few reputable URLs as citations.
+        significance (int): Rating from 1 (very low) to 5 (very high) based on objective impact of the event for the given locality:
+            5: Nationwide crisis, election, major law, disaster, etc.
+            4: High national importance
+            3: Significant regional impact
+            2: Notable but limited scope
+            1: Minor, routine, or symbolic event
     """
 
     title: str
@@ -410,17 +415,22 @@ def suggest_events(
     descriptor_parts.append(timeframe)
     descriptor = " ".join(descriptor_parts)
 
-    prompt = f"List the top {limit} most significant events {descriptor}. "
+    prompt = (
+        f"List the top {limit} most significant real-world event(s) that occurred {descriptor}. "
+        f"Each event must represent a tangible happening — such as a policy implementation, natural disaster, "
+        f"election result, legal action, protest, major economic or scientific development, etc. — "
+        f"not just a speech, announcement, or statement. \n"
+    )
 
     # Style guide
     prompt += (
-        "Event 'title' must be a concise, Wikipedia-style factual statement. "
         "Rules for titles:\n"
-        "- State only the single core fact directly and neutrally.\n"
-        "- Do not include dates in title (use the 'date' field).\n"
-        "- Do not combine multiple events.\n"
-        "- Avoid newspaper or narrative style.\n"
-        "- Use past tense verbs.\n"
+        "- Write a single, factual statement describing the core event\n"
+        "- Use past tense\n"
+        "- Do not include quotes, announcements, or statements. Avoid “X said”, “announced”, “declared”, etc.\n"
+        "- Do not include dates in the title (use the 'date' field)\n"
+        "- Keep titles concise, Wikipedia-style\n"
+        "- Only include events with verifiable external impact\n"
         "For each event, include a few source URLs as citations. "
         "Each event must include a 'significance' rating from 1 (very low) to 5 (very high) summarizing its impact."
     )
