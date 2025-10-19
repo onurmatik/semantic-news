@@ -1,6 +1,8 @@
 from django.contrib import admin, messages
 from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
+from datetime import date as date_cls
+
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.safestring import mark_safe
@@ -159,13 +161,19 @@ class EventAdmin(admin.ModelAdmin):
         qs = request.META.get("QUERY_STRING", "")
         return HttpResponseRedirect(f"{base}?{qs}" if qs else base)
 
-    def _resolve_year_month(self, request):
+    def _resolve_date(self, request):
         try:
             year = int(request.GET.get("date__year") or 0)
             month = int(request.GET.get("date__month") or 0)
+            day = int(request.GET.get("date__day") or 0)
         except ValueError:
-            return None, None
-        return (year, month) if (year > 0 and 1 <= month <= 12) else (None, None)
+            return None
+        if year and month and day:
+            try:
+                return date_cls(year, month, day)
+            except ValueError:
+                return None
+        return None
 
     # Custom URLs
     def get_urls(self):
@@ -230,15 +238,14 @@ class EventAdmin(admin.ModelAdmin):
             messages.error(request, "You don't have permission to do that.")
             return self._redirect_back(request)
 
-        year, month = self._resolve_year_month(request)
-        if not (year and month):
-            messages.error(request, "Select a month first (use the Date filter or date hierarchy).")
+        target_date = self._resolve_date(request)
+        if target_date is None:
+            messages.error(request, "Select a specific day first (use the Date filter or date hierarchy).")
             return self._redirect_back(request)
 
         # pass through current locality / single category filters if present
         locality_query = request.GET.get("locality__exact") or request.GET.get("locality")
         locality_code = resolve_locality_code(locality_query)
-        locality_name = get_locality_label(locality_code) if locality_code else None
 
         categories = None
         cat_id = request.GET.get("categories__id__exact")
@@ -253,8 +260,7 @@ class EventAdmin(admin.ModelAdmin):
 
         try:
             events = Event.objects.find_major_events(
-                year=year,
-                month=month,
+                target_date,
                 locality=locality_code,
                 categories=categories,
                 limit=limit,
@@ -264,30 +270,25 @@ class EventAdmin(admin.ModelAdmin):
             return self._redirect_back(request)
 
         if events:
-            messages.success(request, f"Created/Found {len(events)} event(s) for {year}-{month:02d}.")
+            messages.success(request, f"Created/Found {len(events)} event(s) for {target_date:%Y-%m-%d}.")
         else:
-            messages.warning(request, f"No suggestions created for {year}-{month:02d}.")
+            messages.warning(request, f"No suggestions created for {target_date:%Y-%m-%d}.")
         return self._redirect_back(request)
 
     def find_major_form_view(self, request):
         """
         Advanced page to run find_major_events with custom params.
         """
-        # Default year/month from current filters if present
+        # Default date from current filters if present
         initial = {}
-        try:
-            if "date__year" in request.GET:
-                initial["year"] = int(request.GET.get("date__year"))
-            if "date__month" in request.GET:
-                initial["month"] = int(request.GET.get("date__month"))
-        except ValueError:
-            pass
+        resolved_date = self._resolve_date(request)
+        if resolved_date is not None:
+            initial["event_date"] = resolved_date
 
         form = FindMajorEventsForm(request.POST or None, initial=initial)
 
         if request.method == "POST" and form.is_valid():
-            year = form.cleaned_data["year"]
-            month = form.cleaned_data["month"]
+            event_date = form.cleaned_data["event_date"]
             locality_code = resolve_locality_code(form.cleaned_data["locality"])
             locality_label = get_locality_label(locality_code)
 
@@ -299,8 +300,7 @@ class EventAdmin(admin.ModelAdmin):
 
             try:
                 events = Event.objects.find_major_events(
-                    year=year,
-                    month=month,
+                    event_date,
                     locality=locality_code,
                     categories=categories,
                     limit=limit,
@@ -314,12 +314,12 @@ class EventAdmin(admin.ModelAdmin):
             if events:
                 messages.success(
                     request,
-                    f"Created/Found {len(events)} event(s) for {year}-{int(month):02d}."
+                    f"Created/Found {len(events)} event(s) for {event_date:%Y-%m-%d}."
                 )
             else:
                 messages.warning(
                     request,
-                    f"No suggestions created for {year}-{int(month):02d}."
+                    f"No suggestions created for {event_date:%Y-%m-%d}."
                 )
             return self._redirect_back(request)
 

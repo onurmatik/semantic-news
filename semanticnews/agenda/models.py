@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -62,86 +63,19 @@ class EventManager(models.Manager):
 
     def find_major_events(
         self,
-        year: int | None = None,
-        month: int | None = None,
+        event_date: date,
         *,
-        start_date=None,
-        end_date=None,
-        lookback_hours: int | None = None,
         locality: str | None = None,
         categories: str | None = None,
         limit: int = 1,
-        min_significance: int = 1,
+        min_significance: int = 4,
         distance_threshold: float = 0.15,
     ) -> list["Event"]:
-        from semanticnews.agenda.api import suggest_events, AgendaEventResponse
-        import calendar
-        from datetime import date, datetime, time, timedelta
+        from semanticnews.agenda.api import suggest_events
         from django.db import transaction
-        from django.utils import timezone
 
-        window_start = None
-        window_end = None
-
-        using_month = year is not None or month is not None
-        using_custom = any(value is not None for value in (start_date, end_date, lookback_hours))
-
-        if using_month and using_custom:
-            raise ValueError("Provide either year/month or custom date options, not both.")
-
-        if using_month:
-            if year is None or month is None:
-                raise ValueError("Both year and month must be supplied together.")
-            if month < 1 or month > 12:
-                raise ValueError("Month must be between 1 and 12")
-
-            window_start = date(year, month, 1)
-            _, last_day = calendar.monthrange(year, month)
-            window_end = date(year, month, last_day)
-        else:
-            if not using_custom:
-                raise ValueError(
-                    "Provide a window: year/month, start/end dates, or lookback parameters."
-                )
-
-            if lookback_hours is not None and lookback_hours <= 0:
-                raise ValueError("Lookback hours must be a positive integer")
-
-            if start_date is not None and not isinstance(start_date, date):
-                raise ValueError("start_date must be a date instance")
-
-            if end_date is not None and not isinstance(end_date, date):
-                raise ValueError("end_date must be a date instance")
-
-            window_start = start_date
-            window_end = end_date
-
-            if lookback_hours is not None:
-                delta = timedelta(hours=lookback_hours)
-                if window_start and window_end:
-                    raise ValueError(
-                        "Cannot use lookback_hours together with explicit start and end dates."
-                    )
-
-                if window_end and not window_start:
-                    end_dt = datetime.combine(window_end, time.max)
-                    computed_start = (end_dt - delta).date()
-                    window_start = computed_start
-                elif window_start and not window_end:
-                    start_dt = datetime.combine(window_start, time.min)
-                    computed_end = (start_dt + delta).date()
-                    window_end = computed_end
-                elif not window_start and not window_end:
-                    end_dt = timezone.now()
-                    window_end = end_dt.date()
-                    computed_start = (end_dt - delta).date()
-                    window_start = computed_start
-
-            if window_start is None or window_end is None:
-                raise ValueError("Both start and end dates must be provided or derivable.")
-
-        if window_start > window_end:
-            raise ValueError("Start date must be on or before end date")
+        if not isinstance(event_date, date):
+            raise ValueError("date must be a datetime.date instance")
 
         try:
             min_significance = int(min_significance)
@@ -154,30 +88,12 @@ class EventManager(models.Manager):
         locality_code = resolve_locality_code(locality)
         locality_label = get_locality_label(locality_code) if locality_code else None
 
-        # Build exclude list from existing events in that month
-        existing_qs = (
-            self.filter(date__range=(window_start, window_end))
-            .prefetch_related("categories", "sources")
-            .order_by("date")
-        )
-        exclude = [
-            AgendaEventResponse(
-                title=e.title,
-                date=e.date,
-                categories=[c.name for c in e.categories.all()],
-                sources=[s.url for s in e.sources.all()],
-                significance=e.significance,
-            )
-            for e in existing_qs
-        ] or None
-
         suggestions = suggest_events(
-            start_date=window_start,
-            end_date=window_end,
+            start_date=event_date,
+            end_date=event_date,
             locality=locality_label,
             categories=categories,
             limit=limit,
-            exclude=exclude,
         )
 
         created_events: list[Event] = []
