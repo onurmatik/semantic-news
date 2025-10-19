@@ -496,44 +496,20 @@ class EventManagerTests(TestCase):
     """Tests for the :class:`EventManager` semantic get_or_create method."""
 
     @patch("semanticnews.agenda.models.suggest_events")
-    def test_find_major_events_monthly_window(self, mock_suggest):
+    def test_find_major_events_single_date(self, mock_suggest):
         from datetime import date
 
         mock_suggest.return_value = []
 
-        Event.objects.create(title="Existing", date=date(2024, 6, 10))
+        target = date(2024, 6, 10)
 
-        Event.objects.find_major_events(year=2024, month=6)
-
-        self.assertTrue(mock_suggest.called)
-        kwargs = mock_suggest.call_args.kwargs
-        self.assertEqual(kwargs["start_date"], date(2024, 6, 1))
-        self.assertEqual(kwargs["end_date"], date(2024, 6, 30))
-        exclude = kwargs["exclude"]
-        self.assertEqual(len(exclude), 1)
-        self.assertEqual(exclude[0].date, date(2024, 6, 10))
-
-    @patch("semanticnews.agenda.models.suggest_events")
-    def test_find_major_events_custom_range(self, mock_suggest):
-        from datetime import date
-
-        mock_suggest.return_value = []
-
-        Event.objects.create(title="Existing", date=date(2024, 6, 5))
-        Event.objects.create(title="Outside", date=date(2024, 7, 1))
-
-        start = date(2024, 6, 1)
-        end = date(2024, 6, 15)
-
-        Event.objects.find_major_events(start_date=start, end_date=end)
+        Event.objects.find_major_events(target)
 
         self.assertTrue(mock_suggest.called)
         kwargs = mock_suggest.call_args.kwargs
-        self.assertEqual(kwargs["start_date"], start)
-        self.assertEqual(kwargs["end_date"], end)
-        exclude = kwargs["exclude"]
-        self.assertEqual(len(exclude), 1)
-        self.assertEqual(exclude[0].date, date(2024, 6, 5))
+        self.assertEqual(kwargs["start_date"], target)
+        self.assertEqual(kwargs["end_date"], target)
+        self.assertNotIn("exclude", kwargs)
 
     def test_semantic_get_or_create_returns_existing_event(self):
         from datetime import date
@@ -589,11 +565,7 @@ class EventManagerTests(TestCase):
         mock_client = mock_openai.return_value.__enter__.return_value
         mock_client.embeddings.create.return_value.data = [type("obj", (), {"embedding": [0.0] * 1536})()]
 
-        created = Event.objects.find_major_events(
-            start_date=date(2024, 6, 1),
-            end_date=date(2024, 6, 30),
-            min_significance=4,
-        )
+        created = Event.objects.find_major_events(date(2024, 6, 1))
 
         self.assertEqual(len(created), 1)
         event = created[0]

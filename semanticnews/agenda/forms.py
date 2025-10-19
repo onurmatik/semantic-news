@@ -35,11 +35,7 @@ class EventSuggestForm(forms.Form):
 
 class FindMajorEventsForm(forms.Form):
     now = timezone.now()
-    YEAR_CHOICES = [(y, y) for y in range(now.year - 5, now.year + 3)]
-    MONTH_CHOICES = [(m, f"{m:02d}") for m in range(1, 13)]
-
-    year = forms.ChoiceField(choices=YEAR_CHOICES, initial=now.year, label="Year")
-    month = forms.ChoiceField(choices=MONTH_CHOICES, initial=now.month, label="Month")
+    event_date = forms.DateField(initial=now.date(), label="Date")
 
     locality = forms.ChoiceField(
         choices=get_locality_form_choices(blank_label="(Any)"),
@@ -60,13 +56,6 @@ class FindMajorEventsForm(forms.Form):
         help_text="Ignore suggestions rated below this value (1=very low, 5=very high)",
     )
     distance_threshold = forms.FloatField(initial=0.15, min_value=0.0, label="Semantic distance threshold")
-
-    def clean_month(self):
-        # coerce to int
-        return int(self.cleaned_data["month"])
-
-    def clean_year(self):
-        return int(self.cleaned_data["year"])
 
     def clean_locality(self):
         value = self.cleaned_data.get("locality")
