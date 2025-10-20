@@ -36,7 +36,7 @@
             {{ topic.title }}
 
             {% if is_preview %}
-                <span class="badge bg-info text-dark ms-2">{% trans "Preview" %}</span>
+                <small class="badge bg-info text-dark ms-2 fs-6">{% trans "Preview" %}</small>
             {% else %}
                 <small class="fs-5 ms-2">
 
@@ -66,9 +66,9 @@
                 {% endif %}
 
                 {% if topic.status == "draft" %}
-                    <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
+                    <span class="badge bg-warning pill ms-1">{% trans "Draft" %}</span>
                 {% elif topic.status == "archived" %}
-                    <span class="badge bg-secondary  pill ms-1">{% trans "Archived" %}</span>
+                    <span class="badge bg-secondary pill ms-1">{% trans "Archived" %}</span>
                 {% endif %}
 
             </p>
