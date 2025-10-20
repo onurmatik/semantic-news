@@ -522,26 +522,71 @@ class TopicSuggestionList(Schema):
 
 
 class SuggestTopicsRequest(Schema):
-    """Request body for suggesting topics based on a description.
+    """Request body for suggesting topics based on available information.
 
     Attributes:
-        about (str): Description of the subject to suggest topics about.
+        about (Optional[str]): Description of the subject to suggest topics about.
         limit (int): Maximum number of topics to return. Defaults to ``3``.
+        topic_uuid (Optional[str]): UUID of an existing topic whose context should
+            be used when generating suggestions.
     """
 
-    about: str
+    about: Optional[str] = None
     limit: int = 3
+    topic_uuid: Optional[str] = None
 
 
-def suggest_topics(about: str, limit: int = 3) -> List[str]:
-    """Return a list of suggested topics for a given description."""
+def _has_meaningful_context(context: str) -> bool:
+    """Return ``True`` when the provided context contains useful content."""
+
+    if not context:
+        return False
+
+    stripped = context.strip()
+    if not stripped:
+        return False
+
+    # ``Topic.build_context`` always prefixes a markdown heading. Strip heading
+    # characters to detect whether any substantive text remains.
+    return bool(stripped.strip("# \n\t"))
+
+
+def suggest_topics(
+    *, about: Optional[str] = None, limit: int = 3, topic_uuid: Optional[str] = None
+) -> List[str]:
+    """Return a list of suggested topics for available context."""
+
+    description = (about or "").strip()
+
+    topic_context = ""
+    if topic_uuid:
+        try:
+            topic = Topic.objects.get(uuid=topic_uuid)
+        except Topic.DoesNotExist:
+            raise HttpError(404, "Topic not found")
+        topic_context = topic.build_context()
+
+    context_parts = []
+    if description:
+        context_parts.append(f"Description:\n{description}")
+    if _has_meaningful_context(topic_context):
+        context_parts.append(f"Existing topic context:\n{topic_context.strip()}")
+
+    if not context_parts:
+        raise HttpError(
+            400,
+            "Provide a description or add content to the topic before requesting suggestions.",
+        )
 
     prompt = (
-        f"Suggest {limit} topic ideas about {about}. "
+        f"Suggest {limit} topic ideas for a news topic. "
         f"Each topic should be a short, broad phrase in nominalized passive form. "
         f"Avoid overly specific or literal restatements of the subject. "
         f"Make the {limit} suggestions vary in scope, but none too specific. "
     )
+
+    prompt += "\n\nUse the following information as context:\n\n"
+    prompt += "\n\n".join(context_parts)
     prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
@@ -555,16 +600,20 @@ def suggest_topics(about: str, limit: int = 3) -> List[str]:
 
 
 @api.get("/suggest", response=List[str])
-def suggest_topics_get(request, about: str, limit: int = 3):
-    """Return suggested topics for a description via GET."""
+def suggest_topics_get(
+    request, about: Optional[str] = None, limit: int = 3, topic_uuid: Optional[str] = None
+):
+    """Return suggested topics for a description and/or context via GET."""
 
-    return suggest_topics(about=about, limit=limit)
+    return suggest_topics(about=about, limit=limit, topic_uuid=topic_uuid)
 
 
 @api.post("/suggest", response=List[str])
 def suggest_topics_post(request, payload: SuggestTopicsRequest):
-    """Return suggested topics for a description via POST."""
+    """Return suggested topics for a description and/or context via POST."""
 
-    return suggest_topics(about=payload.about, limit=payload.limit)
+    return suggest_topics(
+        about=payload.about, limit=payload.limit, topic_uuid=payload.topic_uuid
+    )
 
 
