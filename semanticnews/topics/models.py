@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -272,32 +273,168 @@ class Topic(models.Model):
         return latest.thumbnail if latest else None
 
     def build_context(self):
-        content_md = f"# {self.title or ''}\n\n"
+        parts = [f"# {self.title or ''}\n\n"]
 
         # If not saved yet, do not touch M2M relations
         if not self.pk:
-            return content_md
+            return "".join(parts)
 
-        events_qs = (
-            self.events.filter(topicevent__is_deleted=False).order_by("date")
-        )
+        def append_section(title: str, body: str):
+            if not body:
+                return
+            if not body.endswith("\n"):
+                body_local = f"{body}\n"
+            else:
+                body_local = body
+            parts.append(f"## {title}\n\n")
+            parts.append(body_local)
+            parts.append("\n")
 
+        events_qs = self.events.filter(topicevent__is_deleted=False).order_by("date")
         if events_qs.exists():
-            content_md += "## Events\n\n"
-            for event in events_qs:
-                content_md += f"- {event.title} ({event.date})\n"
+            event_lines = [f"- {event.title} ({event.date})" for event in events_qs]
+            append_section("Events", "\n".join(event_lines))
 
-        contents_qs = self.contents.all()
+        contents_qs = self.contents.all().order_by("created_at")
         if contents_qs.exists():
-            content_md += "\n## Contents\n\n"
-            for c in contents_qs:
-                title = c.title or ""
-                text = c.markdown or ""
-                content_md += f"### {title}\n{text}\n\n"
+            content_sections = []
+            for content in contents_qs:
+                title = content.title or "Content"
+                text = content.markdown or ""
+                content_sections.append(f"### {title}\n{text}".strip())
+            append_section("Contents", "\n\n".join(content_sections))
 
-        # TODO: Add data insights to the context
+        entities_qs = self.entities.all().order_by("name")
+        if entities_qs.exists():
+            entity_lines = []
+            for entity in entities_qs:
+                description = getattr(entity, "description", None) or ""
+                line = entity.name
+                if entity.disambiguation:
+                    line = f"{line} ({entity.disambiguation})"
+                if description:
+                    line = f"{line}\n  Description: {description}"
+                entity_lines.append(f"- {line}")
+            append_section("Entities", "\n".join(entity_lines))
 
-        return content_md
+        documents_qs = self.documents.filter(is_deleted=False).order_by("created_at")
+        if documents_qs.exists():
+            document_lines = []
+            for document in documents_qs:
+                description = document.description or ""
+                display_title = document.display_title
+                line = f"- {display_title}: {document.url}"
+                if description:
+                    line = f"{line}\n  {description}"
+                document_lines.append(line)
+            append_section("Documents", "\n".join(document_lines))
+
+        webpages_qs = self.webpages.filter(is_deleted=False).order_by("created_at")
+        if webpages_qs.exists():
+            webpage_lines = []
+            for webpage in webpages_qs:
+                description = webpage.description or ""
+                title = webpage.title or webpage.url
+                line = f"- {title}: {webpage.url}"
+                if description:
+                    line = f"{line}\n  {description}"
+                webpage_lines.append(line)
+            append_section("Webpages", "\n".join(webpage_lines))
+
+        texts_qs = self.texts.filter(is_deleted=False).order_by("created_at")
+        if texts_qs.exists():
+            text_blocks = [text.content for text in texts_qs if text.content]
+            append_section("Text Notes", "\n\n".join(text_blocks))
+
+        recaps_qs = self.recaps.filter(is_deleted=False, status="finished").order_by("created_at")
+        if recaps_qs.exists():
+            recap_blocks = [recap.recap for recap in recaps_qs if recap.recap]
+            append_section("Recaps", "\n\n".join(recap_blocks))
+
+        images_qs = self.images.filter(is_deleted=False, status="finished").order_by("created_at")
+        if images_qs.exists():
+            image_lines = []
+            for image in images_qs:
+                image_name = getattr(image.image, "name", "") or ""
+                thumbnail_name = getattr(image.thumbnail, "name", "") or ""
+                line = f"- Image: {image_name}" if image_name else "- Image"
+                if thumbnail_name:
+                    line = f"{line}\n  Thumbnail: {thumbnail_name}"
+                image_lines.append(line)
+            append_section("Images", "\n".join(image_lines))
+
+        tweets_qs = self.tweets.filter(is_deleted=False).order_by("created_at")
+        if tweets_qs.exists():
+            tweet_lines = []
+            for tweet in tweets_qs:
+                tweet_lines.append(f"- {tweet.url}\n  {tweet.html}")
+            append_section("Tweets", "\n".join(tweet_lines))
+
+        videos_qs = self.youtube_videos.filter(is_deleted=False, status="finished").order_by("created_at")
+        if videos_qs.exists():
+            video_lines = []
+            for video in videos_qs:
+                description = video.description or ""
+                title = video.title or "Video"
+                line = f"- {title}: {video.url or video.video_id}"
+                if description:
+                    line = f"{line}\n  {description}"
+                video_lines.append(line)
+            append_section("Videos", "\n".join(video_lines))
+
+        data_qs = self.datas.filter(is_deleted=False).order_by("created_at")
+        if data_qs.exists():
+            data_sections = []
+            for dataset in data_qs:
+                name = dataset.name or "Dataset"
+                explanation = dataset.explanation or ""
+                try:
+                    data_payload = json.dumps(dataset.data, indent=2, sort_keys=True)
+                except TypeError:
+                    data_payload = str(dataset.data)
+                sources = dataset.sources or []
+                sources_repr = ""
+                if sources:
+                    try:
+                        sources_repr = json.dumps(sources, ensure_ascii=False)
+                    except TypeError:
+                        sources_repr = str(sources)
+                section_lines = [f"### {name}", data_payload]
+                if explanation:
+                    section_lines.insert(1, explanation)
+                if sources_repr:
+                    section_lines.append(f"Sources: {sources_repr}")
+                data_sections.append("\n\n".join(section_lines))
+            append_section("Data", "\n\n".join(data_sections))
+
+        insights_qs = self.data_insights.filter(is_deleted=False).order_by("created_at")
+        if insights_qs.exists():
+            insight_lines = []
+            for insight in insights_qs:
+                sources = insight.sources.all()
+                source_names = [source.name or "Dataset" for source in sources]
+                line = insight.insight
+                if source_names:
+                    line = f"{line}\n  Sources: {', '.join(source_names)}"
+                insight_lines.append(f"- {line}")
+            append_section("Data Insights", "\n".join(insight_lines))
+
+        visualizations_qs = self.data_visualizations.filter(is_deleted=False).select_related("insight").order_by("created_at")
+        if visualizations_qs.exists():
+            visualization_sections = []
+            for visualization in visualizations_qs:
+                try:
+                    chart_payload = json.dumps(visualization.chart_data, indent=2, sort_keys=True)
+                except TypeError:
+                    chart_payload = str(visualization.chart_data)
+                title = visualization.chart_type.title() if visualization.chart_type else "Visualization"
+                section_lines = [f"### {title}", chart_payload]
+                if visualization.insight_id and visualization.insight:
+                    section_lines.insert(1, f"Insight: {visualization.insight.insight}")
+                visualization_sections.append("\n\n".join(section_lines))
+            append_section("Data Visualizations", "\n\n".join(visualization_sections))
+
+        return "".join(parts)
 
     def get_embedding(self, force: bool = False):
         """
