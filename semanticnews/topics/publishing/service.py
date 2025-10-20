@@ -897,29 +897,46 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
 
     image_data = snapshot.get("image")
     if image_data:
-        image_obj = SimpleNamespace(
-            image=SimpleNamespace(url=image_data.get("image_url")),
-            thumbnail=SimpleNamespace(url=image_data.get("thumbnail_url")),
-            created_at=image_data.get("created_at"),
-        )
+        image_url = image_data.get("image_url") or ""
+        thumbnail_url = image_data.get("thumbnail_url") or ""
 
-        class TopicProxy:
-            def __init__(self, base: Topic, image):
-                self._base = base
-                self._image = image
+        # ``Topic.image`` normally returns the ``ImageFieldFile`` associated with
+        # the latest ``TopicImage`` record. Downstream templates expect to access
+        # ``topic.image.url`` (and, in edit mode, ``topic.image.image.url``), so
+        # the publication proxy needs to mimic that interface. When only a
+        # thumbnail exists we still want to surface it, but avoid rendering an
+        # empty ``src`` attribute if neither URL is available.
+        hero_display_url = image_url or thumbnail_url
+        if hero_display_url:
+            image_field = SimpleNamespace(url=image_url) if image_url else None
+            thumbnail_field = (
+                SimpleNamespace(url=thumbnail_url) if thumbnail_url else None
+            )
+            image_obj = SimpleNamespace(
+                url=hero_display_url,
+                image=image_field or thumbnail_field,
+                thumbnail=thumbnail_field,
+                created_at=image_data.get("created_at"),
+            )
 
-            def __getattr__(self, item):
-                return getattr(self._base, item)
+            class TopicProxy:
+                def __init__(self, base: Topic, image, thumbnail):
+                    self._base = base
+                    self._image = image
+                    self._thumbnail = thumbnail
 
-            @property
-            def image(self):
-                return self._image
+                def __getattr__(self, item):
+                    return getattr(self._base, item)
 
-            @property
-            def thumbnail(self):
-                return self._image
+                @property
+                def image(self):
+                    return self._image
 
-        context["topic"] = TopicProxy(topic, image_obj)
+                @property
+                def thumbnail(self):
+                    return self._thumbnail
+
+            context["topic"] = TopicProxy(topic, image_obj, thumbnail_field)
     return context
 
 
