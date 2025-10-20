@@ -135,6 +135,69 @@ def topics_detail(request, slug, username):
     return render(request, "topics/topics_detail.html", context)
 
 
+def _build_topic_module_context(topic):
+    """Collect related objects used to render topic modules."""
+
+    related_events = topic.active_events
+    current_recap = topic.active_recaps.order_by("-created_at").first()
+    latest_recap = (
+        topic.active_recaps.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    current_relation = topic.active_entity_relations.order_by("-created_at").first()
+    latest_relation = (
+        topic.active_entity_relations.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    documents = list(topic.active_documents)
+    webpages = list(topic.active_webpages)
+    latest_data = topic.active_datas.order_by("-created_at").first()
+    datas = topic.active_datas.order_by("-created_at")
+    data_insights = topic.active_data_insights.order_by("-created_at")
+    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
+    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
+    tweets = topic.active_tweets.order_by("-created_at")
+
+    if latest_relation:
+        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
+        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
+    else:
+        relations_json = ""
+        relations_json_pretty = ""
+
+    if topic.embedding is not None:
+        suggested_events = (
+            Event.objects.exclude(topics=topic)
+            .exclude(embedding__isnull=True)
+            .annotate(distance=L2Distance("embedding", topic.embedding))
+            .order_by("distance")[:5]
+        )
+    else:
+        suggested_events = Event.objects.none()
+
+    return {
+        "topic": topic,
+        "related_events": related_events,
+        "suggested_events": suggested_events,
+        "current_recap": current_recap,
+        "latest_recap": latest_recap,
+        "current_relation": current_relation,
+        "latest_relation": latest_relation,
+        "relations_json": relations_json,
+        "relations_json_pretty": relations_json_pretty,
+        "latest_data": latest_data,
+        "datas": datas,
+        "data_insights": data_insights,
+        "data_visualizations": data_visualizations,
+        "youtube_video": youtube_video,
+        "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
+    }
+
+
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
@@ -160,74 +223,19 @@ def topics_detail_edit(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    related_events = topic.active_events
-    current_recap = topic.active_recaps.order_by("-created_at").first()
-    latest_recap = (
-        topic.active_recaps.filter(status="finished")
-        .order_by("-created_at")
-        .first()
-    )
-    current_relation = (
-        topic.active_entity_relations.order_by("-created_at").first()
-    )
-    latest_relation = (
-        topic.active_entity_relations.filter(status="finished")
-        .order_by("-created_at")
-        .first()
-    )
-    documents = list(topic.active_documents)
-    webpages = list(topic.active_webpages)
-    latest_data = topic.active_datas.order_by("-created_at").first()
-    datas = topic.active_datas.order_by("-created_at")
-    data_insights = topic.active_data_insights.order_by("-created_at")
-    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
-    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
-    tweets = topic.active_tweets.order_by("-created_at")
-    if latest_relation:
-        relations_json = json.dumps(
-            latest_relation.relations, separators=(",", ":")
-        )
-        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
-    else:
-        relations_json = ""
-        relations_json_pretty = ""
+    context = _build_topic_module_context(topic)
     mcp_servers = MCPServer.objects.filter(active=True)
-
-    if topic.embedding is not None:
-        suggested_events = (
-            Event.objects.exclude(topics=topic)
-            .exclude(embedding__isnull=True)
-            .annotate(distance=L2Distance("embedding", topic.embedding))
-            .order_by("distance")[:5]
-        )
-    else:
-        suggested_events = Event.objects.none()
 
     layout = get_layout_for_mode(topic, mode="edit")
     primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
     sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
-    context = {
-        "topic": topic,
-        "related_events": related_events,
-        "suggested_events": suggested_events,
-        "current_recap": current_recap,
-        "latest_recap": latest_recap,
-        "current_relation": current_relation,
-        "latest_relation": latest_relation,
-        "relations_json": relations_json,
-        "relations_json_pretty": relations_json_pretty,
-        "mcp_servers": mcp_servers,
-        "latest_data": latest_data,
-        "datas": datas,
-        "data_insights": data_insights,
-        "data_visualizations": data_visualizations,
-        "youtube_video": youtube_video,
-        "tweets": tweets,
-        "documents": documents,
-        "webpages": webpages,
-        "layout_update_url": f"/api/topics/{topic.uuid}/layout",
-    }
+    context.update(
+        {
+            "mcp_servers": mcp_servers,
+            "layout_update_url": f"/api/topics/{topic.uuid}/layout",
+        }
+    )
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
@@ -242,6 +250,55 @@ def topics_detail_edit(request, topic_uuid, username):
     return render(
         request,
         "topics/topics_detail_edit.html",
+        context,
+    )
+
+
+@login_required
+def topics_detail_preview(request, topic_uuid, username):
+    topic = get_object_or_404(
+        Topic.objects.prefetch_related(
+            "events",
+            "recaps",
+            "texts",
+            "images",
+            "documents",
+            "webpages",
+            "youtube_videos",
+            "tweets",
+            "entity_relations",
+            "datas",
+            "data_insights__sources",
+            "data_visualizations__insight",
+            "module_layouts",
+        ),
+        uuid=topic_uuid,
+        created_by__username=username,
+    )
+
+    if request.user != topic.created_by or topic.status == "archived":
+        return HttpResponseForbidden()
+
+    context = _build_topic_module_context(topic)
+
+    layout = get_layout_for_mode(topic, mode="detail")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
+    context["is_preview"] = True
+
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
+            uuid=topic.uuid
+        )
+
+    return render(
+        request,
+        "topics/topics_detail.html",
         context,
     )
 

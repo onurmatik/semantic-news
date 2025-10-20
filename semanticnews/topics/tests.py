@@ -144,6 +144,81 @@ class TopicDetailRedirectViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class TopicDetailEditViewTests(TestCase):
+    """Tests for the topic edit view."""
+
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user("user", "user@example.com", "password")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_edit_page_links_to_preview(self, mock_embedding):
+        topic = Topic.objects.create(title="Example", created_by=self.user)
+
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
+            )
+        )
+
+        self.assertContains(
+            response,
+            reverse(
+                "topics_detail_preview",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.user.username},
+            ),
+        )
+        self.assertContains(response, ">Preview<")
+
+
+class TopicDetailPreviewViewTests(TestCase):
+    """Tests for the topic preview view."""
+
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user("owner", "owner@example.com", "password")
+        self.other = self.User.objects.create_user("other", "other@example.com", "password")
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_owner_can_view_preview(self, mock_embedding):
+        topic = Topic.objects.create(title="Previewable", created_by=self.owner)
+
+        self.client.force_login(self.owner)
+        response = self.client.get(
+            reverse(
+                "topics_detail_preview",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.owner.username},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("data-topic-status-button", content)
+        self.assertIn(
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.owner.username},
+            ),
+            content,
+        )
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_non_owner_cannot_preview(self, mock_embedding):
+        topic = Topic.objects.create(title="Hidden", created_by=self.owner)
+
+        self.client.force_login(self.other)
+        response = self.client.get(
+            reverse(
+                "topics_detail_preview",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.owner.username},
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
 class SetTopicTitleAPITests(TestCase):
     """Tests for updating a topic title via the API."""
 
