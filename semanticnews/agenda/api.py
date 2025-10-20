@@ -333,11 +333,11 @@ class AgendaEventResponse(Schema):
         categories (List[str]): 1-3 high-level categories describing the event.
         sources (List[str]): A few reputable URLs as citations.
         significance (int): Rating from 1 (very low) to 5 (very high) based on objective impact of the event for the given locality:
-            5: Nationwide crisis, election, major law, disaster, etc.
-            4: High national importance
-            3: Significant regional impact
-            2: Notable but limited scope
-            1: Minor, routine, or symbolic event
+            5. Epochal / almanac-level: Nationwide crisis, election, major law, disaster, major conflict etc.
+            4. High national impact: Law adoption, mass protest, major industrial or environmental event, major infrastructure failure, death of a major national figure.
+            3. Significant regional or sectoral impact: Policy implementation, major trial outcome, regional disaster, large-scale economic or diplomatic development.
+            2. Moderate or symbolic: Noteworthy developments or decisions without broad consequences.
+            1. Minor or routine: Announcements, conferences, diplomatic meetings, statements, or ceremonial openings.
     """
 
     title: str
