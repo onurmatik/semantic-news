@@ -224,11 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (suggestBtn && input) {
     suggestBtn.addEventListener('click', async () => {
       const about = input.value.trim();
-      if (!about && !topicUuid) {
-        showError(suggestBtn.dataset.emptyInputMessage || '');
-        input.focus();
-        return;
-      }
 
       clearError();
       hideSuggestions();
