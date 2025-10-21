@@ -2,11 +2,31 @@
 
 {% load static i18n humanize markdown_extras topic_layout %}
 
-{% block title %}{{ topic.title }}{% endblock %}
+{% block title %}{{ meta_title|default:topic.title }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    {% if canonical_url %}
+        <link rel="canonical" href="{{ canonical_url }}">
+        <meta property="og:url" content="{{ canonical_url }}">
+    {% endif %}
+    <meta name="description" content="{{ meta_description|default:topic.title }}">
+    <meta property="og:type" content="{{ open_graph_type|default:'article' }}">
+    <meta property="og:title" content="{{ meta_title|default:topic.title }}">
+    <meta property="og:description" content="{{ meta_description|default:topic.title }}">
+    {% if meta_site_name %}
+        <meta property="og:site_name" content="{{ meta_site_name|default:'Semantic News' }}">
+    {% endif %}
+    {% if og_image_url %}
+        <meta property="og:image" content="{{ og_image_url }}">
+    {% endif %}
+    <meta name="twitter:card" content="{{ twitter_card|default:'summary' }}">
+    <meta name="twitter:title" content="{{ meta_title|default:topic.title }}">
+    <meta name="twitter:description" content="{{ meta_description|default:topic.title }}">
+    {% if og_image_url %}
+        <meta name="twitter:image" content="{{ og_image_url }}">
+    {% endif %}
 {% endblock %}
 
 {% block content %}
