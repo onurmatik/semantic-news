@@ -25,6 +25,7 @@
                         </div>
                     </div>
                     <div class="mb-3 d-none" id="dataPreviewSection">
+                        <hr>
                         <div class="d-flex align-items-start justify-content-between mb-2">
                             <div>
                                 <span class="fw-semibold d-block">{% trans "Preview" %}</span>
@@ -40,11 +41,11 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
-                        <div id="dataPreview" class="table-responsive mb-3"></div>
                         <div class="mb-3 d-none" id="dataNameWrapper">
                             <label for="dataName" class="form-label">{% trans "Data name" %}</label>
                             <input type="text" class="form-control" id="dataName" name="name">
                         </div>
+                        <div id="dataPreview" class="table-responsive mb-3"></div>
                         <div id="dataSourcesWrapper" class="d-none">
                             <label class="form-label">{% trans "Sources" %}</label>
                             <ul id="dataSources" class="small mb-0"></ul>

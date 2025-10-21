@@ -701,6 +701,66 @@ def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVis
     )
 
 
+@router.delete("/request/{request_id}", response=TopicDataSaveResponse)
+def delete_data_request(request, request_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    data_request = TopicDataRequest.objects.filter(id=request_id, user=user).first()
+    if not data_request:
+        raise HttpError(404, "Data request not found")
+
+    if data_request.saved_data_id:
+        return TopicDataSaveResponse(success=True)
+
+    data_request.delete()
+    return TopicDataSaveResponse(success=True)
+
+
+@router.delete("/analyze/request/{request_id}", response=TopicDataSaveResponse)
+def delete_analyze_request(request, request_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    analysis_request = TopicDataAnalysisRequest.objects.filter(
+        id=request_id,
+        user=user,
+    ).first()
+
+    if not analysis_request:
+        raise HttpError(404, "Analysis request not found")
+
+    saved_insights = analysis_request.saved_insight_ids or []
+    if isinstance(saved_insights, list) and saved_insights:
+        return TopicDataSaveResponse(success=True)
+
+    analysis_request.delete()
+    return TopicDataSaveResponse(success=True)
+
+
+@router.delete("/visualize/request/{request_id}", response=TopicDataSaveResponse)
+def delete_visualize_request(request, request_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    visualization_request = TopicDataVisualizationRequest.objects.filter(
+        id=request_id,
+        user=user,
+    ).first()
+
+    if not visualization_request:
+        raise HttpError(404, "Visualization request not found")
+
+    if visualization_request.saved_visualization_id:
+        return TopicDataSaveResponse(success=True)
+
+    visualization_request.delete()
+    return TopicDataSaveResponse(success=True)
+
+
 @router.post("/visualize", response=TopicDataVisualizeTaskResponse)
 def visualize_data(request, payload: TopicDataVisualizeRequest):
     user = getattr(request, "user", None)

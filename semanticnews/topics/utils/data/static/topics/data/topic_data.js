@@ -71,6 +71,28 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastDataRequestMode = null;
   let lastDataRequestDetail = null;
 
+  const deleteRequestRecord = async (basePath, requestId) => {
+    if (requestId === null || requestId === undefined) {
+      return;
+    }
+    const numericId =
+      typeof requestId === 'number' ? requestId : parseInt(String(requestId), 10);
+    if (Number.isNaN(numericId) || numericId <= 0) {
+      return;
+    }
+    try {
+      const res = await fetch(`${basePath}/${numericId}`, { method: 'DELETE' });
+      if (res.status === 404) {
+        return;
+      }
+      if (!res.ok) {
+        throw new Error('Request failed');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const setFetchButtonBusy = (busy) => {
     if (!fetchBtn) return;
     fetchBtn.disabled = !!busy;
@@ -403,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handleVisualizePreviewDelete = () => {
+    const requestId = visualizeRequestId;
     clearVisualizeState();
     hideVisualizationPreview();
     resetAlert(visualizeStatusMessage);
@@ -412,6 +435,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setSaveVisualizationButtonBusy(false);
     if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
     setPreviewSectionVisible(visualizePreviewSection, false);
+    if (requestId !== null && requestId !== undefined) {
+      deleteRequestRecord('/api/topics/data/visualize/request', requestId);
+    }
   };
 
   const saveVisualizeState = (payload) => {
@@ -1094,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handleDataPreviewDelete = () => {
+    const requestId = currentRequestId;
     stopPolling();
     clearStoredState();
     fetchedData = null;
@@ -1105,6 +1132,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dataAddIndicator.reset();
     setDataOperationState('add', 'reset');
     updateSaveButtonState();
+    if (requestId !== null && requestId !== undefined) {
+      deleteRequestRecord('/api/topics/data/request', requestId);
+    }
   };
 
   if (urlInput && urlMode) {
@@ -1369,6 +1399,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const handleAnalyzePreviewDelete = () => {
+    const requestId = analyzeRequestId;
     clearAnalyzeState();
     if (insightsContainer) {
       insightsContainer.classList.add('d-none');
@@ -1381,6 +1412,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setSaveInsightsButtonBusy(false);
     if (saveInsightsBtn) saveInsightsBtn.disabled = true;
     setPreviewSectionVisible(analyzePreviewSection, false);
+    if (requestId !== null && requestId !== undefined) {
+      deleteRequestRecord('/api/topics/data/analyze/request', requestId);
+    }
   };
 
   const saveAnalyzeState = (payload) => {
