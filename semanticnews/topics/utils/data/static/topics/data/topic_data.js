@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizePreviewWrapper = document.getElementById('visualizePreviewWrapper');
   const visualizePreviewCanvas = document.getElementById('visualizePreviewChart');
   const visualizePreviewMeta = document.getElementById('visualizePreviewMeta');
+  const visualizePreviewInsight = document.getElementById('visualizePreviewInsight');
   const visualizePreviewDeleteBtn = document.getElementById('visualizePreviewDeleteBtn');
   const visualizePreviewDeleteModalEl = document.getElementById('visualizePreviewDeleteModal');
   const visualizePreviewDeleteConfirmBtn = document.getElementById('visualizePreviewDeleteConfirm');
@@ -235,6 +236,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const setPreviewInsightText = (element, text) => {
+    if (!element) return;
+    let value = '';
+    if (typeof text === 'string') {
+      value = text.trim();
+    } else if (text !== null && text !== undefined) {
+      value = String(text).trim();
+    }
+    if (value) {
+      element.textContent = value;
+      element.classList.remove('d-none');
+    } else {
+      element.textContent = '';
+      element.classList.add('d-none');
+    }
+  };
+
   const toStringList = (values) => {
     if (!Array.isArray(values)) return [];
     return values
@@ -378,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
       visualizeChartInstance = null;
     }
     setMetaText(visualizePreviewMeta, '');
+    setPreviewInsightText(visualizePreviewInsight, '');
     toggleButtonVisibility(visualizePreviewDeleteBtn, false);
   };
 
@@ -422,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateVisualizeUsageDisplay();
     toggleButtonVisibility(visualizePreviewDeleteBtn, false);
     setPreviewSectionVisible(visualizePreviewSection, false);
+    setPreviewInsightText(visualizePreviewInsight, '');
   };
 
   const handleVisualizePreviewDelete = () => {
@@ -442,13 +462,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const saveVisualizeState = (payload) => {
     if (!visualizeStorageKey || !payload || typeof payload.request_id !== 'number') return;
+    const insightText =
+      typeof payload.insight === 'string'
+        ? payload.insight.trim()
+        : payload.insight !== null && payload.insight !== undefined
+          ? String(payload.insight).trim()
+          : '';
+
     const state = {
       requestId: payload.request_id,
       taskId: payload.task_id || null,
       status: payload.status,
       chartType: payload.chart_type || null,
       chartData: payload.chart_data || null,
-      insight: payload.insight || null,
+      insight: insightText || null,
       error: payload.error || null,
       saved: Boolean(payload.saved),
     };
@@ -527,6 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
       saveVisualizeState(payload);
     }
 
+    setPreviewInsightText(visualizePreviewInsight, payload.insight);
+
     const payloadLabels = toStringList(payload.data_labels);
     if (payloadLabels.length > 0) {
       visualizeDataLabels = payloadLabels;
@@ -585,6 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
         updateVisualizeUsageDisplay();
         toggleButtonVisibility(visualizePreviewDeleteBtn, true);
+        setPreviewInsightText(visualizePreviewInsight, payload.insight);
       }
       return 'success';
     }
