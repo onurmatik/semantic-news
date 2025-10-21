@@ -16,6 +16,15 @@
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="insight_id" id="visualizeInsight{{ insight.id }}" value="{{ insight.id }}"{% if forloop.first %} checked{% endif %}>
                             <label class="form-check-label" for="visualizeInsight{{ insight.id }}">{{ insight.insight }}</label>
+                            {% with sources=insight.sources.all %}
+                            <div class="form-text text-muted">
+                                {% if sources %}
+                                    {% for source in sources %}
+                                        {{ source.name|default:source }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                            {% endwith %}
                         </div>
                         {% empty %}
                         <p class="text-secondary mb-0">{% trans "No insights available" %}</p>
@@ -23,6 +32,7 @@
                         <div class="form-check mt-2">
                             <input class="form-check-input" type="radio" name="insight_id" id="visualizeInsightOther" value="other"{% if not data_insights %} checked{% endif %}>
                             <label class="form-check-label" for="visualizeInsightOther">{% trans "Other" %}</label>
+                            <div class="form-text text-muted">{% trans "All data tables will be used." %}</div>
                         </div>
                         <input type="text" class="form-control mt-2 d-none" id="visualizeInsightOtherText" placeholder="{% trans 'Enter your insight' %}">
                     </div>
