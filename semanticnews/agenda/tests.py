@@ -624,3 +624,61 @@ class EventListRelatedTopicsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         related_topics = list(response.context["related_topics"])
         self.assertIn(topic, related_topics)
+
+
+class EventDetailRelatedTopicsTests(TestCase):
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_related_topics_in_context(self, mock_topic_embedding):
+        from datetime import date
+        from semanticnews.topics.models import Topic
+        from semanticnews.topics.publishing.models import TopicPublication
+        from semanticnews.topics.utils.recaps.models import TopicRecap
+        from semanticnews.topics.utils.timeline.models import TopicEvent
+
+        User = get_user_model()
+        owner = User.objects.create_user("owner", "owner@example.com", "password")
+
+        event = Event.objects.create(
+            title="Major Event",
+            date=date(2024, 1, 1),
+            status="published",
+            slug="major-event",
+            embedding=[0.0] * 1536,
+        )
+
+        topic = Topic.objects.create(title="Context Topic", created_by=owner)
+        TopicRecap.objects.create(topic=topic, recap="A useful recap", status="finished")
+
+        topic.status = "published"
+        topic.save(update_fields=["status"])
+
+        TopicEvent.objects.create(topic=topic, event=event)
+
+        publication = TopicPublication.objects.create(
+            topic=topic,
+            context_snapshot={
+                "latest_recap": {"recap": "A useful recap"},
+                "image": {"thumbnail_url": "http://example.com/cover.jpg"},
+            },
+        )
+
+        Topic.objects.filter(pk=topic.pk).update(
+            latest_publication=publication,
+            last_published_at=publication.published_at,
+        )
+
+        response = self.client.get(
+            reverse(
+                "event_detail",
+                kwargs={
+                    "year": "2024",
+                    "month": "01",
+                    "day": "01",
+                    "slug": "major-event",
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        related_topics = list(response.context["related_topics"])
+        self.assertIn(topic, related_topics)

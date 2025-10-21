@@ -58,7 +58,7 @@
 
         <div class="col-12 col-md-4">
 
-            <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2 class="fs-5 mb-0">{% trans "Topics" %}</h2>
                 {% if user.is_authenticated %}
                 <button
@@ -75,13 +75,11 @@
                 {% endif %}
             </div>
 
-            <ul class="list-unstyled">
-                {% for topic in topics %}
-                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
-                {% empty %}
-                    <li class="text-muted">{% trans "No topics" %}</li>
-                {% endfor %}
-            </ul>
+            {% for topic in related_topics %}
+                {% include "topics/related_topic_sidebar_item.html" %}
+            {% empty %}
+                <p class="text-muted small">{% trans "No topics" %}</p>
+            {% endfor %}
 
         </div>
     </div>

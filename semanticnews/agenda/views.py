@@ -82,9 +82,30 @@ def event_detail(request, year, month, day, slug):
 
     localities = get_locality_options()
 
+    related_topics = (
+        Topic.objects.filter(
+            topicevent__event=obj,
+            topicevent__is_deleted=False,
+            status="published",
+        )
+        .select_related("latest_publication")
+        .prefetch_related(
+            Prefetch(
+                "recaps",
+                queryset=(
+                    TopicRecap.objects.filter(is_deleted=False, status="finished")
+                    .order_by("-created_at")
+                ),
+                to_attr="prefetched_recaps",
+            )
+        )
+        .order_by("-last_published_at", "-updated_at", "-created_at")
+        .distinct()[:10]
+    )
+
     context = {
         "event": obj,
-        "topics": obj.topics.all(),
+        "related_topics": related_topics,
         "similar_events": similar_events,
         "exclude_events": exclude_events,
         "localities": localities,
