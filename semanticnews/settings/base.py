@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
 
+    'widget_tweaks',
+
     'semanticnews.profiles',
     'semanticnews.agenda',
     'semanticnews.entities',
