@@ -172,23 +172,31 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
 
+                {% with current_url_name=request.resolver_match.url_name %}
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item mx-2">
-                        <a class="nav-link" aria-current="page" href="{% url 'topics_list' %}">
+                        <a class="nav-link{% if current_url_name == 'topics_list' %} active{% endif %}"
+                           {% if current_url_name == 'topics_list' %}aria-current="page"{% endif %}
+                           href="{% url 'topics_list' %}">
                             {% trans "Topics" %}
                         </a>
                     </li>
                     <li class="nav-item mx-2">
-                        <a class="nav-link" aria-current="page" href="{% url 'events_recent_list' %}">
+                        <a class="nav-link{% if current_url_name == 'events_recent_list' %} active{% endif %}"
+                           {% if current_url_name == 'events_recent_list' %}aria-current="page"{% endif %}
+                           href="{% url 'events_recent_list' %}">
                             {% trans "Agenda" %}
                         </a>
                     </li>
                     <li class="nav-item mx-2">
-                        <a class="nav-link" aria-current="page" href="{% url 'user_list' %}">
+                        <a class="nav-link{% if current_url_name == 'user_list' %} active{% endif %}"
+                           {% if current_url_name == 'user_list' %}aria-current="page"{% endif %}
+                           href="{% url 'user_list' %}">
                             {% trans "Contributors" %}
                         </a>
                     </li>
                 </ul>
+                {% endwith %}
 
                 <!-- Search form -->
                 <form action="{% url 'search_results' %}" class="d-flex flex-fill justify-content-end" autocomplete="off" id="navSearchForm">

@@ -14,6 +14,7 @@ from semanticnews.agenda.localities import (
 
 from .models import Event, Category, Source
 from semanticnews.topics.models import Topic
+from semanticnews.topics.utils.data.models import TopicDataVisualization
 from semanticnews.topics.utils.recaps.models import TopicRecap
 
 
@@ -30,10 +31,26 @@ def recent_event_list(request):
         .order_by("-updated_at", "-date", "-created_at")
     )
 
-    context = {"events": events}
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
+    recent_topics = (
+        Topic.objects.filter(status="published")
+        .select_related("created_by", "latest_publication")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
+        .order_by("-updated_at", "-created_at")[:5]
+    )
+
+    context = {
+        "events": events,
+        "recent_topics": recent_topics,
+    }
     if request.user.is_authenticated:
-        context["user_topics"] = Topic.objects.filter(created_by=request.user).order_by(
-            "-updated_at"
+        context["user_topics"] = (
+            Topic.objects.filter(created_by=request.user)
+            .order_by("-updated_at")[:5]
         )
 
     return render(request, "agenda/event_recent_list.html", context)
