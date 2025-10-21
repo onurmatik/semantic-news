@@ -1,6 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, Http404
+from django.templatetags.static import static
+from django.utils.html import strip_tags
+from django.utils.text import Truncator
+from django.utils.translation import gettext as _
 from pgvector.django import L2Distance
 import json
 
@@ -123,6 +127,7 @@ def topics_detail(request, slug, username):
         annotate_module_content(sidebar_modules, context)
         context["primary_modules"] = primary_modules
         context["sidebar_modules"] = sidebar_modules
+        context.update(_build_topic_metadata(request, topic, context))
         return render(request, "topics/topics_detail.html", context)
 
     context = {
@@ -131,6 +136,8 @@ def topics_detail(request, slug, username):
         "sidebar_modules": [],
         "is_unpublished": True,
     }
+
+    context.update(_build_topic_metadata(request, topic, context))
 
     return render(request, "topics/topics_detail.html", context)
 
@@ -195,6 +202,99 @@ def _build_topic_module_context(topic):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+    }
+
+
+def _build_topic_metadata(request, topic, context):
+    """Derive metadata required for SEO and social sharing."""
+
+    default_description = _(
+        "Stay informed with curated analysis from Semantic News."
+    )
+    context_topic = context.get("topic", topic)
+
+    def _extract_recap_text():
+        recap_candidates = []
+        latest = context.get("latest_recap")
+        if latest:
+            recap_candidates.append(latest)
+
+        recaps = context.get("recaps") or []
+        recap_candidates.extend(recaps)
+
+        for candidate in recap_candidates:
+            for attr in ("summary", "recap", "text"):
+                value = getattr(candidate, attr, None)
+                if value:
+                    return value
+
+        active_recap = None
+        if hasattr(topic, "active_recaps"):
+            active_recap = topic.active_recaps.order_by("-created_at").first()
+        if active_recap:
+            return getattr(active_recap, "recap", None)
+        return None
+
+    def _normalise_whitespace(value):
+        return " ".join(value.split())
+
+    recap_text = _extract_recap_text() or default_description
+    cleaned_description = strip_tags(recap_text)
+    cleaned_description = _normalise_whitespace(cleaned_description)
+    if not cleaned_description:
+        cleaned_description = default_description
+    meta_description = Truncator(cleaned_description).chars(160, truncate="…")
+
+    def _resolve_image():
+        topic_obj = context_topic or topic
+        image_fields = [
+            getattr(topic_obj, "image", None),
+            getattr(topic_obj, "thumbnail", None),
+        ]
+
+        for field in image_fields:
+            if not field:
+                continue
+            for attr in ("url", "image", "thumbnail"):
+                candidate = getattr(field, attr, None)
+                if isinstance(candidate, str) and candidate:
+                    return candidate, False
+                if candidate and hasattr(candidate, "url"):
+                    url = getattr(candidate, "url", "")
+                    if url:
+                        return url, False
+
+        images = context.get("images") or []
+        for image in images:
+            url = getattr(image, "image_url", None) or getattr(image, "url", None)
+            if url:
+                return url, False
+
+        return static("logo.png"), True
+
+    image_path, is_default_image = _resolve_image()
+    absolute_image_url = request.build_absolute_uri(image_path)
+
+    meta_title = getattr(context_topic, "title", None) or topic.title
+    if not meta_title:
+        meta_title = _("Semantic News Topic")
+
+    canonical_path = None
+    if topic.slug and topic.created_by:
+        canonical_path = topic.get_absolute_url()
+    if not canonical_path:
+        canonical_path = request.get_full_path()
+
+    return {
+        "meta_title": meta_title,
+        "meta_description": meta_description,
+        "canonical_url": request.build_absolute_uri(canonical_path),
+        "og_image_url": absolute_image_url,
+        "open_graph_type": "article",
+        "meta_site_name": "Semantic News",
+        "twitter_card": "summary"
+        if is_default_image
+        else "summary_large_image",
     }
 
 
@@ -290,6 +390,8 @@ def topics_detail_preview(request, topic_uuid, username):
     context["primary_modules"] = primary_modules
     context["sidebar_modules"] = sidebar_modules
     context["is_preview"] = True
+
+    context.update(_build_topic_metadata(request, topic, context))
 
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
