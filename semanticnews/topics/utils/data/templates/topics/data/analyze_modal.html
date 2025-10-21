@@ -2,15 +2,17 @@
 <div class="modal fade modal-lg" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{% trans "Analyze data" %}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            <div class="modal-header flex-column align-items-stretch">
+                <div class="d-flex w-100 align-items-center">
+                    <h5 class="modal-title mb-0">{% trans "Analyze data" %}</h5>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div id="analyzeStatusMessage" class="alert alert-info d-none w-100 mb-0 mt-2" role="alert"></div>
             </div>
             <div class="modal-body">
                 <form id="dataAnalyzeForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
                     <input type="hidden" name="request_id" id="analyzeRequestId">
-                    <div id="analyzeStatusMessage" class="alert alert-info d-none" role="alert"></div>
                     <div class="mb-3">
                         {% for data in datas %}
                         <div class="form-check">
