@@ -114,6 +114,19 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["latest_relation", "relations_json", "topic"],
     },
+    "related_topics": {
+        "templates": {
+            "detail": {
+                "template": "topics/related_topics/detail_card.html",
+                "context": {"edit_mode": False},
+            },
+            "edit": {
+                "template": "topics/related_topics/edit_card.html",
+                "context": {"edit_mode": True},
+            },
+        },
+        "context_keys": ["related_topic_links", "topic"],
+    },
     "related_events": {
         "templates": {
             "detail": {
@@ -188,19 +201,24 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 6,
     },
     {
-        "module_key": "related_events",
-        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
+        "module_key": "related_topics",
+        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 7,
     },
     {
-        "module_key": "timeline",
+        "module_key": "related_events",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 8,
     },
     {
-        "module_key": "documents",
+        "module_key": "timeline",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 9,
+    },
+    {
+        "module_key": "documents",
+        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
+        "display_order": 10,
     },
 ]
 
