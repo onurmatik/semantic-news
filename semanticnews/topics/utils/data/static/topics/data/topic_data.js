@@ -51,6 +51,23 @@ document.addEventListener('DOMContentLoaded', () => {
   let visualizeRequestId = null;
   let visualizeTaskId = null;
   let visualizeChartInstance = null;
+  const scrollableTableSelector = '[data-scrollable-table]';
+
+  const setScrollableOverflowState = (element) => {
+    if (!element) return;
+    const hasOverflow = element.scrollHeight > element.clientHeight + 1;
+    element.dataset.scrollOverflow = hasOverflow ? 'true' : 'false';
+    element.style.overflowY = hasOverflow ? 'scroll' : 'auto';
+  };
+
+  function updateScrollableTables() {
+    document
+      .querySelectorAll(scrollableTableSelector)
+      .forEach((element) => setScrollableOverflowState(element));
+  }
+
+  updateScrollableTables();
+  window.addEventListener('resize', updateScrollableTables);
 
   const createStatusIndicator = ({ spinnerId, errorIconId, successIconId }) => {
     const spinner = spinnerId ? document.getElementById(spinnerId) : null;
@@ -543,12 +560,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (nameWrapper) nameWrapper.classList.add('d-none');
     if (nameInput) nameInput.value = '';
+    updateScrollableTables();
   };
 
   const renderPreview = (data) => {
     if (!preview) return;
     if (!data || !Array.isArray(data.headers) || data.headers.length === 0) {
       preview.innerHTML = '<p class="text-muted mb-0">No data available.</p>';
+      updateScrollableTables();
       return;
     }
     let html = '<table class="table table-sm"><thead><tr>';
@@ -561,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     html += '</tbody></table>';
     preview.innerHTML = html;
+    updateScrollableTables();
   };
 
   const applyResult = (result, mode) => {
