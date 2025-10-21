@@ -96,6 +96,14 @@ class Topic(models.Model):
         related_name='topics', blank=True
     )
 
+    related_topics = models.ManyToManyField(
+        'self',
+        through='RelatedTopic',
+        symmetrical=False,
+        related_name='related_to_topics',
+        blank=True,
+    )
+
     # Updated when the events or contents change
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -238,6 +246,17 @@ class Topic(models.Model):
     @property
     def active_tweets(self):
         return self.tweets.filter(is_deleted=False)
+
+    @property
+    def active_related_topic_links(self):
+        return self.topic_related_topics.filter(is_deleted=False)
+
+    @property
+    def active_related_topics(self):
+        return self.related_topics.filter(
+            relatedtopic__topic=self,
+            relatedtopic__is_deleted=False,
+        )
 
     @property
     def has_unpublished_changes(self) -> bool:
@@ -468,13 +487,16 @@ class Topic(models.Model):
             ).data[0].embedding
         return embedding
 
-    @cached_property
     def get_similar_topics(self, limit=5):
-        return (Topic.objects
-                .exclude(id=self.id)
-                .exclude(embedding__isnull=True)
-                .filter(status='published')
-                .order_by(L2Distance('embedding', self.embedding))[:limit])
+        if self.embedding is None:
+            return Topic.objects.none()
+        return (
+            Topic.objects
+            .exclude(id=self.id)
+            .exclude(embedding__isnull=True)
+            .filter(status='published')
+            .order_by(L2Distance('embedding', self.embedding))[:limit]
+        )
 
     def clone_for_user(self, user):
         """Create a draft copy of this topic for the given user.
@@ -560,7 +582,60 @@ class Topic(models.Model):
                 created_by=user,
             )
 
+        for link in self.topic_related_topics.filter(is_deleted=False):
+            RelatedTopic.objects.create(
+                topic=cloned,
+                related_topic=link.related_topic,
+                source=link.source,
+                created_by=user,
+            )
+
         return cloned
+
+
+class RelatedTopic(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        AUTO = "auto", "Automatic"
+
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="topic_related_topics",
+    )
+    related_topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="incoming_related_topic_links",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_topic_related_topics",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["topic", "related_topic"],
+                name="unique_topic_related_topic",
+            )
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.topic} → {self.related_topic}"
 
 
 class TopicContent(models.Model):

@@ -17,13 +17,14 @@ from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
-from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout
+from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout, RelatedTopic
 from .utils.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from .utils.recaps.models import TopicRecap
 from .utils.images.models import TopicImage
 from .utils.mcps.models import MCPServer
 from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from .publishing.service import publish_topic
 
 
 class TopicEmbeddingTests(TestCase):
@@ -1355,4 +1356,287 @@ class TopicListViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, published.title)
         self.assertNotContains(response, "Draft Topic")
+
+
+class RelatedTopicModelTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "owner", "owner@example.com", "password"
+        )
+        self.other = self.User.objects.create_user(
+            "other", "other@example.com", "password"
+        )
+
+    def test_active_related_topic_links_excludes_deleted(self):
+        topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        related_a = Topic.objects.create(title="A", created_by=self.other, status="published")
+        related_b = Topic.objects.create(title="B", created_by=self.other, status="published")
+
+        active = RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=related_a,
+            created_by=self.owner,
+        )
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=related_b,
+            created_by=self.owner,
+            is_deleted=True,
+        )
+
+        links = list(topic.active_related_topic_links)
+        self.assertEqual(links, [active])
+        active_topics = list(topic.active_related_topics)
+        self.assertEqual(active_topics, [related_a])
+
+    def test_clone_for_user_copies_active_links(self):
+        topic = Topic.objects.create(title="Original", created_by=self.owner)
+        related = Topic.objects.create(title="Linked", created_by=self.other, status="published")
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=related,
+            created_by=self.owner,
+        )
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=Topic.objects.create(
+                title="Ignored", created_by=self.other, status="published"
+            ),
+            created_by=self.owner,
+            is_deleted=True,
+        )
+
+        clone_user = self.User.objects.create_user(
+            "clone", "clone@example.com", "password"
+        )
+        clone = topic.clone_for_user(clone_user)
+
+        links = clone.topic_related_topics.all()
+        self.assertEqual(links.count(), 1)
+        link = links.first()
+        self.assertEqual(link.related_topic, related)
+        self.assertEqual(link.source, RelatedTopic.Source.MANUAL)
+        self.assertEqual(link.created_by, clone_user)
+
+    def test_build_context_ignores_related_topics(self):
+        topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        related = Topic.objects.create(title="Sensitive", created_by=self.other, status="published")
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=related,
+            created_by=self.owner,
+        )
+
+        context = topic.build_context()
+        self.assertNotIn("Sensitive", context)
+
+
+class RelatedTopicPublishTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "publisher", "publisher@example.com", "password"
+        )
+
+    def _create_topic(self, title="Primary", status="draft"):
+        topic = Topic.objects.create(title=title, created_by=self.owner, status=status)
+        TopicRecap.objects.create(topic=topic, recap="Summary", status="finished")
+        return topic
+
+    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics")
+    def test_publish_seeds_auto_links_when_missing_manual(self, mock_similar):
+        topic = self._create_topic()
+        similar_a = Topic.objects.create(
+            title="Similar A", created_by=self.owner, status="published"
+        )
+        similar_b = Topic.objects.create(
+            title="Similar B", created_by=self.owner, status="published"
+        )
+        mock_similar.return_value = [similar_a, similar_b]
+
+        publish_topic(topic, self.owner)
+
+        links = RelatedTopic.objects.filter(topic=topic).order_by("related_topic__title")
+        self.assertEqual(links.count(), 2)
+        for link in links:
+            self.assertEqual(link.source, RelatedTopic.Source.AUTO)
+            self.assertEqual(link.created_by, self.owner)
+            self.assertIsNotNone(link.published_at)
+
+    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics")
+    def test_publish_does_not_seed_when_manual_exists(self, mock_similar):
+        topic = self._create_topic()
+        manual_target = Topic.objects.create(
+            title="Manual", created_by=self.owner, status="published"
+        )
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=manual_target,
+            created_by=self.owner,
+            source=RelatedTopic.Source.MANUAL,
+        )
+
+        publish_topic(topic, self.owner)
+
+        mock_similar.assert_not_called()
+        link = RelatedTopic.objects.get(topic=topic, related_topic=manual_target)
+        self.assertEqual(link.source, RelatedTopic.Source.MANUAL)
+        self.assertIsNotNone(link.published_at)
+
+
+class RelatedTopicsAPITests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "owner", "owner@example.com", "password"
+        )
+        self.other = self.User.objects.create_user(
+            "viewer", "viewer@example.com", "password"
+        )
+        self.topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        self.related = Topic.objects.create(
+            title="Related", created_by=self.owner, status="published"
+        )
+
+    def _list_endpoint(self):
+        return f"/api/topics/{self.topic.uuid}/related-topics"
+
+    def _search_endpoint(self, query):
+        return f"/api/topics/{self.topic.uuid}/related-topics/search?query={query}"
+
+    def test_owner_can_list_related_topics(self):
+        RelatedTopic.objects.create(
+            topic=self.topic,
+            related_topic=self.related,
+            created_by=self.owner,
+        )
+        another = Topic.objects.create(title="Other", created_by=self.owner, status="published")
+        RelatedTopic.objects.create(
+            topic=self.topic,
+            related_topic=another,
+            created_by=self.owner,
+            is_deleted=True,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(self._list_endpoint())
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        active = next(item for item in data if not item["is_deleted"])
+        self.assertEqual(active["title"], "Related")
+
+    def test_search_marks_existing_links(self):
+        RelatedTopic.objects.create(
+            topic=self.topic,
+            related_topic=self.related,
+            created_by=self.owner,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(self._search_endpoint("Rel"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(any(item["is_already_linked"] for item in data))
+
+    def test_add_related_topic_creates_manual_link(self):
+        self.client.force_login(self.owner)
+        payload = {"related_topic_uuid": str(self.related.uuid)}
+        response = self.client.post(
+            self._list_endpoint(),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        link = RelatedTopic.objects.get(topic=self.topic, related_topic=self.related)
+        self.assertEqual(link.source, RelatedTopic.Source.MANUAL)
+        self.assertFalse(link.is_deleted)
+
+    def test_add_related_topic_rejects_duplicates(self):
+        RelatedTopic.objects.create(
+            topic=self.topic,
+            related_topic=self.related,
+            created_by=self.owner,
+        )
+        self.client.force_login(self.owner)
+        payload = {"related_topic_uuid": str(self.related.uuid)}
+        response = self.client.post(
+            self._list_endpoint(),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_remove_and_restore_related_topic(self):
+        link = RelatedTopic.objects.create(
+            topic=self.topic,
+            related_topic=self.related,
+            created_by=self.owner,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.delete(f"{self._list_endpoint()}/{link.id}")
+        self.assertEqual(response.status_code, 200)
+        link.refresh_from_db()
+        self.assertTrue(link.is_deleted)
+
+        response = self.client.post(f"{self._list_endpoint()}/{link.id}/restore")
+        self.assertEqual(response.status_code, 200)
+        link.refresh_from_db()
+        self.assertFalse(link.is_deleted)
+
+    def test_non_owner_cannot_manage_related_topics(self):
+        self.client.force_login(self.other)
+        response = self.client.get(self._list_endpoint())
+        self.assertEqual(response.status_code, 403)
+
+
+class RelatedTopicsTemplateTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "owner", "owner@example.com", "password"
+        )
+        self.viewer = self.User.objects.create_user(
+            "viewer", "viewer@example.com", "password"
+        )
+
+    def _prepare_topic_with_related(self):
+        topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
+        related = Topic.objects.create(
+            title="Linked Topic", created_by=self.viewer, status="published"
+        )
+        RelatedTopic.objects.create(
+            topic=topic,
+            related_topic=related,
+            created_by=self.owner,
+        )
+        publish_topic(topic, self.owner)
+        return topic, related
+
+    def test_detail_view_renders_related_topics(self):
+        topic, related = self._prepare_topic_with_related()
+        response = self.client.get(
+            reverse(
+                "topics_detail",
+                kwargs={"slug": topic.slug, "username": self.owner.username},
+            )
+        )
+        self.assertContains(response, "Related topics")
+        self.assertContains(response, related.title)
+
+    def test_edit_view_includes_related_topics_module(self):
+        topic, related = self._prepare_topic_with_related()
+        self.client.force_login(self.owner)
+        response = self.client.get(
+            reverse(
+                "topics_detail_edit",
+                kwargs={"topic_uuid": str(topic.uuid), "username": self.owner.username},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-related-topics-card")
+
 
