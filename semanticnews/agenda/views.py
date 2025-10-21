@@ -14,6 +14,7 @@ from semanticnews.agenda.localities import (
 
 from .models import Event, Category, Source
 from semanticnews.topics.models import Topic
+from semanticnews.topics.utils.recaps.models import TopicRecap
 
 
 DISTANCE_THRESHOLD = 1
@@ -200,6 +201,29 @@ def event_list(request, year, month=None, day=None):
 
     localities = get_locality_options()
 
+    related_topics = Topic.objects.none()
+    if events.object_list:
+        related_topics = (
+            Topic.objects.filter(
+                topicevent__event__in=events.object_list,
+                topicevent__is_deleted=False,
+                status="published",
+            )
+            .select_related("latest_publication")
+            .prefetch_related(
+                Prefetch(
+                    "recaps",
+                    queryset=(
+                        TopicRecap.objects.filter(is_deleted=False, status="finished")
+                        .order_by("-created_at")
+                    ),
+                    to_attr="prefetched_recaps",
+                )
+            )
+            .order_by("-last_published_at", "-updated_at", "-created_at")
+            .distinct()[:10]
+        )
+
     context = {
         "events": events,
         "period": period,   # helpful for headings/breadcrumbs
@@ -212,6 +236,7 @@ def event_list(request, year, month=None, day=None):
         "domains": domains,
         "prev_url": prev_url,
         "next_url": next_url,
+        "related_topics": related_topics,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user)
