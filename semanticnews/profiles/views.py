@@ -81,11 +81,6 @@ def user_list(request):
         "recent_topics": recent_topics,
         "recent_events": recent_events,
     }
-    if request.user.is_authenticated:
-        context["user_topics"] = (
-            Topic.objects.filter(created_by=request.user)
-            .order_by("-updated_at")[:5]
-        )
 
     return render(request, "profiles/user_list.html", context)
 

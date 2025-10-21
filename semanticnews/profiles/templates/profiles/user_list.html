@@ -47,25 +47,6 @@
 
         <div class="col-12 col-lg-4">
             <div class="border-top pt-4 pt-lg-0 border-lg-0 ps-lg-3">
-                {% if user.is_authenticated %}
-                    <div class="mb-4">
-                        <h2 class="fs-6 text-uppercase text-secondary mb-3">{% trans "Your topics" %}</h2>
-                        {% if user_topics %}
-                            <ul class="list-unstyled small mb-0">
-                                {% for my_topic in user_topics %}
-                                    <li class="mb-2">
-                                        <a class="text-decoration-none" href="{% url 'topics_detail' slug=my_topic.slug username=my_topic.created_by.username %}">
-                                            {{ my_topic.title }}
-                                        </a>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="small text-secondary mb-0">{% trans "You haven't published any topics yet." %}</p>
-                        {% endif %}
-                    </div>
-                {% endif %}
-
                 <div class="mb-4">
                     <h2 class="fs-6 text-uppercase text-secondary mb-3">{% trans "Latest topics" %}</h2>
                     {% if recent_topics %}

@@ -47,11 +47,6 @@ def recent_event_list(request):
         "events": events,
         "recent_topics": recent_topics,
     }
-    if request.user.is_authenticated:
-        context["user_topics"] = (
-            Topic.objects.filter(created_by=request.user)
-            .order_by("-updated_at")[:5]
-        )
 
     return render(request, "agenda/event_recent_list.html", context)
 

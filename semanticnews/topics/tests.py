@@ -1356,12 +1356,3 @@ class TopicListViewTests(TestCase):
         self.assertContains(response, published.title)
         self.assertNotContains(response, "Draft Topic")
 
-    def test_includes_user_topics_for_authenticated_users(self):
-        Topic.objects.create(title="Mine", created_by=self.user, status="published")
-        self.client.force_login(self.user)
-
-        response = self.client.get(reverse("topics_list"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("user_topics", response.context)
-

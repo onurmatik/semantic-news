@@ -123,15 +123,6 @@ class RecentEventListViewTests(TestCase):
         self.assertContains(response, published.title)
         self.assertNotContains(response, "Draft")
 
-    def test_includes_user_topics_for_authenticated_users(self):
-        Event.objects.create(title="Published", date="2024-01-02", status="published")
-        self.client.force_login(self.user)
-
-        response = self.client.get(reverse("events_recent_list"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("user_topics", response.context)
-
     @patch("semanticnews.agenda.api.OpenAI")
     def test_suggest_events_excludes_events(self, mock_openai):
         mock_client = MagicMock()
