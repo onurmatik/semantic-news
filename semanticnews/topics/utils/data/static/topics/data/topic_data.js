@@ -51,6 +51,120 @@ document.addEventListener('DOMContentLoaded', () => {
   let visualizeRequestId = null;
   let visualizeTaskId = null;
   let visualizeChartInstance = null;
+  const scrollableTableSelector = '[data-scrollable-table]';
+  const scrollIndicatorStyleId = 'topic-data-scroll-indicator';
+  const scrollIndicatorRegistry = new WeakMap();
+  const MINIMUM_THUMB_SIZE = 24;
+
+  const ensureScrollIndicatorStyles = () => {
+    if (document.getElementById(scrollIndicatorStyleId)) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = scrollIndicatorStyleId;
+    styleEl.textContent = `
+      [data-scrollable-table] {
+        position: relative;
+      }
+
+      [data-scrollbar-indicator] {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        right: 4px;
+        width: 6px;
+        border-radius: 999px;
+        background: rgba(222, 226, 230, 0.85);
+        box-shadow: inset 0 0 0 1px rgba(173, 181, 189, 0.7);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+        pointer-events: none;
+      }
+
+      [data-scrollbar-indicator-thumb] {
+        position: absolute;
+        left: 1px;
+        right: 1px;
+        top: 0;
+        border-radius: 999px;
+        background: rgba(108, 117, 125, 0.9);
+        box-shadow: 0 0 4px rgba(33, 37, 41, 0.3);
+        transform: translateY(0);
+      }
+
+      [data-scrollable-table][data-scroll-overflow="true"] > [data-scrollbar-indicator] {
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  };
+
+  const ensureScrollIndicatorElements = (element) => {
+    ensureScrollIndicatorStyles();
+
+    let indicatorData = scrollIndicatorRegistry.get(element);
+    if (indicatorData) {
+      return indicatorData;
+    }
+
+    const indicator = document.createElement('div');
+    indicator.setAttribute('data-scrollbar-indicator', '');
+
+    const thumb = document.createElement('div');
+    thumb.setAttribute('data-scrollbar-indicator-thumb', '');
+    indicator.appendChild(thumb);
+
+    element.appendChild(indicator);
+
+    const handleScroll = () => updateScrollableTable(element);
+    element.addEventListener('scroll', handleScroll, { passive: true });
+
+    indicatorData = { indicator, thumb, handleScroll };
+    scrollIndicatorRegistry.set(element, indicatorData);
+    return indicatorData;
+  };
+
+  function updateScrollableTable(element) {
+    if (!element) return;
+
+    const { indicator, thumb } = ensureScrollIndicatorElements(element);
+
+    const hasOverflow = element.scrollHeight - element.clientHeight > 1;
+    element.dataset.scrollOverflow = hasOverflow ? 'true' : 'false';
+    element.style.overflowY = hasOverflow ? 'scroll' : 'auto';
+
+    if (!hasOverflow) {
+      indicator.style.opacity = '0';
+      thumb.style.height = '';
+      thumb.style.transform = '';
+      return;
+    }
+
+    indicator.style.opacity = '';
+
+    const viewHeight = element.clientHeight;
+    const contentHeight = element.scrollHeight;
+    const trackHeight = indicator.clientHeight || viewHeight;
+    const minThumb = Math.min(viewHeight, MINIMUM_THUMB_SIZE);
+    const thumbHeight = Math.max(
+      Math.round((viewHeight / contentHeight) * trackHeight),
+      minThumb
+    );
+    thumb.style.height = `${thumbHeight}px`;
+
+    const maxScroll = contentHeight - viewHeight;
+    const availableTrack = Math.max(trackHeight - thumbHeight, 0);
+    const scrollFraction = maxScroll > 0 ? element.scrollTop / maxScroll : 0;
+    const thumbOffset = Math.round(availableTrack * scrollFraction);
+    thumb.style.transform = `translateY(${thumbOffset}px)`;
+  }
+
+  function updateScrollableTables() {
+    document
+      .querySelectorAll(scrollableTableSelector)
+      .forEach((element) => updateScrollableTable(element));
+  }
+
+  updateScrollableTables();
+  window.addEventListener('resize', updateScrollableTables);
 
   const createStatusIndicator = ({ spinnerId, errorIconId, successIconId }) => {
     const spinner = spinnerId ? document.getElementById(spinnerId) : null;
@@ -543,12 +657,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (nameWrapper) nameWrapper.classList.add('d-none');
     if (nameInput) nameInput.value = '';
+    updateScrollableTables();
   };
 
   const renderPreview = (data) => {
     if (!preview) return;
     if (!data || !Array.isArray(data.headers) || data.headers.length === 0) {
       preview.innerHTML = '<p class="text-muted mb-0">No data available.</p>';
+      updateScrollableTables();
       return;
     }
     let html = '<table class="table table-sm"><thead><tr>';
@@ -561,6 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     html += '</tbody></table>';
     preview.innerHTML = html;
+    updateScrollableTables();
   };
 
   const applyResult = (result, mode) => {
@@ -901,6 +1018,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dataModal) {
     dataModal.addEventListener('show.bs.modal', () => {
       loadExistingRequest();
+    });
+    dataModal.addEventListener('shown.bs.modal', () => {
+      updateScrollableTables();
     });
   }
 
@@ -1338,11 +1458,17 @@ document.addEventListener('DOMContentLoaded', () => {
     analyzeModalEl.addEventListener('show.bs.modal', () => {
       resumeAnalyzeRequest();
     });
+    analyzeModalEl.addEventListener('shown.bs.modal', () => {
+      updateScrollableTables();
+    });
   }
 
   if (visualizeModalEl) {
     visualizeModalEl.addEventListener('show.bs.modal', () => {
       resumeVisualizeRequest();
+    });
+    visualizeModalEl.addEventListener('shown.bs.modal', () => {
+      updateScrollableTables();
     });
   }
 
