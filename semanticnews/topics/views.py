@@ -179,7 +179,9 @@ def topics_detail_edit(request, topic_uuid, username):
     webpages = list(topic.active_webpages)
     latest_data = topic.active_datas.order_by("-created_at").first()
     datas = topic.active_datas.order_by("-created_at")
-    data_insights = topic.active_data_insights.order_by("-created_at")
+    data_insights = (
+        topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
+    )
     data_visualizations = topic.active_data_visualizations.order_by("-created_at")
     youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
     tweets = topic.active_tweets.order_by("-created_at")

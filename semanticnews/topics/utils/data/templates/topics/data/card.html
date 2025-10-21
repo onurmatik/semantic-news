@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n data_extras %}
 {% with dataset=data %}
 <div class="my-3{% if edit_mode %} card{% endif %}">
     {% if edit_mode %}
@@ -74,17 +74,19 @@
             <p class="text-muted fst-italic mb-0">{% trans "This data table could not be found." %}</p>
         {% endif %}
 
-        {% if show_data_insights and data_insights %}
-            <hr>
-            <h6 class="fs-6 mt-3">{% trans "Insights" %}</h6>
-            <ul class="mb-0">
-                {% for insight in data_insights %}
-                <li>
-                    {{ insight.insight }}
-                </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+        {% with dataset_insights=dataset|insights_for_data:data_insights %}
+            {% if show_data_insights and dataset_insights %}
+                <hr>
+                <h6 class="fs-6 mt-3">{% trans "Insights" %}</h6>
+                <ul class="mb-0">
+                    {% for insight in dataset_insights %}
+                    <li>
+                        {{ insight.insight }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
     </div>
 </div>
 {% endwith %}

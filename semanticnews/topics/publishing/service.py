@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 import json
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 from types import SimpleNamespace
 
 from django.contrib.contenttypes.models import ContentType
@@ -939,6 +939,18 @@ def build_publication_modules(
     texts = context.get("texts", [])
     datas = context.get("datas", [])
     visualizations = context.get("data_visualizations", [])
+    data_insights = context.get("data_insights", [])
+
+    data_ids_with_insights: Set[str] = set()
+    has_unsourced_insight = False
+    for insight in data_insights:
+        source_ids = getattr(insight, "source_ids", None)
+        if source_ids:
+            for source_id in source_ids:
+                if source_id is not None:
+                    data_ids_with_insights.add(str(source_id))
+        else:
+            has_unsourced_insight = True
 
     text_by_snapshot = _index_by(texts, "snapshot_id")
     text_by_id = _index_by(texts, "id")
@@ -951,6 +963,8 @@ def build_publication_modules(
         TopicModuleLayout.PLACEMENT_PRIMARY: [],
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
+
+    unsourced_insights_assigned = False
 
     for placement in modules.keys():
         module_entries = publication.layout_snapshot.get(placement, [])
@@ -1016,9 +1030,29 @@ def build_publication_modules(
                 if data_obj:
                     descriptor["data"] = data_obj
                     descriptor["context_overrides"]["data"] = data_obj
-                descriptor["context_overrides"]["show_data_insights"] = payload.get(
-                    "show_data_insights", False
+                data_identifier_value = None
+                if data_obj is not None:
+                    data_identifier_value = getattr(data_obj, "id", None)
+                if data_identifier_value is None:
+                    data_identifier_value = payload.get("data_id") or identifier
+                data_identifier = (
+                    str(data_identifier_value)
+                    if data_identifier_value is not None
+                    else None
                 )
+                should_show_insights = bool(
+                    data_identifier and data_identifier in data_ids_with_insights
+                )
+                if (
+                    not should_show_insights
+                    and has_unsourced_insight
+                    and not unsourced_insights_assigned
+                ):
+                    should_show_insights = True
+                    unsourced_insights_assigned = True
+                if payload.get("show_data_insights") is True:
+                    should_show_insights = True
+                descriptor["context_overrides"]["show_data_insights"] = should_show_insights
 
             if base_key == "data_visualizations":
                 snapshot_id = (
