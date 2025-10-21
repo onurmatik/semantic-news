@@ -4,12 +4,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlInput = document.getElementById('dataUrl');
   const descriptionInput = document.getElementById('dataDescription');
   const preview = document.getElementById('dataPreview');
+  const dataPreviewSection = document.getElementById('dataPreviewSection');
   const sourcesWrapper = document.getElementById('dataSourcesWrapper');
   const sourcesList = document.getElementById('dataSources');
   const explanationEl = document.getElementById('dataExplanation');
   const statusMessage = document.getElementById('dataStatusMessage');
   const nameInput = document.getElementById('dataName');
   const nameWrapper = document.getElementById('dataNameWrapper');
+  const previewMeta = document.getElementById('dataPreviewMeta');
+  const previewDeleteBtn = document.getElementById('dataPreviewDeleteBtn');
+  const previewDeleteModalEl = document.getElementById('dataPreviewDeleteModal');
+  const previewDeleteConfirmBtn = document.getElementById('dataPreviewDeleteConfirm');
   const saveButton = document.getElementById('dataSaveButton');
   const dataModal = document.getElementById('dataModal');
   const dataButtonController = typeof window.setupGenerationButton === 'function'
@@ -26,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveInsightsBtn = document.getElementById('saveInsightsBtn');
   const analyzeStatusMessage = document.getElementById('analyzeStatusMessage');
   const analyzeRequestInput = document.getElementById('analyzeRequestId');
+  const analyzePreviewMeta = document.getElementById('analyzePreviewMeta');
+  const analyzePreviewDeleteBtn = document.getElementById('analyzePreviewDeleteBtn');
+  const analyzePreviewDeleteModalEl = document.getElementById('analyzePreviewDeleteModal');
+  const analyzePreviewDeleteConfirmBtn = document.getElementById('analyzePreviewDeleteConfirm');
+  const analyzePreviewSection = document.getElementById('analyzePreviewSection');
   const visualizeBtn = document.getElementById('visualizeDataBtn');
   const visualizeForm = document.getElementById('dataVisualizeForm');
   const visualizeOtherInput = document.getElementById('visualizeInsightOtherText');
@@ -33,8 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const visualizeInstructionsInput = document.getElementById('visualizeInstructions');
   const visualizeStatusMessage = document.getElementById('visualizeStatusMessage');
   const visualizeRequestInput = document.getElementById('visualizeRequestId');
+  const visualizePreviewSection = document.getElementById('visualizePreviewSection');
   const visualizePreviewWrapper = document.getElementById('visualizePreviewWrapper');
   const visualizePreviewCanvas = document.getElementById('visualizePreviewChart');
+  const visualizePreviewMeta = document.getElementById('visualizePreviewMeta');
+  const visualizePreviewDeleteBtn = document.getElementById('visualizePreviewDeleteBtn');
+  const visualizePreviewDeleteModalEl = document.getElementById('visualizePreviewDeleteModal');
+  const visualizePreviewDeleteConfirmBtn = document.getElementById('visualizePreviewDeleteConfirm');
   const saveVisualizationBtn = document.getElementById('saveVisualizationBtn');
   const analyzeModalEl = document.getElementById('dataAnalyzeModal');
   const visualizeModalEl = document.getElementById('dataVisualizeModal');
@@ -51,6 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let visualizeRequestId = null;
   let visualizeTaskId = null;
   let visualizeChartInstance = null;
+  let analyzeDataLabels = [];
+  let visualizeDataLabels = [];
+  let lastDataRequestMode = null;
+  let lastDataRequestDetail = null;
 
   const setFetchButtonBusy = (busy) => {
     if (!fetchBtn) return;
@@ -173,6 +192,126 @@ document.addEventListener('DOMContentLoaded', () => {
     successIconId: 'dataVisualizeSuccessIcon',
   });
 
+  const getModalInstance = (element) => {
+    if (!element || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+      return null;
+    }
+    if (typeof bootstrap.Modal.getOrCreateInstance === 'function') {
+      return bootstrap.Modal.getOrCreateInstance(element);
+    }
+    return new bootstrap.Modal(element);
+  };
+
+  const setMetaText = (element, text) => {
+    if (!element) return;
+    if (text) {
+      element.textContent = text;
+      element.classList.remove('d-none');
+    } else {
+      element.textContent = '';
+      element.classList.add('d-none');
+    }
+  };
+
+  const toStringList = (values) => {
+    if (!Array.isArray(values)) return [];
+    return values
+      .map((value) => {
+        if (typeof value === 'string') {
+          return value.trim();
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return String(value);
+        }
+        return '';
+      })
+      .filter((value) => value);
+  };
+
+  const setListMeta = (element, values) => {
+    if (!element) return;
+    const list = toStringList(values);
+    if (list.length === 0) {
+      setMetaText(element, '');
+      return;
+    }
+    const labelText = element.dataset ? element.dataset.label || '' : '';
+    const content = labelText ? `${labelText}: ${list.join(', ')}` : list.join(', ');
+    setMetaText(element, content);
+  };
+
+  const toggleButtonVisibility = (button, visible) => {
+    if (!button) return;
+    if (visible) {
+      button.classList.remove('d-none');
+      button.disabled = false;
+    } else {
+      button.classList.add('d-none');
+      button.disabled = true;
+    }
+  };
+
+  const setPreviewSectionVisible = (section, visible) => {
+    if (!section) return;
+    if (visible) {
+      section.classList.remove('d-none');
+    } else {
+      section.classList.add('d-none');
+    }
+  };
+
+  const dataPreviewDeleteModal = getModalInstance(previewDeleteModalEl);
+  const analyzePreviewDeleteModal = getModalInstance(analyzePreviewDeleteModalEl);
+  const visualizePreviewDeleteModal = getModalInstance(visualizePreviewDeleteModalEl);
+
+  const setDataPreviewUsage = (data) => {
+    if (!previewMeta) return;
+    if (!data) {
+      setMetaText(previewMeta, '');
+      return;
+    }
+    const dataset = previewMeta.dataset || {};
+    const mode = data.mode === 'search' ? 'search' : 'url';
+    let labelText = '';
+    if (mode === 'search' && dataset.labelSearch) {
+      labelText = dataset.labelSearch;
+    } else if (mode === 'url' && dataset.labelUrl) {
+      labelText = dataset.labelUrl;
+    } else {
+      labelText = dataset.label || '';
+    }
+    let value = '';
+    if (mode === 'search') {
+      value = typeof data.sourceDetail === 'string' ? data.sourceDetail.trim() : '';
+      if (!value && typeof lastDataRequestDetail === 'string') {
+        value = lastDataRequestDetail.trim();
+      }
+    } else {
+      value = typeof data.url === 'string' ? data.url.trim() : '';
+      if (!value) {
+        value = typeof data.sourceDetail === 'string' ? data.sourceDetail.trim() : '';
+      }
+    }
+    if (!value && Array.isArray(data.sources)) {
+      const fallback = data.sources.find((src) => typeof src === 'string' && src.trim());
+      if (fallback) {
+        value = fallback.trim();
+      }
+    }
+    const text = value ? (labelText ? `${labelText}: ${value}` : value) : '';
+    setMetaText(previewMeta, text);
+  };
+
+  const updateAnalyzeUsageDisplay = () => {
+    if (!analyzePreviewMeta) return;
+    setListMeta(analyzePreviewMeta, analyzeDataLabels);
+  };
+
+  const updateVisualizeUsageDisplay = () => {
+    if (!visualizePreviewMeta) return;
+    setListMeta(visualizePreviewMeta, visualizeDataLabels);
+  };
+
   let activeDataOperation = null;
 
   const setDataOperationState = (operation, status) => {
@@ -216,6 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
       visualizeChartInstance.destroy();
       visualizeChartInstance = null;
     }
+    setMetaText(visualizePreviewMeta, '');
+    toggleButtonVisibility(visualizePreviewDeleteBtn, false);
   };
 
   const renderVisualizationPreview = (chartType, chartData) => {
@@ -255,6 +396,22 @@ document.addEventListener('DOMContentLoaded', () => {
       clearInterval(visualizePollTimer);
       visualizePollTimer = null;
     }
+    visualizeDataLabels = [];
+    updateVisualizeUsageDisplay();
+    toggleButtonVisibility(visualizePreviewDeleteBtn, false);
+    setPreviewSectionVisible(visualizePreviewSection, false);
+  };
+
+  const handleVisualizePreviewDelete = () => {
+    clearVisualizeState();
+    hideVisualizationPreview();
+    resetAlert(visualizeStatusMessage);
+    visualizeIndicator.reset();
+    setDataOperationState('visualize', 'reset');
+    setVisualizeButtonBusy(false);
+    setSaveVisualizationButtonBusy(false);
+    if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+    setPreviewSectionVisible(visualizePreviewSection, false);
   };
 
   const saveVisualizeState = (payload) => {
@@ -269,6 +426,18 @@ document.addEventListener('DOMContentLoaded', () => {
       error: payload.error || null,
       saved: Boolean(payload.saved),
     };
+    state.dataIds = Array.isArray(payload.data_ids)
+      ? payload.data_ids
+          .map((value) => {
+            if (typeof value === 'number' && Number.isFinite(value)) {
+              return value;
+            }
+            const parsed = parseInt(value, 10);
+            return Number.isNaN(parsed) ? null : parsed;
+          })
+          .filter((value) => value !== null)
+      : [];
+    state.dataLabels = toStringList(payload.data_labels);
     try {
       localStorage.setItem(visualizeStorageKey, JSON.stringify(state));
     } catch (err) {
@@ -302,7 +471,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
       }
       if (!res.ok) throw new Error('Request failed');
-      return await res.json();
+      const data = await res.json();
+      if (data && !data.input_detail && lastDataRequestDetail) {
+        data.input_detail = lastDataRequestDetail;
+      }
+      if (data && !data.mode && lastDataRequestMode) {
+        data.mode = lastDataRequestMode;
+      }
+      return data;
     } catch (err) {
       console.error(err);
       if (!silent) showAlert(visualizeStatusMessage, 'error', 'Unable to check visualization status.');
@@ -325,6 +501,14 @@ document.addEventListener('DOMContentLoaded', () => {
       saveVisualizeState(payload);
     }
 
+    const payloadLabels = toStringList(payload.data_labels);
+    if (payloadLabels.length > 0) {
+      visualizeDataLabels = payloadLabels;
+    } else {
+      visualizeDataLabels = toStringList(payload.data_ids);
+    }
+    updateVisualizeUsageDisplay();
+
     const status = payload.status;
     const saved = Boolean(payload.saved);
 
@@ -335,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hideVisualizationPreview();
       visualizeIndicator.showLoading();
       setDataOperationState('visualize', 'loading');
+      setPreviewSectionVisible(visualizePreviewSection, false);
       return 'pending';
     }
 
@@ -361,14 +546,19 @@ document.addEventListener('DOMContentLoaded', () => {
         clearVisualizeState();
         return 'success';
       }
+      setPreviewSectionVisible(visualizePreviewSection, true);
       if (payload.chart_type && payload.chart_data) {
         renderVisualizationPreview(payload.chart_type, payload.chart_data);
         showAlert(visualizeStatusMessage, 'success', 'Review the preview and click Save to add it to the topic.');
         if (saveVisualizationBtn) saveVisualizationBtn.disabled = false;
+        updateVisualizeUsageDisplay();
+        toggleButtonVisibility(visualizePreviewDeleteBtn, true);
       } else {
         hideVisualizationPreview();
         showAlert(visualizeStatusMessage, 'info', 'The visualization completed without chart data.');
         if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
+        updateVisualizeUsageDisplay();
+        toggleButtonVisibility(visualizePreviewDeleteBtn, true);
       }
       return 'success';
     }
@@ -422,6 +612,8 @@ document.addEventListener('DOMContentLoaded', () => {
       insight: stored.insight,
       error: stored.error,
       saved: stored.saved,
+      data_ids: stored.dataIds,
+      data_labels: stored.dataLabels,
     };
     const outcome = handleVisualizationTaskPayload(payload, { persist: false });
     if (outcome === 'pending') {
@@ -519,9 +711,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const clearStoredState = () => {
+    currentRequestId = null;
+    lastDataRequestDetail = null;
+    lastDataRequestMode = null;
     if (!storageKey) return;
     localStorage.removeItem(storageKey);
-    currentRequestId = null;
   };
 
   const registerVisualizationRemoveButton = (button) => {
@@ -598,6 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const resetPreview = () => {
+    setPreviewSectionVisible(dataPreviewSection, false);
     if (preview) preview.innerHTML = '';
     if (sourcesWrapper) sourcesWrapper.classList.add('d-none');
     if (sourcesList) sourcesList.innerHTML = '';
@@ -607,6 +802,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (nameWrapper) nameWrapper.classList.add('d-none');
     if (nameInput) nameInput.value = '';
+    setDataPreviewUsage(null);
+    toggleButtonVisibility(previewDeleteBtn, false);
   };
 
   const renderPreview = (data) => {
@@ -627,15 +824,30 @@ document.addEventListener('DOMContentLoaded', () => {
     preview.innerHTML = html;
   };
 
-  const applyResult = (result, mode) => {
+  const applyResult = (result, mode, inputDetail) => {
     const normalized = normalizeResult(result);
     if (!normalized) return;
 
     const hasSources = Array.isArray(normalized.sources) && normalized.sources.length > 0;
-    const effectiveMode = mode || (hasSources && !normalized.url ? 'search' : 'url');
-    const urlValue = normalized.url || (effectiveMode === 'url'
-      ? (urlInput ? urlInput.value : '')
-      : (hasSources ? normalized.sources[0] : ''));
+    const fallbackMode = hasSources && !normalized.url ? 'search' : 'url';
+    const effectiveMode = mode || lastDataRequestMode || fallbackMode;
+    const urlFromResult = typeof normalized.url === 'string' ? normalized.url.trim() : '';
+    const fallbackUrlValue = effectiveMode === 'url'
+      ? (urlInput ? urlInput.value.trim() : '')
+      : hasSources
+        ? normalized.sources[0]
+        : '';
+    const normalizedUrl = urlFromResult || (typeof fallbackUrlValue === 'string' ? fallbackUrlValue.trim() : '');
+
+    const providedDetail = typeof inputDetail === 'string' ? inputDetail.trim() : '';
+    let sourceDetail = providedDetail;
+    if (!sourceDetail) {
+      if (effectiveMode === 'search') {
+        sourceDetail = descriptionInput ? descriptionInput.value.trim() : '';
+      } else if (effectiveMode === 'url') {
+        sourceDetail = normalizedUrl;
+      }
+    }
 
     fetchedData = {
       headers: normalized.headers,
@@ -643,9 +855,17 @@ document.addEventListener('DOMContentLoaded', () => {
       name: normalized.name,
       sources: hasSources ? normalized.sources : [],
       explanation: normalized.explanation,
-      url: urlValue,
+      url: normalizedUrl,
       mode: effectiveMode,
+      sourceDetail,
     };
+
+    lastDataRequestMode = effectiveMode;
+    if (sourceDetail) {
+      lastDataRequestDetail = sourceDetail;
+    } else if (effectiveMode === 'url' && normalizedUrl) {
+      lastDataRequestDetail = normalizedUrl;
+    }
 
     if (nameInput) {
       nameInput.value = fetchedData.name || '';
@@ -654,7 +874,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    setPreviewSectionVisible(dataPreviewSection, true);
     renderPreview(fetchedData);
+    setDataPreviewUsage(fetchedData);
+    toggleButtonVisibility(previewDeleteBtn, true);
 
     if (sourcesWrapper && sourcesList) {
       if (Array.isArray(fetchedData.sources) && fetchedData.sources.length > 0) {
@@ -692,12 +915,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskId = payload.task_id || currentTaskId;
     const requestId = payload.request_id || currentRequestId;
     const isSaved = Boolean(payload.saved);
+    const payloadDetail =
+      typeof payload.input_detail === 'string' ? payload.input_detail.trim() : '';
 
     if (isSaved) {
       setFetchButtonBusy(false);
       dataAddIndicator.showSuccess();
       setDataOperationState('add', 'success');
       clearStoredState();
+      lastDataRequestDetail = null;
+      lastDataRequestMode = null;
       currentTaskId = null;
       currentRequestId = null;
       fetchedData = null;
@@ -715,7 +942,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = payload.status;
     const normalizedResult = normalizeResult(payload.result);
     const hasSources = normalizedResult && Array.isArray(normalizedResult.sources) && normalizedResult.sources.length > 0;
-    const mode = payload.mode || (hasSources ? 'search' : 'url');
+    const fallbackMode = hasSources && normalizedResult && !normalizedResult.url ? 'search' : 'url';
+    const mode = payload.mode || lastDataRequestMode || fallbackMode;
+    lastDataRequestMode = mode;
+
+    let inputDetail = payloadDetail;
+    if (!inputDetail && typeof lastDataRequestDetail === 'string' && lastDataRequestDetail.trim()) {
+      inputDetail = lastDataRequestDetail.trim();
+    }
+    if (
+      !inputDetail &&
+      normalizedResult &&
+      mode === 'url' &&
+      typeof normalizedResult.url === 'string' &&
+      normalizedResult.url.trim()
+    ) {
+      inputDetail = normalizedResult.url.trim();
+    }
+    lastDataRequestDetail = inputDetail || lastDataRequestDetail || null;
 
     if (status === 'pending' || status === 'started') {
       setFetchButtonBusy(true);
@@ -723,16 +967,24 @@ document.addEventListener('DOMContentLoaded', () => {
       dataAddIndicator.showLoading();
       setDataOperationState('add', 'loading');
       fetchedData = null;
+      resetPreview();
       updateSaveButtonState();
       setSaveButtonBusy(true);
-      saveStoredState({ taskId, status, mode, requestId: currentRequestId, saved: false });
+      saveStoredState({
+        taskId,
+        status,
+        mode,
+        requestId: currentRequestId,
+        saved: false,
+        inputDetail: inputDetail || null,
+      });
       return 'pending';
     }
 
     if (status === 'success') {
       setFetchButtonBusy(false);
       if (normalizedResult) {
-        applyResult(normalizedResult, mode);
+        applyResult(normalizedResult, mode, inputDetail);
       }
       setStatusMessage('success', 'Your data is ready. Review the preview and click Save to add it to the topic.');
       dataAddIndicator.showSuccess();
@@ -746,6 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
         result: normalizedResult || null,
         requestId: currentRequestId,
         saved: false,
+        inputDetail: inputDetail || null,
       });
       return 'success';
     }
@@ -757,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dataAddIndicator.showError();
       setDataOperationState('add', 'error');
       fetchedData = null;
+      resetPreview();
       updateSaveButtonState();
       setSaveButtonBusy(false);
       stopPolling();
@@ -767,6 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
         error: message,
         requestId: currentRequestId,
         saved: false,
+        inputDetail: inputDetail || null,
       });
       return 'failure';
     }
@@ -804,7 +1059,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
       }
       if (!res.ok) throw new Error('Request failed');
-      return await res.json();
+      const data = await res.json();
+      if (data && !data.input_detail && lastDataRequestDetail) {
+        data.input_detail = lastDataRequestDetail;
+      }
+      if (data && !data.mode && lastDataRequestMode) {
+        data.mode = lastDataRequestMode;
+      }
+      return data;
     } catch (err) {
       console.error(err);
       if (!silent) {
@@ -831,6 +1093,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
   };
 
+  const handleDataPreviewDelete = () => {
+    stopPolling();
+    clearStoredState();
+    fetchedData = null;
+    currentTaskId = null;
+    resetPreview();
+    hideStatusMessage();
+    setFetchButtonBusy(false);
+    setSaveButtonBusy(false);
+    dataAddIndicator.reset();
+    setDataOperationState('add', 'reset');
+    updateSaveButtonState();
+  };
+
   if (urlInput && urlMode) {
     urlInput.addEventListener('focus', () => {
       urlMode.checked = true;
@@ -840,6 +1116,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (descriptionInput && searchMode) {
     descriptionInput.addEventListener('focus', () => {
       searchMode.checked = true;
+    });
+  }
+
+  if (previewDeleteBtn && previewDeleteConfirmBtn) {
+    previewDeleteBtn.addEventListener('click', () => {
+      if (dataPreviewDeleteModal) {
+        dataPreviewDeleteModal.show();
+      } else {
+        handleDataPreviewDelete();
+      }
+    });
+    previewDeleteConfirmBtn.addEventListener('click', () => {
+      handleDataPreviewDelete();
+      if (dataPreviewDeleteModal) {
+        dataPreviewDeleteModal.hide();
+      }
     });
   }
 
@@ -877,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         body.url = urlValue;
+        lastDataRequestDetail = urlValue;
       } else {
         endpoint = '/api/topics/data/search';
         const description = descriptionInput ? descriptionInput.value.trim() : '';
@@ -886,7 +1179,9 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         body.description = description;
+        lastDataRequestDetail = description;
       }
+      lastDataRequestMode = mode;
 
       try {
         const res = await fetch(endpoint, {
@@ -896,6 +1191,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!res.ok) throw new Error('Request failed');
         const data = await res.json();
+        if (data && !data.input_detail && lastDataRequestDetail) {
+          data.input_detail = lastDataRequestDetail;
+        }
+        if (data && !data.mode) {
+          data.mode = mode;
+        }
         const outcome = handleStatusPayload(data);
         if (outcome === 'pending') {
           startPolling();
@@ -954,6 +1255,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (stored && stored.taskId) {
       currentTaskId = stored.taskId;
       currentRequestId = stored.requestId || null;
+      if (typeof stored.mode === 'string') {
+        lastDataRequestMode = stored.mode;
+      }
+      if (typeof stored.inputDetail === 'string' && stored.inputDetail.trim()) {
+        lastDataRequestDetail = stored.inputDetail.trim();
+      }
       handleStatusPayload({
         task_id: stored.taskId,
         status: stored.status || 'pending',
@@ -962,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         error: stored.error || null,
         request_id: stored.requestId || null,
         saved: stored.saved || false,
+        input_detail: stored.inputDetail || null,
       });
     }
 
@@ -1053,7 +1361,26 @@ document.addEventListener('DOMContentLoaded', () => {
       clearInterval(analyzePollTimer);
       analyzePollTimer = null;
     }
+    analyzeDataLabels = [];
+    updateAnalyzeUsageDisplay();
+    toggleButtonVisibility(analyzePreviewDeleteBtn, false);
+    setPreviewSectionVisible(analyzePreviewSection, false);
     updateSaveInsightsState();
+  };
+
+  const handleAnalyzePreviewDelete = () => {
+    clearAnalyzeState();
+    if (insightsContainer) {
+      insightsContainer.classList.add('d-none');
+      insightsContainer.innerHTML = '';
+    }
+    resetAlert(analyzeStatusMessage);
+    analyzeIndicator.reset();
+    setDataOperationState('analyze', 'reset');
+    setAnalyzeButtonBusy(false);
+    setSaveInsightsButtonBusy(false);
+    if (saveInsightsBtn) saveInsightsBtn.disabled = true;
+    setPreviewSectionVisible(analyzePreviewSection, false);
   };
 
   const saveAnalyzeState = (payload) => {
@@ -1066,6 +1393,18 @@ document.addEventListener('DOMContentLoaded', () => {
       error: payload.error || null,
       saved: Boolean(payload.saved),
     };
+    state.dataIds = Array.isArray(payload.data_ids)
+      ? payload.data_ids
+          .map((value) => {
+            if (typeof value === 'number' && Number.isFinite(value)) {
+              return value;
+            }
+            const parsed = parseInt(value, 10);
+            return Number.isNaN(parsed) ? null : parsed;
+          })
+          .filter((value) => value !== null)
+      : [];
+    state.dataLabels = toStringList(payload.data_labels);
     try {
       localStorage.setItem(analyzeStorageKey, JSON.stringify(state));
     } catch (err) {
@@ -1125,6 +1464,14 @@ document.addEventListener('DOMContentLoaded', () => {
       saveAnalyzeState(payload);
     }
 
+    const payloadLabels = toStringList(payload.data_labels);
+    if (payloadLabels.length > 0) {
+      analyzeDataLabels = payloadLabels;
+    } else {
+      analyzeDataLabels = toStringList(payload.data_ids);
+    }
+    updateAnalyzeUsageDisplay();
+
     const status = payload.status;
     const saved = Boolean(payload.saved);
 
@@ -1138,6 +1485,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setSaveInsightsButtonBusy(true);
       analyzeIndicator.showLoading();
       setDataOperationState('analyze', 'loading');
+      toggleButtonVisibility(analyzePreviewDeleteBtn, false);
+      setPreviewSectionVisible(analyzePreviewSection, false);
       return 'pending';
     }
 
@@ -1152,7 +1501,11 @@ document.addEventListener('DOMContentLoaded', () => {
       setSaveInsightsButtonBusy(false);
       analyzeIndicator.showError();
       setDataOperationState('analyze', 'error');
+      analyzeDataLabels = [];
+      updateAnalyzeUsageDisplay();
+      toggleButtonVisibility(analyzePreviewDeleteBtn, false);
       clearAnalyzeState();
+      setPreviewSectionVisible(analyzePreviewSection, false);
       return 'failure';
     }
 
@@ -1166,6 +1519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearAnalyzeState();
         return 'success';
       }
+      setPreviewSectionVisible(analyzePreviewSection, true);
       if (Array.isArray(payload.insights) && payload.insights.length > 0) {
         renderInsights(payload.insights);
         showAlert(analyzeStatusMessage, 'success', 'Analysis complete. Select the insights you want to keep.');
@@ -1173,6 +1527,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderInsights([]);
         showAlert(analyzeStatusMessage, 'info', 'The analysis finished but did not produce insights.');
       }
+      updateAnalyzeUsageDisplay();
+      toggleButtonVisibility(analyzePreviewDeleteBtn, true);
       return 'success';
     }
 
@@ -1223,6 +1579,8 @@ document.addEventListener('DOMContentLoaded', () => {
       insights: stored.insights,
       error: stored.error,
       saved: stored.saved,
+      data_ids: stored.dataIds,
+      data_labels: stored.dataLabels,
     };
     const outcome = handleAnalyzeTaskPayload(payload, { persist: false });
     if (outcome === 'pending') {
@@ -1243,6 +1601,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateSaveInsightsState();
 
+  if (analyzePreviewDeleteBtn && analyzePreviewDeleteConfirmBtn) {
+    analyzePreviewDeleteBtn.addEventListener('click', () => {
+      if (analyzePreviewDeleteModal) {
+        analyzePreviewDeleteModal.show();
+      } else {
+        handleAnalyzePreviewDelete();
+      }
+    });
+    analyzePreviewDeleteConfirmBtn.addEventListener('click', () => {
+      handleAnalyzePreviewDelete();
+      if (analyzePreviewDeleteModal) {
+        analyzePreviewDeleteModal.hide();
+      }
+    });
+  }
+
   if (analyzeBtn && analyzeForm) {
     analyzeBtn.addEventListener('click', async () => {
       if (!topicUuid) return;
@@ -1253,6 +1627,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert(analyzeStatusMessage, 'error', 'Select at least one data table to analyze.');
         return;
       }
+      analyzeDataLabels = dataIds
+        .map((id) => {
+          const input = analyzeForm.querySelector(`input[name="data_ids"][value="${id}"]`);
+          if (!input) return '';
+          const label = analyzeForm.querySelector(`label[for="${input.id}"]`);
+          return label && label.textContent ? label.textContent.trim() : '';
+        })
+        .filter((value) => value);
+      updateAnalyzeUsageDisplay();
+      toggleButtonVisibility(analyzePreviewDeleteBtn, false);
       const instructionsEl = analyzeForm.querySelector('textarea[name="instructions"]');
       const instructions = instructionsEl ? instructionsEl.value.trim() : '';
       setAnalyzeButtonBusy(true);
@@ -1325,6 +1709,23 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert(analyzeStatusMessage, 'error', 'Unable to save the selected insights. Please try again.');
         updateSaveInsightsState();
         setSaveInsightsButtonBusy(false);
+      }
+    });
+  }
+
+
+  if (visualizePreviewDeleteBtn && visualizePreviewDeleteConfirmBtn) {
+    visualizePreviewDeleteBtn.addEventListener('click', () => {
+      if (visualizePreviewDeleteModal) {
+        visualizePreviewDeleteModal.show();
+      } else {
+        handleVisualizePreviewDelete();
+      }
+    });
+    visualizePreviewDeleteConfirmBtn.addEventListener('click', () => {
+      handleVisualizePreviewDelete();
+      if (visualizePreviewDeleteModal) {
+        visualizePreviewDeleteModal.hide();
       }
     });
   }

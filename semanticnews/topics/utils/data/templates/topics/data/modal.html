@@ -24,12 +24,27 @@
                             <textarea class="form-control mt-2" id="dataDescription" name="description" rows="3" placeholder="{% trans 'Describe the data you need' %}"></textarea>
                         </div>
                     </div>
-                    <div class="mb-3 d-none" id="dataNameWrapper">
-                        <label for="dataName" class="form-label">{% trans "Data name" %}</label>
-                        <input type="text" class="form-control" id="dataName" name="name">
-                    </div>
-                    <div class="mb-3">
-                        <div id="dataPreview" class="table-responsive"></div>
+                    <div class="mb-3 d-none" id="dataPreviewSection">
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                            <div>
+                                <span class="fw-semibold d-block">{% trans "Preview" %}</span>
+                                <div
+                                    id="dataPreviewMeta"
+                                    class="small text-muted d-none"
+                                    data-label="{% trans 'Source' %}"
+                                    data-label-url="{% trans 'Source (Fetch from URL)' %}"
+                                    data-label-search="{% trans 'Source (Describe data)' %}"
+                                ></div>
+                            </div>
+                            <button type="button" class="btn btn-link btn-sm text-danger p-0 d-none" id="dataPreviewDeleteBtn" aria-label="{% trans 'Delete response' %}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div id="dataPreview" class="table-responsive mb-3"></div>
+                        <div class="mb-3 d-none" id="dataNameWrapper">
+                            <label for="dataName" class="form-label">{% trans "Data name" %}</label>
+                            <input type="text" class="form-control" id="dataName" name="name">
+                        </div>
                         <div id="dataSourcesWrapper" class="d-none">
                             <label class="form-label">{% trans "Sources" %}</label>
                             <ul id="dataSources" class="small mb-0"></ul>
@@ -43,6 +58,24 @@
                         <button type="submit" class="btn btn-primary" id="dataSaveButton" disabled>{% trans "Save" %}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="dataPreviewDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Delete preview" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">{% trans "Are you sure you want to delete this generated data preview?" %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-danger" id="dataPreviewDeleteConfirm">{% trans "Delete" %}</button>
             </div>
         </div>
     </div>

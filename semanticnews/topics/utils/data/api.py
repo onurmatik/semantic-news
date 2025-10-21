@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import Field
@@ -77,6 +78,8 @@ class TopicDataAnalyzeTaskResponse(Schema):
     status: str
     insights: List[str] = Field(default_factory=list)
     saved: bool
+    data_ids: List[int] = Field(default_factory=list)
+    data_labels: List[str] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -97,6 +100,8 @@ class TopicDataVisualizeTaskResponse(Schema):
     insight: str | None = None
     chart_type: str | None = None
     chart_data: dict | None = None
+    data_ids: List[int] = Field(default_factory=list)
+    data_labels: List[str] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -158,6 +163,53 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
     return TopicDataTaskResponse(**schema_kwargs)
 
 
+def _extract_data_ids(raw_ids) -> List[int]:
+    data_ids: List[int] = []
+    if not isinstance(raw_ids, list):
+        return data_ids
+    for value in raw_ids:
+        if value is None:
+            continue
+        if isinstance(value, int):
+            data_ids.append(value)
+            continue
+        try:
+            data_ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return data_ids
+
+
+def _resolve_data_labels(topic: Topic, data_ids: List[int]) -> List[str]:
+    if not data_ids:
+        return []
+    datas = list(
+        TopicData.objects.filter(
+            topic=topic,
+            id__in=data_ids,
+            is_deleted=False,
+        )
+    )
+    data_map = {data.id: data for data in datas}
+    labels: List[str] = []
+    for data_id in data_ids:
+        data_obj = data_map.get(data_id)
+        if not data_obj:
+            labels.append(_("Data %(id)s") % {"id": data_id})
+            continue
+        if data_obj.name:
+            labels.append(data_obj.name)
+            continue
+        created_at = data_obj.created_at
+        if created_at:
+            if timezone.is_aware(created_at):
+                created_at = timezone.localtime(created_at)
+            labels.append(created_at.strftime("%Y-%m-%d"))
+            continue
+        labels.append(_("Data %(id)s") % {"id": data_id})
+    return labels
+
+
 def _build_analysis_task_response(
     request: TopicDataAnalysisRequest,
 ) -> TopicDataAnalyzeTaskResponse:
@@ -171,12 +223,20 @@ def _build_analysis_task_response(
                 if isinstance(item, str) and str(item).strip()
             ]
 
+    raw_data_ids = None
+    if isinstance(request.input_payload, dict):
+        raw_data_ids = request.input_payload.get("data_ids")
+    data_ids = _extract_data_ids(raw_data_ids)
+    data_labels = _resolve_data_labels(request.topic, data_ids)
+
     return TopicDataAnalyzeTaskResponse(
         request_id=request.id,
         task_id=request.task_id or "",
         status=request.status,
         insights=insights,
         saved=bool(request.saved_insight_ids),
+        data_ids=data_ids,
+        data_labels=data_labels,
         error=request.error_message,
     )
 
@@ -198,6 +258,12 @@ def _build_visualization_task_response(
         if isinstance(chart_data_value, dict):
             chart_data = chart_data_value
 
+    raw_data_ids = None
+    if isinstance(request.input_payload, dict):
+        raw_data_ids = request.input_payload.get("data_ids")
+    data_ids = _extract_data_ids(raw_data_ids)
+    data_labels = _resolve_data_labels(request.topic, data_ids)
+
     return TopicDataVisualizeTaskResponse(
         request_id=request.id,
         task_id=request.task_id or "",
@@ -206,6 +272,8 @@ def _build_visualization_task_response(
         insight=insight,
         chart_type=chart_type,
         chart_data=chart_data,
+        data_ids=data_ids,
+        data_labels=data_labels,
         error=request.error_message,
     )
 
