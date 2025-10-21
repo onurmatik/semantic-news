@@ -39,14 +39,12 @@
                 {{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}
             </span>
 
-            <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm ms-3"
-                data-bs-toggle="modal"
-                data-bs-target="#editTopicTitleModal"
-            >
-                {% trans "Edit" %}
-            </button>
+            <small class="fs-5 ms-2">
+                <a href="#" class="text-info-emphasis bi bi-pencil"
+                   data-bs-toggle="modal"
+                   data-bs-target="#editTopicTitleModal"
+                ></a>
+            </small>
 
         </h1>
 
