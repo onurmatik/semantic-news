@@ -83,11 +83,17 @@ def topics_list(request):
         .order_by("-updated_at", "-created_at")
     )
 
-    context = {"topics": topics}
-    if request.user.is_authenticated:
-        context["user_topics"] = Topic.objects.filter(created_by=request.user).order_by(
-            "-updated_at"
-        )
+    recent_events = (
+        Event.objects.filter(status="published")
+        .select_related("created_by")
+        .prefetch_related("categories", "sources")
+        .order_by("-date", "-created_at")[:5]
+    )
+
+    context = {
+        "topics": topics,
+        "recent_events": recent_events,
+    }
 
     return render(request, "topics/topics_list.html", context)
 
