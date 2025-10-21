@@ -26,6 +26,22 @@ from .utils.mcps.models import MCPServer
 from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 
 
+class TopicEmbeddingTests(TestCase):
+    """Tests for topic embedding generation."""
+
+    def test_get_embedding_skips_api_for_empty_context(self):
+        """Avoid requesting embeddings when the context is empty."""
+
+        with patch("semanticnews.topics.models.OpenAI") as mock_openai:
+            topic = Topic.objects.create()
+            mock_openai.reset_mock()
+
+            embedding = topic.get_embedding(force=True)
+
+        self.assertIsNone(embedding)
+        mock_openai.assert_not_called()
+
+
 class CreateTopicAPITests(TestCase):
     """Tests for the topic creation API endpoint."""
 

@@ -180,11 +180,10 @@ class Topic(models.Model):
         super().save(*args, **kwargs)
 
         emb = self.get_embedding(force=True)
-        if emb is not None:
-            # Avoid triggering full save logic again (and recursion)
-            type(self).objects.filter(pk=self.pk).update(embedding=emb)
-            # Keep in-memory instance consistent
-            self.embedding = emb
+        # Avoid triggering full save logic again (and recursion)
+        type(self).objects.filter(pk=self.pk).update(embedding=emb)
+        # Keep in-memory instance consistent
+        self.embedding = emb
 
     def get_absolute_url(self):
         return reverse('topics_detail', kwargs={
@@ -436,6 +435,20 @@ class Topic(models.Model):
 
         return "".join(parts)
 
+    def _context_has_substance(self, context: str) -> bool:
+        """Return ``True`` when the provided context contains useful content."""
+
+        if not context:
+            return False
+
+        stripped = context.strip()
+        if not stripped:
+            return False
+
+        # ``build_context`` always prefixes a markdown heading. Strip heading
+        # characters to detect whether any substantive text remains.
+        return bool(stripped.strip("# \n\t"))
+
     def get_embedding(self, force: bool = False):
         """
         Return an embedding vector for the topic.
@@ -444,9 +457,13 @@ class Topic(models.Model):
         if not force and self.embedding is not None and len(self.embedding) > 0:
             return self.embedding
 
+        context = self.build_context()
+        if not self._context_has_substance(context):
+            return None
+
         with OpenAI() as client:
             embedding = client.embeddings.create(
-                input=self.build_context(),
+                input=context,
                 model='text-embedding-3-small'
             ).data[0].embedding
         return embedding
