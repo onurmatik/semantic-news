@@ -58,7 +58,7 @@
                   {% endif %}
                   {% if domains %}
                   <div class="dropdown">
-                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle filter-toggle filter-dropdown" type="button" id="domainDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-default-label="{% trans 'All sources' %}">{% trans "All source" %}</button>
+                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle filter-toggle filter-dropdown" type="button" id="domainDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-default-label="{% trans 'All sources' %}">{% trans "All sources" %}</button>
                       <ul class="dropdown-menu" aria-labelledby="domainDropdown">
                           <li><a class="dropdown-item domain-option active" href="#" data-domain="">{% trans "All sources" %}</a></li>
                           {% for domain in domains %}
