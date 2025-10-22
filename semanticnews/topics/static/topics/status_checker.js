@@ -227,20 +227,38 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
+          let nextState = 'finished';
+          let datasetInfo = { status: 'finished' };
+
           if (hasFreshInProgress) {
             seenInProgress.data = true;
-            setController(dataButtonId, 'in_progress');
+            nextState = 'in_progress';
+            const inProgressEntry = entries.find((entry) => entry.status === 'in_progress');
+            datasetInfo = inProgressEntry ? { ...inProgressEntry, status: 'in_progress' } : { status: 'in_progress' };
             anyStillInProgress = true;
           } else if (hasError) {
-            setController(dataButtonId, 'error');
-          } else if (seenInProgress.data && hasFinished) {
-            setController(dataButtonId, 'success');
+            nextState = 'error';
+            const errorEntry = entries.find((entry) => entry.status === 'error');
+            datasetInfo = errorEntry ? { ...errorEntry, status: 'error' } : { status: 'error' };
+          } else if (hasFinished) {
+            nextState = 'success';
+            const finishedEntry = entries.find((entry) => entry.status === 'finished');
+            if (finishedEntry) {
+              datasetInfo = { ...finishedEntry, status: 'success' };
+            } else {
+              datasetInfo = { status: 'success' };
+            }
           } else if (seenInProgress.data) {
-            setController(dataButtonId, 'finished');
+            datasetInfo = { status: 'finished' };
           } else {
-            // No fresh in-progress entries or terminal statuses; neutralize stale spinners
-            setController(dataButtonId, 'finished');
+            datasetInfo = { status: 'finished' };
           }
+
+          setController(dataButtonId, nextState);
+          updateButtonDataset(dataButtonId, datasetInfo);
+        } else {
+          setController(dataButtonId, 'finished');
+          updateButtonDataset(dataButtonId, { status: 'finished' });
         }
       }
 

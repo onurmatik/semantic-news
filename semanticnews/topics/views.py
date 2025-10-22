@@ -193,12 +193,15 @@ def _build_topic_module_context(topic, user=None):
     )
     documents = list(topic.active_documents)
     webpages = list(topic.active_webpages)
-    latest_data = topic.active_datas.order_by("-created_at").first()
-    datas = topic.active_datas.order_by("-created_at")
-    data_insights = (
+    datas = list(topic.active_datas.order_by("-created_at"))
+    latest_data = datas[0] if datas else None
+    data_insights = list(
         topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
     )
-    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
+    data_visualizations = list(
+        topic.active_data_visualizations.select_related("insight").order_by("-created_at")
+    )
+    has_saved_data_content = bool(latest_data or data_insights or data_visualizations)
     youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
     tweets = topic.active_tweets.order_by("-created_at")
 
@@ -253,6 +256,7 @@ def _build_topic_module_context(topic, user=None):
         "datas": datas,
         "data_insights": data_insights,
         "data_visualizations": data_visualizations,
+        "data_button_status": "success" if has_saved_data_content else "finished",
         "youtube_video": youtube_video,
         "tweets": tweets,
         "documents": documents,

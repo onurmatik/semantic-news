@@ -1,6 +1,6 @@
 {% load i18n %}
 <div class="btn-group">
-  <button id="dataButton" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-status="finished"{% if topic.status == 'archived' %} disabled{% endif %}>
+  <button id="dataButton" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-status="{{ data_button_status|default:'finished' }}"{% if topic.status == 'archived' %} disabled{% endif %}>
     <span id="dataSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
     <i id="dataErrorIcon" class="bi bi-exclamation-triangle me-1 text-danger d-none"></i>
     <i id="dataSuccessIcon" class="bi bi-check-circle me-1 text-success d-none"></i>
