@@ -453,8 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const clearVisualizeState = () => {
-    if (visualizeStorageKey) {
+  const clearVisualizeState = ({ preserveStorage = false } = {}) => {
+    if (!preserveStorage && visualizeStorageKey) {
       try {
         localStorage.removeItem(visualizeStorageKey);
       } catch (err) {
@@ -576,6 +576,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const fetchLatestVisualizeRequest = async (silent = false) => {
+    if (!topicUuid) return null;
+    const params = new URLSearchParams({ topic_uuid: topicUuid });
+    try {
+      const res = await fetch(`/api/topics/data/visualize/status?${params.toString()}`);
+      if (res.status === 404) {
+        return null;
+      }
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      if (data && !data.input_detail && lastDataRequestDetail) {
+        data.input_detail = lastDataRequestDetail;
+      }
+      if (data && !data.mode && lastDataRequestMode) {
+        data.mode = lastDataRequestMode;
+      }
+      return data;
+    } catch (err) {
+      console.error(err);
+      if (!silent) {
+        showAlert(visualizeStatusMessage, 'error', 'Unable to load the latest visualization status.');
+      }
+      return null;
+    }
+  };
+
   const handleVisualizationTaskPayload = (payload, { persist = true } = {}) => {
     if (!payload) return 'none';
     if (typeof payload.request_id === 'number') {
@@ -629,12 +655,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'pending';
     }
 
-    if (status === 'failure') {
+    if (status === 'failure' || status === 'error' || status === 'failed') {
       showAlert(visualizeStatusMessage, 'error', payload.error || 'Unable to generate a visualization.');
       if (saveVisualizationBtn) saveVisualizationBtn.disabled = true;
       setVisualizeButtonBusy(false);
       setSaveVisualizationButtonBusy(false);
-      clearVisualizeState();
+      hideVisualizationPreview();
+      clearVisualizeState({ preserveStorage: true });
       visualizeIndicator.showError();
       setDataOperationState('visualize', 'error');
       return 'failure';
@@ -699,48 +726,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
   };
 
-  const resumeVisualizeRequest = async () => {
+  const resumeVisualizeRequest = async ({ silent = true } = {}) => {
     if (!visualizeForm || !topicUuid) return;
     const stored = loadVisualizeState();
-    if (!stored) return;
     if (visualizePollTimer) {
       clearInterval(visualizePollTimer);
       visualizePollTimer = null;
     }
-    visualizeRequestId = stored.requestId || null;
-    visualizeTaskId = stored.taskId || null;
-    if (visualizeRequestInput) visualizeRequestInput.value = visualizeRequestId || '';
-    const payload = {
-      request_id: stored.requestId,
-      task_id: stored.taskId,
-      status: stored.status,
-      chart_type: stored.chartType,
-      chart_data: stored.chartData,
-      insight: stored.insight,
-      error: stored.error,
-      saved: stored.saved,
-      data_ids: stored.dataIds,
-      data_labels: stored.dataLabels,
-      created_at: stored.createdAt || stored.persistedAt || null,
-      updated_at: stored.updatedAt || stored.persistedAt || null,
-      persisted_at: stored.persistedAt || null,
-    };
-    const outcome = handleVisualizationTaskPayload(payload, { persist: false });
-    if (outcome === 'pending') {
-      setVisualizeButtonBusy(true);
-      setSaveVisualizationButtonBusy(true);
-      const latest = await fetchVisualizeStatus(true);
-      if (latest) {
-        const latestOutcome = handleVisualizationTaskPayload(latest);
-        if (latestOutcome === 'pending') {
+    if (stored) {
+      visualizeRequestId = stored.requestId || null;
+      visualizeTaskId = stored.taskId || null;
+      if (visualizeRequestInput) visualizeRequestInput.value = visualizeRequestId || '';
+      const payload = {
+        request_id: stored.requestId,
+        task_id: stored.taskId,
+        status: stored.status,
+        chart_type: stored.chartType,
+        chart_data: stored.chartData,
+        insight: stored.insight,
+        error: stored.error,
+        saved: stored.saved,
+        data_ids: stored.dataIds,
+        data_labels: stored.dataLabels,
+        created_at: stored.createdAt || stored.persistedAt || null,
+        updated_at: stored.updatedAt || stored.persistedAt || null,
+        persisted_at: stored.persistedAt || null,
+      };
+      const outcome = handleVisualizationTaskPayload(payload, { persist: false });
+      if (outcome === 'pending') {
+        setVisualizeButtonBusy(true);
+        setSaveVisualizationButtonBusy(true);
+        const latest = await fetchVisualizeStatus(true);
+        if (latest) {
+          const latestOutcome = handleVisualizationTaskPayload(latest);
+          if (latestOutcome === 'pending') {
+            startVisualizePolling();
+          }
+        } else {
           startVisualizePolling();
         }
-      } else {
-        startVisualizePolling();
+      } else if (outcome === 'success' && !stored.saved && stored.chartType && stored.chartData) {
+        renderVisualizationPreview(stored.chartType, stored.chartData);
+        if (saveVisualizationBtn) saveVisualizationBtn.disabled = false;
       }
-    } else if (outcome === 'success' && !stored.saved && stored.chartType && stored.chartData) {
-      renderVisualizationPreview(stored.chartType, stored.chartData);
-      if (saveVisualizationBtn) saveVisualizationBtn.disabled = false;
+      return;
+    }
+
+    visualizeRequestId = null;
+    visualizeTaskId = null;
+    if (visualizeRequestInput) visualizeRequestInput.value = '';
+    const latest = await fetchLatestVisualizeRequest(silent);
+    if (!latest) {
+      return;
+    }
+    const outcome = handleVisualizationTaskPayload(latest);
+    if (outcome === 'pending') {
+      startVisualizePolling();
     }
   };
 
@@ -1161,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'success';
     }
 
-    if (status === 'failure') {
+   if (status === 'failure' || status === 'error' || status === 'failed') {
       setFetchButtonBusy(false);
       const message = payload.error || 'We were unable to fetch data. Please try again.';
       setStatusMessage('error', message);
@@ -1514,8 +1555,8 @@ document.addEventListener('DOMContentLoaded', () => {
     insightsContainer.addEventListener('change', updateSaveInsightsState);
   }
 
-  const clearAnalyzeState = () => {
-    if (analyzeStorageKey) {
+  const clearAnalyzeState = ({ preserveStorage = false } = {}) => {
+    if (!preserveStorage && analyzeStorageKey) {
       try {
         localStorage.removeItem(analyzeStorageKey);
       } catch (err) {
@@ -1627,6 +1668,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const fetchLatestAnalyzeRequest = async (silent = false) => {
+    if (!topicUuid) return null;
+    const params = new URLSearchParams({ topic_uuid: topicUuid });
+    try {
+      const res = await fetch(`/api/topics/data/analyze/status?${params.toString()}`);
+      if (res.status === 404) {
+        return null;
+      }
+      if (!res.ok) throw new Error('Request failed');
+      return await res.json();
+    } catch (err) {
+      console.error(err);
+      if (!silent) {
+        showAlert(analyzeStatusMessage, 'error', 'Unable to load the latest analysis status.');
+      }
+      return null;
+    }
+  };
+
   const handleAnalyzeTaskPayload = (payload, { persist = true } = {}) => {
     if (!payload) return 'none';
     if (typeof payload.request_id === 'number') {
@@ -1685,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'pending';
     }
 
-    if (status === 'failure') {
+    if (status === 'failure' || status === 'error' || status === 'failed') {
       showAlert(analyzeStatusMessage, 'error', payload.error || 'Unable to analyze the selected data.');
       if (insightsContainer) {
         insightsContainer.classList.add('d-none');
@@ -1694,13 +1754,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (saveInsightsBtn) saveInsightsBtn.disabled = true;
       setAnalyzeButtonBusy(false);
       setSaveInsightsButtonBusy(false);
+      clearAnalyzeState({ preserveStorage: true });
       analyzeIndicator.showError();
       setDataOperationState('analyze', 'error');
-      analyzeDataLabels = [];
-      updateAnalyzeUsageDisplay();
-      toggleButtonVisibility(analyzePreviewDeleteBtn, false);
-      clearAnalyzeState();
-      setPreviewSectionVisible(analyzePreviewSection, false);
       return 'failure';
     }
 
@@ -1756,43 +1812,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
   };
 
-  const resumeAnalyzeRequest = async () => {
+  const resumeAnalyzeRequest = async ({ silent = true } = {}) => {
     if (!analyzeForm || !topicUuid) return;
     const stored = loadAnalyzeState();
-    if (!stored) return;
     if (analyzePollTimer) {
       clearInterval(analyzePollTimer);
       analyzePollTimer = null;
     }
-    analyzeRequestId = stored.requestId || null;
-    analyzeTaskId = stored.taskId || null;
-    if (analyzeRequestInput) analyzeRequestInput.value = analyzeRequestId || '';
-    const payload = {
-      request_id: stored.requestId,
-      task_id: stored.taskId,
-      status: stored.status,
-      insights: stored.insights,
-      error: stored.error,
-      saved: stored.saved,
-      data_ids: stored.dataIds,
-      data_labels: stored.dataLabels,
-      created_at: stored.createdAt || stored.persistedAt || null,
-      updated_at: stored.updatedAt || stored.persistedAt || null,
-      persisted_at: stored.persistedAt || null,
-    };
-    const outcome = handleAnalyzeTaskPayload(payload, { persist: false });
-    if (outcome === 'pending') {
-      setAnalyzeButtonBusy(true);
-      setSaveInsightsButtonBusy(true);
-      const latest = await fetchAnalyzeStatus(true);
-      if (latest) {
-        const latestOutcome = handleAnalyzeTaskPayload(latest);
-        if (latestOutcome === 'pending') {
+    if (stored) {
+      analyzeRequestId = stored.requestId || null;
+      analyzeTaskId = stored.taskId || null;
+      if (analyzeRequestInput) analyzeRequestInput.value = analyzeRequestId || '';
+      const payload = {
+        request_id: stored.requestId,
+        task_id: stored.taskId,
+        status: stored.status,
+        insights: stored.insights,
+        error: stored.error,
+        saved: stored.saved,
+        data_ids: stored.dataIds,
+        data_labels: stored.dataLabels,
+        created_at: stored.createdAt || stored.persistedAt || null,
+        updated_at: stored.updatedAt || stored.persistedAt || null,
+        persisted_at: stored.persistedAt || null,
+      };
+      const outcome = handleAnalyzeTaskPayload(payload, { persist: false });
+      if (outcome === 'pending') {
+        setAnalyzeButtonBusy(true);
+        setSaveInsightsButtonBusy(true);
+        const latest = await fetchAnalyzeStatus(true);
+        if (latest) {
+          const latestOutcome = handleAnalyzeTaskPayload(latest);
+          if (latestOutcome === 'pending') {
+            startAnalyzePolling();
+          }
+        } else {
           startAnalyzePolling();
         }
-      } else {
-        startAnalyzePolling();
       }
+      updateSaveInsightsState();
+      return;
+    }
+
+    analyzeRequestId = null;
+    analyzeTaskId = null;
+    if (analyzeRequestInput) analyzeRequestInput.value = '';
+    const latest = await fetchLatestAnalyzeRequest(silent);
+    if (!latest) {
+      updateSaveInsightsState();
+      return;
+    }
+    const outcome = handleAnalyzeTaskPayload(latest);
+    if (outcome === 'pending') {
+      startAnalyzePolling();
     }
     updateSaveInsightsState();
   };
@@ -2030,13 +2102,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (analyzeModalEl) {
     analyzeModalEl.addEventListener('show.bs.modal', () => {
-      resumeAnalyzeRequest();
+      resumeAnalyzeRequest({ silent: false });
     });
   }
 
   if (visualizeModalEl) {
     visualizeModalEl.addEventListener('show.bs.modal', () => {
-      resumeVisualizeRequest();
+      resumeVisualizeRequest({ silent: false });
     });
   }
 
