@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     recap: 'recapButton',
     relation: 'relationButton',
     image: 'imageButton',
+    data: 'dataButton',
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
@@ -133,13 +134,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/topics/${topicUuid}/generation-status`);
       if (!res.ok) return;
 
-      const data = await res.json();
+      const payload = await res.json();
       let anyStillInProgress = false;
 
-      const now = data.current ? new Date(data.current) : new Date();
+      const now = payload.current ? new Date(payload.current) : new Date();
 
       for (const key of KEYS_TO_CHECK) {
-        const info = data[key];
+        const info = payload[key];
         const buttonId = mapping[key];
         if (!info || !buttonId) continue;
 
@@ -178,6 +179,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setController(buttonId, 'finished'); // neutral/default
+      }
+
+      const dataInfo = payload.data;
+      const dataButtonId = mapping.data;
+      if (dataButtonId && dataInfo) {
+        const entries = Object.values(dataInfo).filter(Boolean);
+        if (entries.length) {
+          let hasFreshInProgress = false;
+          let hasError = false;
+          let hasFinished = false;
+
+          for (const entry of entries) {
+            const entryStatus = entry.status;
+            if (!entryStatus) continue;
+
+            if (entryStatus === 'in_progress') {
+              const createdAt = entry.created_at ? new Date(entry.created_at) : null;
+              const isFresh = !createdAt || (now - createdAt) <= INPROGRESS_TIMEOUT_MS;
+              if (isFresh) {
+                hasFreshInProgress = true;
+              }
+              continue;
+            }
+
+            if (entryStatus === 'error') {
+              hasError = true;
+            } else if (entryStatus === 'finished') {
+              hasFinished = true;
+            }
+          }
+
+          if (hasFreshInProgress) {
+            seenInProgress.data = true;
+            setController(dataButtonId, 'in_progress');
+            anyStillInProgress = true;
+          } else if (hasError) {
+            setController(dataButtonId, 'error');
+          } else if (seenInProgress.data && hasFinished) {
+            setController(dataButtonId, 'success');
+          } else if (seenInProgress.data) {
+            setController(dataButtonId, 'finished');
+          } else {
+            // No fresh in-progress entries or terminal statuses; neutralize stale spinners
+            setController(dataButtonId, 'finished');
+          }
+        }
       }
 
       if (!anyStillInProgress && intervalId) {

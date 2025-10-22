@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 
 from django.conf import settings
@@ -81,6 +82,8 @@ class TopicDataAnalyzeTaskResponse(Schema):
     data_ids: List[int] = Field(default_factory=list)
     data_labels: List[str] = Field(default_factory=list)
     error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class TopicDataVisualizeRequest(Schema):
@@ -103,6 +106,8 @@ class TopicDataVisualizeTaskResponse(Schema):
     data_ids: List[int] = Field(default_factory=list)
     data_labels: List[str] = Field(default_factory=list)
     error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class TopicDataTaskResponse(Schema):
@@ -113,6 +118,8 @@ class TopicDataTaskResponse(Schema):
     saved: bool
     result: TopicDataResult | None = None
     error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
@@ -124,6 +131,8 @@ def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
         "mode": request.mode,
         "saved": request.saved_data_id is not None,
         "error": request.error_message,
+        "created_at": request.created_at,
+        "updated_at": request.updated_at,
     }
     if result_payload is not None:
         normalized_payload = dict(result_payload)
@@ -238,6 +247,8 @@ def _build_analysis_task_response(
         data_ids=data_ids,
         data_labels=data_labels,
         error=request.error_message,
+        created_at=request.created_at,
+        updated_at=request.updated_at,
     )
 
 
@@ -275,6 +286,8 @@ def _build_visualization_task_response(
         data_ids=data_ids,
         data_labels=data_labels,
         error=request.error_message,
+        created_at=request.created_at,
+        updated_at=request.updated_at,
     )
 
 

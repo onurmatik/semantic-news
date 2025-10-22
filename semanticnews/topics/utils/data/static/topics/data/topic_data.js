@@ -72,6 +72,37 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastDataRequestMode = null;
   let lastDataRequestDetail = null;
 
+  const IN_PROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
+
+  const normalizeTimestampValue = (value) => {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return typeof value === 'string' && value ? value : null;
+  };
+
+  const coalesceTimestamp = (...values) => {
+    for (const value of values) {
+      const normalized = normalizeTimestampValue(value);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return null;
+  };
+
+  const isFreshInProgress = (isoString) => {
+    const normalized = normalizeTimestampValue(isoString);
+    if (!normalized) {
+      return true;
+    }
+    const parsed = Date.parse(normalized);
+    if (Number.isNaN(parsed)) {
+      return true;
+    }
+    return (Date.now() - parsed) <= IN_PROGRESS_TIMEOUT_MS;
+  };
+
   const deleteRequestRecord = async (basePath, requestId) => {
     if (requestId === null || requestId === undefined) {
       return;
@@ -479,6 +510,12 @@ document.addEventListener('DOMContentLoaded', () => {
       error: payload.error || null,
       saved: Boolean(payload.saved),
     };
+    const createdAt = normalizeTimestampValue(payload.created_at);
+    const updatedAt = normalizeTimestampValue(payload.updated_at) || createdAt;
+    const persistedAt = normalizeTimestampValue(payload.persisted_at);
+    if (createdAt) state.createdAt = createdAt;
+    if (updatedAt) state.updatedAt = updatedAt;
+    state.persistedAt = persistedAt || new Date().toISOString();
     state.dataIds = Array.isArray(payload.data_ids)
       ? payload.data_ids
           .map((value) => {
@@ -566,8 +603,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const status = payload.status;
     const saved = Boolean(payload.saved);
+    const createdAtIso = normalizeTimestampValue(payload.created_at);
+    const updatedAtIso = normalizeTimestampValue(payload.updated_at) || createdAtIso;
+    const persistedAtIso = normalizeTimestampValue(payload.persisted_at);
+    const pendingTimestamp = coalesceTimestamp(updatedAtIso, persistedAtIso, createdAtIso);
 
     if (status === 'pending' || status === 'started') {
+      if (!isFreshInProgress(pendingTimestamp)) {
+        clearVisualizeState();
+        hideVisualizationPreview();
+        resetAlert(visualizeStatusMessage);
+        visualizeIndicator.reset();
+        setDataOperationState('visualize', 'reset');
+        setVisualizeButtonBusy(false);
+        setSaveVisualizationButtonBusy(false);
+        return 'stale';
+      }
       showAlert(visualizeStatusMessage, 'info', 'We started building your visualization. Feel free to close this modal.');
       setVisualizeButtonBusy(true);
       setSaveVisualizationButtonBusy(true);
@@ -639,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchVisualizeStatus(true);
       if (!data) return;
       const outcome = handleVisualizationTaskPayload(data);
-      if (outcome === 'success' || outcome === 'failure') {
+      if (outcome === 'success' || outcome === 'failure' || outcome === 'stale') {
         if (visualizePollTimer) {
           clearInterval(visualizePollTimer);
           visualizePollTimer = null;
@@ -670,6 +721,9 @@ document.addEventListener('DOMContentLoaded', () => {
       saved: stored.saved,
       data_ids: stored.dataIds,
       data_labels: stored.dataLabels,
+      created_at: stored.createdAt || stored.persistedAt || null,
+      updated_at: stored.updatedAt || stored.persistedAt || null,
+      persisted_at: stored.persistedAt || null,
     };
     const outcome = handleVisualizationTaskPayload(payload, { persist: false });
     if (outcome === 'pending') {
@@ -758,9 +812,31 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const saveStoredState = (state) => {
-    if (!storageKey) return;
+    if (!storageKey || !state) return;
+    const normalized = { ...state };
+    const createdAt = normalizeTimestampValue(normalized.createdAt)
+      || normalizeTimestampValue(normalized.created_at);
+    const updatedAt = normalizeTimestampValue(normalized.updatedAt)
+      || normalizeTimestampValue(normalized.updated_at)
+      || createdAt;
+    if (createdAt) {
+      normalized.createdAt = createdAt;
+    } else {
+      delete normalized.createdAt;
+    }
+    if (updatedAt) {
+      normalized.updatedAt = updatedAt;
+    } else {
+      delete normalized.updatedAt;
+    }
+    delete normalized.created_at;
+    delete normalized.updated_at;
+    const persistedAt = normalizeTimestampValue(normalized.persistedAt)
+      || normalizeTimestampValue(normalized.persisted_at);
+    normalized.persistedAt = persistedAt || new Date().toISOString();
+    delete normalized.persisted_at;
     try {
-      localStorage.setItem(storageKey, JSON.stringify(state));
+      localStorage.setItem(storageKey, JSON.stringify(normalized));
     } catch (err) {
       console.error(err);
     }
@@ -1017,7 +1093,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     lastDataRequestDetail = inputDetail || lastDataRequestDetail || null;
 
+    const createdAtIso = normalizeTimestampValue(payload.created_at);
+    const updatedAtIso = normalizeTimestampValue(payload.updated_at) || createdAtIso;
+    const persistedAtIso = normalizeTimestampValue(payload.persisted_at);
+    const pendingTimestamp = coalesceTimestamp(updatedAtIso, persistedAtIso, createdAtIso);
+
     if (status === 'pending' || status === 'started') {
+      if (!isFreshInProgress(pendingTimestamp)) {
+        setFetchButtonBusy(false);
+        hideStatusMessage();
+        dataAddIndicator.reset();
+        setDataOperationState('add', 'reset');
+        fetchedData = null;
+        resetPreview();
+        updateSaveButtonState();
+        setSaveButtonBusy(false);
+        stopPolling();
+        clearStoredState();
+        currentTaskId = null;
+        currentRequestId = null;
+        return 'stale';
+      }
       setFetchButtonBusy(true);
       setStatusMessage('info', 'We started gathering your data. You can close this modal while we work.');
       dataAddIndicator.showLoading();
@@ -1033,6 +1129,9 @@ document.addEventListener('DOMContentLoaded', () => {
         requestId: currentRequestId,
         saved: false,
         inputDetail: inputDetail || null,
+        createdAt: createdAtIso,
+        updatedAt: updatedAtIso,
+        persistedAt: persistedAtIso,
       });
       return 'pending';
     }
@@ -1055,6 +1154,9 @@ document.addEventListener('DOMContentLoaded', () => {
         requestId: currentRequestId,
         saved: false,
         inputDetail: inputDetail || null,
+        createdAt: createdAtIso,
+        updatedAt: updatedAtIso,
+        persistedAt: persistedAtIso,
       });
       return 'success';
     }
@@ -1078,6 +1180,9 @@ document.addEventListener('DOMContentLoaded', () => {
         requestId: currentRequestId,
         saved: false,
         inputDetail: inputDetail || null,
+        createdAt: createdAtIso,
+        updatedAt: updatedAtIso,
+        persistedAt: persistedAtIso,
       });
       return 'failure';
     }
@@ -1143,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchRequestStatus(true);
       if (!data) return;
       const outcome = handleStatusPayload(data);
-      if (outcome === 'success' || outcome === 'failure' || outcome === 'saved') {
+      if (outcome === 'success' || outcome === 'failure' || outcome === 'saved' || outcome === 'stale') {
         stopPolling();
       }
     }, 3000);
@@ -1330,6 +1435,9 @@ document.addEventListener('DOMContentLoaded', () => {
         request_id: stored.requestId || null,
         saved: stored.saved || false,
         input_detail: stored.inputDetail || null,
+        created_at: stored.createdAt || stored.persistedAt || null,
+        updated_at: stored.updatedAt || stored.persistedAt || null,
+        persisted_at: stored.persistedAt || null,
       });
     }
 
@@ -1457,6 +1565,12 @@ document.addEventListener('DOMContentLoaded', () => {
       error: payload.error || null,
       saved: Boolean(payload.saved),
     };
+    const createdAt = normalizeTimestampValue(payload.created_at);
+    const updatedAt = normalizeTimestampValue(payload.updated_at) || createdAt;
+    const persistedAt = normalizeTimestampValue(payload.persisted_at);
+    if (createdAt) state.createdAt = createdAt;
+    if (updatedAt) state.updatedAt = updatedAt;
+    state.persistedAt = persistedAt || new Date().toISOString();
     state.dataIds = Array.isArray(payload.data_ids)
       ? payload.data_ids
           .map((value) => {
@@ -1538,8 +1652,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const status = payload.status;
     const saved = Boolean(payload.saved);
+    const createdAtIso = normalizeTimestampValue(payload.created_at);
+    const updatedAtIso = normalizeTimestampValue(payload.updated_at) || createdAtIso;
+    const persistedAtIso = normalizeTimestampValue(payload.persisted_at);
+    const pendingTimestamp = coalesceTimestamp(updatedAtIso, persistedAtIso, createdAtIso);
 
     if (status === 'pending' || status === 'started') {
+      if (!isFreshInProgress(pendingTimestamp)) {
+        clearAnalyzeState();
+        if (insightsContainer) {
+          insightsContainer.classList.add('d-none');
+          insightsContainer.innerHTML = '';
+        }
+        resetAlert(analyzeStatusMessage);
+        analyzeIndicator.reset();
+        setDataOperationState('analyze', 'reset');
+        setAnalyzeButtonBusy(false);
+        setSaveInsightsButtonBusy(false);
+        return 'stale';
+      }
       showAlert(analyzeStatusMessage, 'info', 'We started analyzing your data. You can close this modal while we work.');
       if (insightsContainer) {
         insightsContainer.classList.add('d-none');
@@ -1616,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchAnalyzeStatus(true);
       if (!data) return;
       const outcome = handleAnalyzeTaskPayload(data);
-      if (outcome === 'success' || outcome === 'failure') {
+      if (outcome === 'success' || outcome === 'failure' || outcome === 'stale') {
         if (analyzePollTimer) {
           clearInterval(analyzePollTimer);
           analyzePollTimer = null;
@@ -1645,6 +1776,9 @@ document.addEventListener('DOMContentLoaded', () => {
       saved: stored.saved,
       data_ids: stored.dataIds,
       data_labels: stored.dataLabels,
+      created_at: stored.createdAt || stored.persistedAt || null,
+      updated_at: stored.updatedAt || stored.persistedAt || null,
+      persisted_at: stored.persistedAt || null,
     };
     const outcome = handleAnalyzeTaskPayload(payload, { persist: false });
     if (outcome === 'pending') {
