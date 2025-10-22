@@ -12,14 +12,13 @@
       <div class="list-group mt-2 d-none" data-related-topic-search-results></div>
     </div>
     <div data-related-topic-list data-empty-message="{% trans 'No related topics yet.' %}">
-      {% if related_topic_links %}
-        <ul class="list-unstyled mb-0" data-related-topic-items>
-          {% for link in related_topic_links %}
-            {% with topic_obj=link.related_topic %}
-            <li class="border rounded p-2 mb-2" data-related-topic-link data-link-id="{{ link.id }}" data-source="{{ link.source }}" data-owned-by-user="{{ link.is_owned_by_user|yesno:'true,false' }}">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-semibold">
+      <ul class="list-unstyled mb-0" data-related-topic-items>
+        {% for link in related_topic_links %}
+          {% with topic_obj=link.related_topic %}
+          <li class="border rounded p-2 mb-2" data-related-topic-link data-link-id="{{ link.id }}" data-source="{{ link.source }}" data-owned-by-user="{{ link.is_owned_by_user|yesno:'true,false' }}">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold">
                     {% if topic_obj.slug and topic_obj.created_by and topic_obj.created_by.username %}
                       <a href="{% url 'topics_detail' slug=topic_obj.slug username=topic_obj.created_by.username %}" class="text-decoration-none">{{ topic_obj.title|default:_('Untitled topic') }}</a>
                     {% else %}
@@ -51,13 +50,13 @@
                 <div class="btn-group">
                   <button type="button" class="btn btn-outline-danger btn-sm" data-remove-related-topic>{% trans "Remove" %}</button>
                 </div>
-              </div>
-            </li>
-            {% endwith %}
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-secondary small mb-0">{% trans "No related topics yet." %}</p>
+            </div>
+          </li>
+          {% endwith %}
+        {% endfor %}
+      </ul>
+      {% if not related_topic_links %}
+        <p class="text-secondary small mb-0 empty-msg">{% trans "No related topics yet." %}</p>
       {% endif %}
     </div>
   </div>
