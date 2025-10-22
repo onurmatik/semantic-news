@@ -162,10 +162,11 @@ def fetch_topic_data_task(
     resolved_model = _resolve_model(model)
     prompt = (
         f"Fetch the tabular data from {url} and return it as JSON with keys 'headers', 'rows', "
-        "and optionally 'name' representing a concise title for the dataset. Use concise, "
-        "human-readable column headers (ideally < 15, max 20 chars). If anything about the "
-        "data is ambiguous, infer the most reasonable interpretation and continue without "
-        "asking for clarification."
+        "and optionally 'name' representing a concise title for the dataset. Column headers "
+        "MUST be human-readable and never exceed 20 characters (aim for < 15). Move any "
+        "additional descriptive details to the explanation instead of the headers. If "
+        "anything about the data is ambiguous, infer the most reasonable interpretation and "
+        "continue without asking for clarification."
     )
     prompt = append_default_language_instruction(prompt)
 
