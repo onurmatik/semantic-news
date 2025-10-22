@@ -13,10 +13,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const input = form.querySelector('input[name="title"]');
   const errorEl = modalEl.querySelector('#editTopicTitleError');
   const displayEl = document.getElementById('topicTitleDisplay');
-  const defaultTitle = displayEl?.dataset.untitled ?? '';
+  const untitledLabel = displayEl?.dataset.untitled ?? '';
   const suggestBtn = modalEl.querySelector('#topicTitleSuggestBtn');
   const suggestionsContainer = modalEl.querySelector('#topicTitleSuggestions');
   const suggestionsList = modalEl.querySelector('#topicTitleSuggestionsList');
+  const formatDisplayTitle = (rawTitle) => {
+    const trimmedTitle = typeof rawTitle === 'string' ? rawTitle.trim() : '';
+    if (trimmedTitle) {
+      return trimmedTitle;
+    }
+    return untitledLabel || '';
+  };
+
+  const setDisplayTitle = (rawTitle) => {
+    const formatted = formatDisplayTitle(rawTitle);
+    if (displayEl) {
+      displayEl.textContent = formatted;
+    }
+    if (formatted) {
+      document.title = formatted;
+    }
+  };
 
   const clearError = () => {
     if (errorEl) {
@@ -162,14 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const newTitle = data.title ?? '';
       topicEl.dataset.topicTitle = newTitle;
 
-      if (displayEl) {
-        displayEl.textContent = newTitle.trim() ? newTitle : defaultTitle;
-      }
-      if (newTitle.trim()) {
-        document.title = newTitle;
-      } else if (defaultTitle) {
-        document.title = defaultTitle;
-      }
+      setDisplayTitle(newTitle);
 
       const modalInstance =
         bootstrap.Modal.getInstance(modalEl) ||

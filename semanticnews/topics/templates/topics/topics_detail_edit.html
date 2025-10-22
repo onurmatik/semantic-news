@@ -2,7 +2,7 @@
 
 {% load static i18n humanize markdown_extras topic_layout %}
 
-{% block title %}{{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}{% endblock %}
+{% block title %}{{ topic.display_title }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -36,7 +36,7 @@
         <h1 class="fs-3 d-flex align-items-center">
 
             <span id="topicTitleDisplay" data-untitled="{% trans "Untitled" %}">
-                {{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}
+                {{ topic.display_title }}
             </span>
 
             <small class="fs-5 ms-2">
@@ -84,7 +84,7 @@
             </button>
         {% endif %}
 
-        <a class="btn btn-outline-secondary btn-sm align-self-start" href="{% url 'topics_detail' slug=topic.slug username=topic.created_by.username %}">
+        <a class="btn btn-outline-secondary btn-sm align-self-start" href="{{ topic.get_absolute_url }}">
             {% trans "Exit" %}
         </a>
 

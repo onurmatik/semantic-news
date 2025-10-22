@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
+from django.utils.translation import gettext
 from django.urls import reverse
 from django.conf import settings
 from slugify import slugify
@@ -186,10 +187,27 @@ class Topic(models.Model):
             self.embedding = emb
 
     def get_absolute_url(self):
-        return reverse('topics_detail', kwargs={
-            'slug': str(self.slug),
-            'username': self.created_by.username,
-        })
+        if self.slug:
+            return reverse(
+                'topics_detail',
+                kwargs={
+                    'slug': str(self.slug),
+                    'username': self.created_by.username,
+                },
+            )
+
+        return reverse(
+            'topics_detail_redirect',
+            kwargs={
+                'topic_uuid': str(self.uuid),
+                'username': self.created_by.username,
+            },
+        )
+
+    @property
+    def display_title(self) -> str:
+        title = (self.title or "").strip()
+        return title or gettext("Untitled")
 
     @property
     def active_events(self):

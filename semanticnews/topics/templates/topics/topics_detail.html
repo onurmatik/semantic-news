@@ -2,7 +2,7 @@
 
 {% load static i18n humanize markdown_extras topic_layout %}
 
-{% block title %}{{ topic.title }}{% endblock %}
+{% block title %}{{ topic.display_title }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -33,7 +33,7 @@
 
         <h1 class="fs-3">
 
-            {{ topic.title }}
+            {{ topic.display_title }}
 
             <small class="fs-5 ms-2">
 

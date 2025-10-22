@@ -77,7 +77,7 @@
 
             <ul class="list-unstyled">
                 {% for topic in topics %}
-                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.title }}</a></li>
+                    <li><a href="{{ topic.get_absolute_url }}">{{ topic.display_title }}</a></li>
                 {% empty %}
                     <li class="text-muted">{% trans "No topics" %}</li>
                 {% endfor %}

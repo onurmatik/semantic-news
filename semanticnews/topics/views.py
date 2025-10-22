@@ -46,6 +46,33 @@ def _topic_is_visible_to_user(topic, user):
     return user.is_authenticated and user == topic.created_by
 
 
+def _render_topic_detail(request, topic):
+    if not _topic_is_visible_to_user(topic, request.user):
+        raise Http404("Topic not found")
+
+    publication = topic.latest_publication
+
+    if publication:
+        context = build_publication_context(topic, publication)
+        modules = build_publication_modules(publication, context)
+        primary_modules = modules.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+        sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+        annotate_module_content(primary_modules, context)
+        annotate_module_content(sidebar_modules, context)
+        context["primary_modules"] = primary_modules
+        context["sidebar_modules"] = sidebar_modules
+        return render(request, "topics/topics_detail.html", context)
+
+    context = {
+        "topic": topic,
+        "primary_modules": [],
+        "sidebar_modules": [],
+        "is_unpublished": True,
+    }
+
+    return render(request, "topics/topics_detail.html", context)
+
+
 def topics_detail_redirect(request, topic_uuid, username):
     """Redirect topics accessed via UUID to their canonical slug URL."""
 
@@ -59,7 +86,7 @@ def topics_detail_redirect(request, topic_uuid, username):
         raise Http404("Topic not found")
 
     if not topic.slug:
-        raise Http404("Topic does not have a slug yet.")
+        return _render_topic_detail(request, topic)
 
     return redirect("topics_detail", slug=topic.slug, username=username)
 
@@ -109,30 +136,7 @@ def topics_detail(request, slug, username):
         created_by__username=username,
     )
 
-    if not _topic_is_visible_to_user(topic, request.user):
-        raise Http404("Topic not found")
-
-    publication = topic.latest_publication
-
-    if publication:
-        context = build_publication_context(topic, publication)
-        modules = build_publication_modules(publication, context)
-        primary_modules = modules.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-        sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
-        annotate_module_content(primary_modules, context)
-        annotate_module_content(sidebar_modules, context)
-        context["primary_modules"] = primary_modules
-        context["sidebar_modules"] = sidebar_modules
-        return render(request, "topics/topics_detail.html", context)
-
-    context = {
-        "topic": topic,
-        "primary_modules": [],
-        "sidebar_modules": [],
-        "is_unpublished": True,
-    }
-
-    return render(request, "topics/topics_detail.html", context)
+    return _render_topic_detail(request, topic)
 
 
 @login_required
