@@ -50,6 +50,18 @@ def _topic_is_visible_to_user(topic, user):
     return user.is_authenticated and user == topic.created_by
 
 
+def _filter_empty_related_topic_modules(modules):
+    """Remove related-topic modules that have no content."""
+
+    filtered = []
+    for module in modules:
+        base_key = module.get("base_module_key", module.get("module_key"))
+        if base_key == "related_topics" and not module.get("has_content"):
+            continue
+        filtered.append(module)
+    return filtered
+
+
 def topics_detail_redirect(request, topic_uuid, username):
     """Redirect topics accessed via UUID to their canonical slug URL."""
 
@@ -138,6 +150,8 @@ def topics_detail(request, slug, username):
         sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
         annotate_module_content(primary_modules, context)
         annotate_module_content(sidebar_modules, context)
+        primary_modules = _filter_empty_related_topic_modules(primary_modules)
+        sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
         context["primary_modules"] = primary_modules
         context["sidebar_modules"] = sidebar_modules
         context.update(_build_topic_metadata(request, topic, context))
@@ -431,6 +445,8 @@ def topics_detail_preview(request, topic_uuid, username):
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
+    primary_modules = _filter_empty_related_topic_modules(primary_modules)
+    sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
     context["primary_modules"] = primary_modules
     context["sidebar_modules"] = sidebar_modules
     context["is_preview"] = True

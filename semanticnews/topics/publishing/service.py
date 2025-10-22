@@ -1124,6 +1124,8 @@ def build_publication_modules(
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
 
+    related_topic_modules: List[Dict[str, Any]] = []
+
     for placement in modules.keys():
         module_entries = publication.layout_snapshot.get(placement, [])
         for entry in module_entries:
@@ -1207,8 +1209,27 @@ def build_publication_modules(
                         viz_obj = viz_by_snapshot.get(key) or viz_by_id.get(key)
                 descriptor["visualization"] = viz_obj
 
+            if base_key == "related_topics":
+                descriptor["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+                related_topic_modules.append(descriptor)
+                continue
+
             modules[placement].append(descriptor)
 
         modules[placement].sort(key=lambda module: module["display_order"])
+
+    if related_topic_modules:
+        sidebar_modules = modules.setdefault(
+            TopicModuleLayout.PLACEMENT_SIDEBAR, []
+        )
+        base_order = max(
+            (module.get("display_order", 0) for module in sidebar_modules),
+            default=0,
+        )
+        for offset, module in enumerate(related_topic_modules, start=1):
+            module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            module["display_order"] = base_order + offset
+            sidebar_modules.append(module)
+        sidebar_modules.sort(key=lambda module: module["display_order"])
 
     return modules

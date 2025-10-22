@@ -1627,6 +1627,22 @@ class RelatedTopicsTemplateTests(TestCase):
         self.assertContains(response, "Related topics")
         self.assertContains(response, related.title)
 
+    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    def test_detail_view_hides_related_topics_without_links(self, _mock_similar):
+        topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
+
+        publish_topic(topic, self.owner)
+
+        response = self.client.get(
+            reverse(
+                "topics_detail",
+                kwargs={"slug": topic.slug, "username": self.owner.username},
+            )
+        )
+        self.assertNotContains(response, "Related topics")
+        self.assertNotContains(response, 'data-module="related_topics"')
+
     def test_edit_view_includes_related_topics_module(self):
         topic, related = self._prepare_topic_with_related()
         self.client.force_login(self.owner)
