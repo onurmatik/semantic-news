@@ -2,7 +2,7 @@
 
 <div class="related-topic-item position-relative mb-4 pb-4 border-bottom" data-topic-uuid="{{ topic.uuid }}">
     <h3 class="fs-6 mb-2">
-        <a href="{{ topic.get_absolute_url }}" class="text-decoration-none text-body">{{ topic.title }}</a>
+        <a href="{{ topic.get_absolute_url }}" class="text-decoration-none text-body">{{ topic.display_title }}</a>
     </h3>
     <a href="{{ topic.get_absolute_url }}" class="stretched-link" aria-hidden="true"></a>
 
@@ -11,11 +11,11 @@
             {% with snapshot=publication.context_snapshot %}
                 {% with image=snapshot.image %}
                     {% if image.thumbnail_url %}
-                        <img src="{{ image.thumbnail_url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+                        <img src="{{ image.thumbnail_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
                     {% elif image.image_url %}
-                        <img src="{{ image.image_url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+                        <img src="{{ image.image_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
                     {% elif topic.thumbnail %}
-                        <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+                        <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
                     {% endif %}
                 {% endwith %}
 
@@ -37,7 +37,7 @@
             {% endwith %}
         {% else %}
             {% if topic.thumbnail %}
-                <img src="{{ topic.thumbnail.url }}" alt="{{ topic.title }}" class="img-fluid rounded mb-2">
+                <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
             {% endif %}
             {% if topic.prefetched_recaps %}
                 {% with fallback=topic.prefetched_recaps|first %}
