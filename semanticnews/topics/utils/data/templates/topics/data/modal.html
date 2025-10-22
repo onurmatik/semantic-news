@@ -47,12 +47,14 @@
                             <label for="dataName" class="form-label">{% trans "Data name" %}</label>
                             <input type="text" class="form-control" id="dataName" name="name">
                         </div>
-                        <div id="dataPreview" class="table-responsive mb-3"></div>
-                        <div id="dataSourcesWrapper" class="d-none">
-                            <label class="form-label">{% trans "Sources" %}</label>
-                            <ul id="dataSources" class="small mb-0"></ul>
+                        <div class="mb-3">
+                            <div id="dataPreview" class="table-responsive" data-scrollable-table style="max-height: 300px; overflow-y: auto;"></div>
+                            <div id="dataSourcesWrapper" class="d-none">
+                                <label class="form-label">{% trans "Sources" %}</label>
+                                <ul id="dataSources" class="small mb-0"></ul>
+                            </div>
+                            <div id="dataExplanation" class="small text-muted d-none"></div>
                         </div>
-                        <div id="dataExplanation" class="small text-muted d-none"></div>
                     </div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="fetchDataBtn">
