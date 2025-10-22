@@ -36,5 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     controller,
     useMarkdown: true,
+    messages: {
+      suggestionError: 'Unable to fetch recap suggestions. Please try again.',
+      updateError: 'Unable to update the recap. Please try again.',
+    },
   });
 });

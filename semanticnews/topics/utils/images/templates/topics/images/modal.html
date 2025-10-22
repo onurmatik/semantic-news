@@ -3,9 +3,12 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form id="imageForm">
-                <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="imageModalLabel">{% trans "Create cover illustration" %}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                <div class="modal-header flex-column align-items-stretch">
+                    <div class="d-flex w-100 align-items-center">
+                        <h1 class="modal-title fs-5 mb-0" id="imageModalLabel">{% trans "Create cover illustration" %}</h1>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                    </div>
+                    <div id="imageStatusMessage" class="alert alert-info d-none w-100 mb-0 mt-2" role="alert"></div>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">

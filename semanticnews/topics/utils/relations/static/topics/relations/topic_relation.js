@@ -18,10 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         return { relations: JSON.parse(text || '[]') };
       } catch (e) {
-        alert('Invalid JSON');
-        throw e;
+        throw new Error('Invalid JSON');
       }
     },
     controller,
+    messages: {
+      suggestionError: 'Unable to fetch relation suggestions. Please try again.',
+      updateError: 'Unable to save the relations. Please try again.',
+      parseError: 'Enter valid JSON before saving your relations.',
+    },
   });
 });

@@ -12,6 +12,20 @@ document.addEventListener('DOMContentLoaded', () => {
     data: 'dataButton',
   };
 
+  const updateButtonDataset = (buttonId, info) => {
+    if (!buttonId) return;
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    const status = info && typeof info.status === 'string' ? info.status : 'finished';
+    btn.dataset.status = status;
+    const message = info && typeof info.error_message === 'string' ? info.error_message.trim() : '';
+    if (message) {
+      btn.dataset.error = message;
+    } else if (btn.dataset.error) {
+      delete btn.dataset.error;
+    }
+  };
+
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
   let intervalId = null;
 
@@ -142,6 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const key of KEYS_TO_CHECK) {
         const info = payload[key];
         const buttonId = mapping[key];
+        if (buttonId) {
+          updateButtonDataset(buttonId, info || null);
+        }
         if (!info || !buttonId) continue;
 
         const status = info.status; // "in_progress" | "finished" | "error"

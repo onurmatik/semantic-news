@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     controller,
     useMarkdown: false,
+    messages: {
+      updateError: 'Unable to generate the cover image. Please try again.',
+    },
   });
 
   // Override/extend the exposed hooks for image so status_checker can paint without reload
