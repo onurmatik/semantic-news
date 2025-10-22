@@ -747,6 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSaved = Boolean(payload.saved);
 
     if (isSaved) {
+      setFetchButtonDisabled(false);
       dataAddIndicator.showSuccess();
       setDataOperationState('add', 'success');
       clearStoredState();
@@ -769,6 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode = payload.mode || (hasSources ? 'search' : 'url');
 
     if (status === 'pending' || status === 'started') {
+      setFetchButtonDisabled(true);
       setStatusMessage('info', 'We started gathering your data. You can close this modal while we work.');
       dataAddIndicator.showLoading();
       setDataOperationState('add', 'loading');
@@ -786,6 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dataAddIndicator.showSuccess();
       setDataOperationState('add', 'success');
       stopPolling();
+      setFetchButtonDisabled(false);
       saveStoredState({
         taskId,
         status: 'success',
@@ -805,6 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchedData = null;
       updateSaveButtonState();
       stopPolling();
+      setFetchButtonDisabled(false);
       saveStoredState({
         taskId,
         status: 'failure',
@@ -886,9 +890,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const setFetchButtonDisabled = (disabled) => {
+    if (fetchBtn) {
+      fetchBtn.disabled = Boolean(disabled);
+    }
+  };
+
   if (fetchBtn && form) {
     fetchBtn.addEventListener('click', async () => {
-      fetchBtn.disabled = true;
+      setFetchButtonDisabled(true);
       fetchedData = null;
       updateSaveButtonState();
       resetPreview();
@@ -901,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setDataOperationState('add', 'reset');
 
       if (!topicUuid) {
-        fetchBtn.disabled = false;
+        setFetchButtonDisabled(false);
         return;
       }
 
@@ -913,7 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mode === 'url') {
         const urlValue = urlInput ? urlInput.value.trim() : '';
         if (!urlValue) {
-          fetchBtn.disabled = false;
+          setFetchButtonDisabled(false);
           return;
         }
         body.url = urlValue;
@@ -921,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
         endpoint = '/api/topics/data/search';
         const description = descriptionInput ? descriptionInput.value.trim() : '';
         if (!description) {
-          fetchBtn.disabled = false;
+          setFetchButtonDisabled(false);
           return;
         }
         body.description = description;
@@ -944,8 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatusMessage('error', 'Unable to start the data request. Please try again.');
         dataAddIndicator.showError();
         setDataOperationState('add', 'error');
-      } finally {
-        fetchBtn.disabled = false;
+        setFetchButtonDisabled(false);
       }
     });
   }
