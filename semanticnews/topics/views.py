@@ -16,7 +16,7 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic, TopicModuleLayout
+from .models import Topic, TopicModuleLayout, RelatedTopic
 from .layouts import annotate_module_content, get_layout_for_mode
 from .publishing.service import build_publication_context, build_publication_modules
 from .utils.timeline.models import TopicEvent
@@ -48,6 +48,18 @@ def _topic_is_visible_to_user(topic, user):
         return False
 
     return user.is_authenticated and user == topic.created_by
+
+
+def _filter_empty_related_topic_modules(modules):
+    """Remove related-topic modules that have no content."""
+
+    filtered = []
+    for module in modules:
+        base_key = module.get("base_module_key", module.get("module_key"))
+        if base_key == "related_topics" and not module.get("has_content"):
+            continue
+        filtered.append(module)
+    return filtered
 
 
 def topics_detail_redirect(request, topic_uuid, username):
@@ -114,6 +126,13 @@ def topics_detail(request, slug, username):
             "data_insights__sources",
             "data_visualizations__insight",
             "module_layouts",
+            Prefetch(
+                "topic_related_topics",
+                queryset=RelatedTopic.objects.select_related(
+                    "related_topic__created_by"
+                ).order_by("-created_at"),
+                to_attr="prefetched_related_topic_links",
+            ),
         ),
         slug=slug,
         created_by__username=username,
@@ -131,6 +150,8 @@ def topics_detail(request, slug, username):
         sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
         annotate_module_content(primary_modules, context)
         annotate_module_content(sidebar_modules, context)
+        primary_modules = _filter_empty_related_topic_modules(primary_modules)
+        sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
         context["primary_modules"] = primary_modules
         context["sidebar_modules"] = sidebar_modules
         context.update(_build_topic_metadata(request, topic, context))
@@ -143,12 +164,14 @@ def topics_detail(request, slug, username):
         "is_unpublished": True,
     }
 
+    context.update(_build_topic_module_context(topic, request.user))
+
     context.update(_build_topic_metadata(request, topic, context))
 
     return render(request, "topics/topics_detail.html", context)
 
 
-def _build_topic_module_context(topic):
+def _build_topic_module_context(topic, user=None):
     """Collect related objects used to render topic modules."""
 
     related_events = topic.active_events
@@ -172,6 +195,26 @@ def _build_topic_module_context(topic):
     data_visualizations = topic.active_data_visualizations.order_by("-created_at")
     youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
     tweets = topic.active_tweets.order_by("-created_at")
+
+    related_topic_links = list(
+        getattr(topic, "prefetched_related_topic_links", None)
+        or RelatedTopic.objects.select_related("related_topic__created_by")
+        .filter(topic=topic)
+        .order_by("-created_at")
+    )
+    active_related_topic_links = [
+        link for link in related_topic_links if not link.is_deleted
+    ]
+    is_authenticated = getattr(user, "is_authenticated", False)
+    for link in active_related_topic_links:
+        link.is_owned_by_topic_creator = (
+            topic.created_by_id is not None
+            and link.created_by_id == topic.created_by_id
+        )
+        link.is_owned_by_user = (
+            bool(is_authenticated) and link.created_by_id == getattr(user, "id", None)
+        )
+    related_topics = [link.related_topic for link in active_related_topic_links]
 
     if latest_relation:
         relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
@@ -208,6 +251,8 @@ def _build_topic_module_context(topic):
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
+        "related_topic_links": active_related_topic_links,
+        "related_topics": related_topics,
     }
 
 
@@ -321,6 +366,13 @@ def topics_detail_edit(request, topic_uuid, username):
             "data_insights__sources",
             "data_visualizations__insight",
             "module_layouts",
+            Prefetch(
+                "topic_related_topics",
+                queryset=RelatedTopic.objects.select_related(
+                    "related_topic__created_by"
+                ).order_by("-created_at"),
+                to_attr="prefetched_related_topic_links",
+            ),
         ),
         uuid=topic_uuid,
         created_by__username=username,
@@ -329,7 +381,7 @@ def topics_detail_edit(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    context = _build_topic_module_context(topic)
+    context = _build_topic_module_context(topic, request.user)
     mcp_servers = MCPServer.objects.filter(active=True)
 
     layout = get_layout_for_mode(topic, mode="edit")
@@ -393,6 +445,8 @@ def topics_detail_preview(request, topic_uuid, username):
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
+    primary_modules = _filter_empty_related_topic_modules(primary_modules)
+    sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
     context["primary_modules"] = primary_modules
     context["sidebar_modules"] = sidebar_modules
     context["is_preview"] = True
