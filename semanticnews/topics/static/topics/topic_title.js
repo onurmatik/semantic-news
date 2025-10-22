@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const suggestBtn = modalEl.querySelector('#topicTitleSuggestBtn');
   const suggestionsContainer = modalEl.querySelector('#topicTitleSuggestions');
   const suggestionsList = modalEl.querySelector('#topicTitleSuggestionsList');
+  const topicUuid = topicEl.dataset.topicUuid || '';
   const formatDisplayTitle = (rawTitle) => {
     const trimmedTitle = typeof rawTitle === 'string' ? rawTitle.trim() : '';
     if (trimmedTitle) {
@@ -233,21 +234,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (suggestBtn && input) {
     suggestBtn.addEventListener('click', async () => {
       const about = input.value.trim();
-      if (!about) {
-        showError(suggestBtn.dataset.emptyInputMessage || '');
-        input.focus();
-        return;
-      }
 
       clearError();
       hideSuggestions();
       setSuggestBtnLoading(true);
 
       try {
-        const params = new URLSearchParams({
-          about,
-          limit: '5',
-        });
+        const params = new URLSearchParams({ limit: '5' });
+        if (about) {
+          params.set('about', about);
+        }
+        if (topicUuid) {
+          params.set('topic_uuid', topicUuid);
+        }
         const response = await fetch(`/api/topics/suggest?${params.toString()}`);
         if (!response.ok) {
           let message = suggestBtn.dataset.genericErrorMessage || '';

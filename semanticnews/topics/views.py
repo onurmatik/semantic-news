@@ -1,6 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, Http404
+from django.templatetags.static import static
+from django.utils.html import strip_tags
+from django.utils.text import Truncator
+from django.utils.translation import gettext as _
 from pgvector.django import L2Distance
 import json
 
@@ -12,7 +16,7 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic, TopicModuleLayout
+from .models import Topic, TopicModuleLayout, RelatedTopic
 from .layouts import annotate_module_content, get_layout_for_mode
 from .publishing.service import build_publication_context, build_publication_modules
 from .utils.timeline.models import TopicEvent
@@ -59,8 +63,11 @@ def _render_topic_detail(request, topic):
         sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
         annotate_module_content(primary_modules, context)
         annotate_module_content(sidebar_modules, context)
+        primary_modules = _filter_empty_related_topic_modules(primary_modules)
+        sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
         context["primary_modules"] = primary_modules
         context["sidebar_modules"] = sidebar_modules
+        context.update(_build_topic_metadata(request, topic, context))
         return render(request, "topics/topics_detail.html", context)
 
     context = {
@@ -70,7 +77,23 @@ def _render_topic_detail(request, topic):
         "is_unpublished": True,
     }
 
+    context.update(_build_topic_module_context(topic, request.user))
+
+    context.update(_build_topic_metadata(request, topic, context))
+
     return render(request, "topics/topics_detail.html", context)
+
+
+def _filter_empty_related_topic_modules(modules):
+    """Remove related-topic modules that have no content."""
+
+    filtered = []
+    for module in modules:
+        base_key = module.get("base_module_key", module.get("module_key"))
+        if base_key == "related_topics" and not module.get("has_content"):
+            continue
+        filtered.append(module)
+    return filtered
 
 
 def topics_detail_redirect(request, topic_uuid, username):
@@ -106,11 +129,17 @@ def topics_list(request):
         .order_by("-updated_at", "-created_at")
     )
 
-    context = {"topics": topics}
-    if request.user.is_authenticated:
-        context["user_topics"] = Topic.objects.filter(created_by=request.user).order_by(
-            "-updated_at"
-        )
+    recent_events = (
+        Event.objects.filter(status="published")
+        .select_related("created_by")
+        .prefetch_related("categories", "sources")
+        .order_by("-date", "-created_at")[:5]
+    )
+
+    context = {
+        "topics": topics,
+        "recent_events": recent_events,
+    }
 
     return render(request, "topics/topics_list.html", context)
 
@@ -131,6 +160,13 @@ def topics_detail(request, slug, username):
             "data_insights__sources",
             "data_visualizations__insight",
             "module_layouts",
+            Prefetch(
+                "topic_related_topics",
+                queryset=RelatedTopic.objects.select_related(
+                    "related_topic__created_by"
+                ).order_by("-created_at"),
+                to_attr="prefetched_related_topic_links",
+            ),
         ),
         slug=slug,
         created_by__username=username,
@@ -139,8 +175,251 @@ def topics_detail(request, slug, username):
     return _render_topic_detail(request, topic)
 
 
+def _build_topic_module_context(topic, user=None):
+    """Collect related objects used to render topic modules."""
+
+    related_events = topic.active_events
+    current_recap = topic.active_recaps.order_by("-created_at").first()
+    latest_recap = (
+        topic.active_recaps.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    current_relation = topic.active_entity_relations.order_by("-created_at").first()
+    latest_relation = (
+        topic.active_entity_relations.filter(status="finished")
+        .order_by("-created_at")
+        .first()
+    )
+    documents = list(topic.active_documents)
+    webpages = list(topic.active_webpages)
+    latest_data = topic.active_datas.order_by("-created_at").first()
+    datas = topic.active_datas.order_by("-created_at")
+    data_insights = (
+        topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
+    )
+    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
+    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
+    tweets = topic.active_tweets.order_by("-created_at")
+
+    related_topic_links = list(
+        getattr(topic, "prefetched_related_topic_links", None)
+        or RelatedTopic.objects.select_related("related_topic__created_by")
+        .filter(topic=topic)
+        .order_by("-created_at")
+    )
+    active_related_topic_links = [
+        link for link in related_topic_links if not link.is_deleted
+    ]
+    is_authenticated = getattr(user, "is_authenticated", False)
+    for link in active_related_topic_links:
+        link.is_owned_by_topic_creator = (
+            topic.created_by_id is not None
+            and link.created_by_id == topic.created_by_id
+        )
+        link.is_owned_by_user = (
+            bool(is_authenticated) and link.created_by_id == getattr(user, "id", None)
+        )
+    related_topics = [link.related_topic for link in active_related_topic_links]
+
+    if latest_relation:
+        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
+        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
+    else:
+        relations_json = ""
+        relations_json_pretty = ""
+
+    if topic.embedding is not None:
+        suggested_events = (
+            Event.objects.exclude(topics=topic)
+            .exclude(embedding__isnull=True)
+            .annotate(distance=L2Distance("embedding", topic.embedding))
+            .order_by("distance")[:5]
+        )
+    else:
+        suggested_events = Event.objects.none()
+
+    return {
+        "topic": topic,
+        "related_events": related_events,
+        "suggested_events": suggested_events,
+        "current_recap": current_recap,
+        "latest_recap": latest_recap,
+        "current_relation": current_relation,
+        "latest_relation": latest_relation,
+        "relations_json": relations_json,
+        "relations_json_pretty": relations_json_pretty,
+        "latest_data": latest_data,
+        "datas": datas,
+        "data_insights": data_insights,
+        "data_visualizations": data_visualizations,
+        "youtube_video": youtube_video,
+        "tweets": tweets,
+        "documents": documents,
+        "webpages": webpages,
+        "related_topic_links": active_related_topic_links,
+        "related_topics": related_topics,
+    }
+
+
+def _build_topic_metadata(request, topic, context):
+    """Derive metadata required for SEO and social sharing."""
+
+    default_description = _(
+        "Stay informed with curated analysis from Semantic News."
+    )
+    context_topic = context.get("topic", topic)
+
+    def _extract_recap_text():
+        recap_candidates = []
+        latest = context.get("latest_recap")
+        if latest:
+            recap_candidates.append(latest)
+
+        recaps = context.get("recaps") or []
+        recap_candidates.extend(recaps)
+
+        for candidate in recap_candidates:
+            for attr in ("summary", "recap", "text"):
+                value = getattr(candidate, attr, None)
+                if value:
+                    return value
+
+        active_recap = None
+        if hasattr(topic, "active_recaps"):
+            active_recap = topic.active_recaps.order_by("-created_at").first()
+        if active_recap:
+            return getattr(active_recap, "recap", None)
+        return None
+
+    def _normalise_whitespace(value):
+        return " ".join(value.split())
+
+    recap_text = _extract_recap_text() or default_description
+    cleaned_description = strip_tags(recap_text)
+    cleaned_description = _normalise_whitespace(cleaned_description)
+    if not cleaned_description:
+        cleaned_description = default_description
+    meta_description = Truncator(cleaned_description).chars(160, truncate="…")
+
+    def _resolve_image():
+        topic_obj = context_topic or topic
+        image_fields = [
+            getattr(topic_obj, "image", None),
+            getattr(topic_obj, "thumbnail", None),
+        ]
+
+        for field in image_fields:
+            if not field:
+                continue
+            for attr in ("url", "image", "thumbnail"):
+                candidate = getattr(field, attr, None)
+                if isinstance(candidate, str) and candidate:
+                    return candidate, False
+                if candidate and hasattr(candidate, "url"):
+                    url = getattr(candidate, "url", "")
+                    if url:
+                        return url, False
+
+        images = context.get("images") or []
+        for image in images:
+            url = getattr(image, "image_url", None) or getattr(image, "url", None)
+            if url:
+                return url, False
+
+        return static("logo.png"), True
+
+    image_path, is_default_image = _resolve_image()
+    absolute_image_url = request.build_absolute_uri(image_path)
+
+    meta_title = getattr(context_topic, "title", None) or topic.title
+    if not meta_title:
+        meta_title = _("Semantic News Topic")
+
+    canonical_path = None
+    if topic.slug and topic.created_by:
+        canonical_path = topic.get_absolute_url()
+    if not canonical_path:
+        canonical_path = request.get_full_path()
+
+    return {
+        "meta_title": meta_title,
+        "meta_description": meta_description,
+        "canonical_url": request.build_absolute_uri(canonical_path),
+        "og_image_url": absolute_image_url,
+        "open_graph_type": "article",
+        "meta_site_name": "Semantic News",
+        "twitter_card": "summary"
+        if is_default_image
+        else "summary_large_image",
+    }
+
+
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
+    topic = get_object_or_404(
+        Topic.objects.prefetch_related(
+            "events",
+            "recaps",
+            "texts",
+            "images",
+            "documents",
+            "webpages",
+            "youtube_videos",
+            "tweets",
+            "entity_relations",
+            "datas",
+            "data_insights__sources",
+            "data_visualizations__insight",
+            "module_layouts",
+            Prefetch(
+                "topic_related_topics",
+                queryset=RelatedTopic.objects.select_related(
+                    "related_topic__created_by"
+                ).order_by("-created_at"),
+                to_attr="prefetched_related_topic_links",
+            ),
+        ),
+        uuid=topic_uuid,
+        created_by__username=username,
+    )
+
+    if request.user != topic.created_by or topic.status == "archived":
+        return HttpResponseForbidden()
+
+    context = _build_topic_module_context(topic, request.user)
+    mcp_servers = MCPServer.objects.filter(active=True)
+
+    layout = get_layout_for_mode(topic, mode="edit")
+    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+
+    context.update(
+        {
+            "mcp_servers": mcp_servers,
+            "layout_update_url": f"/api/topics/{topic.uuid}/layout",
+        }
+    )
+
+    annotate_module_content(primary_modules, context)
+    annotate_module_content(sidebar_modules, context)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
+    if request.user.is_authenticated:
+        context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
+            uuid=topic.uuid
+        )
+    context["localities"] = get_locality_options()
+    context["default_locality_label"] = get_default_locality_label()
+    return render(
+        request,
+        "topics/topics_detail_edit.html",
+        context,
+    )
+
+
+@login_required
+def topics_detail_preview(request, topic_uuid, username):
     topic = get_object_or_404(
         Topic.objects.prefetch_related(
             "events",
@@ -164,90 +443,30 @@ def topics_detail_edit(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    related_events = topic.active_events
-    current_recap = topic.active_recaps.order_by("-created_at").first()
-    latest_recap = (
-        topic.active_recaps.filter(status="finished")
-        .order_by("-created_at")
-        .first()
-    )
-    current_relation = (
-        topic.active_entity_relations.order_by("-created_at").first()
-    )
-    latest_relation = (
-        topic.active_entity_relations.filter(status="finished")
-        .order_by("-created_at")
-        .first()
-    )
-    documents = list(topic.active_documents)
-    webpages = list(topic.active_webpages)
-    latest_data = topic.active_datas.order_by("-created_at").first()
-    datas = topic.active_datas.order_by("-created_at")
-    data_insights = (
-        topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
-    )
-    data_visualizations = topic.active_data_visualizations.order_by("-created_at")
-    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
-    tweets = topic.active_tweets.order_by("-created_at")
-    if latest_relation:
-        relations_json = json.dumps(
-            latest_relation.relations, separators=(",", ":")
-        )
-        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
-    else:
-        relations_json = ""
-        relations_json_pretty = ""
-    mcp_servers = MCPServer.objects.filter(active=True)
+    context = _build_topic_module_context(topic)
 
-    if topic.embedding is not None:
-        suggested_events = (
-            Event.objects.exclude(topics=topic)
-            .exclude(embedding__isnull=True)
-            .annotate(distance=L2Distance("embedding", topic.embedding))
-            .order_by("distance")[:5]
-        )
-    else:
-        suggested_events = Event.objects.none()
-
-    layout = get_layout_for_mode(topic, mode="edit")
+    layout = get_layout_for_mode(topic, mode="detail")
     primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
     sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
 
-    context = {
-        "topic": topic,
-        "related_events": related_events,
-        "suggested_events": suggested_events,
-        "current_recap": current_recap,
-        "latest_recap": latest_recap,
-        "current_relation": current_relation,
-        "latest_relation": latest_relation,
-        "relations_json": relations_json,
-        "relations_json_pretty": relations_json_pretty,
-        "mcp_servers": mcp_servers,
-        "latest_data": latest_data,
-        "datas": datas,
-        "data_insights": data_insights,
-        "data_visualizations": data_visualizations,
-        "youtube_video": youtube_video,
-        "tweets": tweets,
-        "documents": documents,
-        "webpages": webpages,
-        "layout_update_url": f"/api/topics/{topic.uuid}/layout",
-    }
-
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
+    primary_modules = _filter_empty_related_topic_modules(primary_modules)
+    sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
     context["primary_modules"] = primary_modules
     context["sidebar_modules"] = sidebar_modules
+    context["is_preview"] = True
+
+    context.update(_build_topic_metadata(request, topic, context))
+
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
         )
-    context["localities"] = get_locality_options()
-    context["default_locality_label"] = get_default_locality_label()
+
     return render(
         request,
-        "topics/topics_detail_edit.html",
+        "topics/topics_detail.html",
         context,
     )
 

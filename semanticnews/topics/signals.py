@@ -27,6 +27,7 @@ def touch_topic(topic_id):
         updated_at=timezone.now(),
         embedding=embedding,
     )
+    topic.embedding = embedding
 
 
 @receiver([post_save, post_delete], sender=TopicEvent)

@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -96,6 +97,14 @@ class Topic(models.Model):
         related_name='topics', blank=True
     )
 
+    related_topics = models.ManyToManyField(
+        'self',
+        through='RelatedTopic',
+        symmetrical=False,
+        related_name='related_to_topics',
+        blank=True,
+    )
+
     # Updated when the events or contents change
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -180,11 +189,10 @@ class Topic(models.Model):
         super().save(*args, **kwargs)
 
         emb = self.get_embedding(force=True)
-        if emb is not None:
-            # Avoid triggering full save logic again (and recursion)
-            type(self).objects.filter(pk=self.pk).update(embedding=emb)
-            # Keep in-memory instance consistent
-            self.embedding = emb
+        # Avoid triggering full save logic again (and recursion)
+        type(self).objects.filter(pk=self.pk).update(embedding=emb)
+        # Keep in-memory instance consistent
+        self.embedding = emb
 
     def get_absolute_url(self):
         if self.slug:
@@ -258,6 +266,17 @@ class Topic(models.Model):
         return self.tweets.filter(is_deleted=False)
 
     @property
+    def active_related_topic_links(self):
+        return self.topic_related_topics.filter(is_deleted=False)
+
+    @property
+    def active_related_topics(self):
+        return self.related_topics.filter(
+            relatedtopic__topic=self,
+            relatedtopic__is_deleted=False,
+        )
+
+    @property
     def has_unpublished_changes(self) -> bool:
         """Return whether the topic has edits not reflected in a publication."""
 
@@ -290,32 +309,182 @@ class Topic(models.Model):
         return latest.thumbnail if latest else None
 
     def build_context(self):
-        content_md = f"# {self.title or ''}\n\n"
+        parts = [f"# {self.title or ''}\n\n"]
 
         # If not saved yet, do not touch M2M relations
         if not self.pk:
-            return content_md
+            return "".join(parts)
 
-        events_qs = (
-            self.events.filter(topicevent__is_deleted=False).order_by("date")
-        )
+        def append_section(title: str, body: str):
+            if not body:
+                return
+            if not body.endswith("\n"):
+                body_local = f"{body}\n"
+            else:
+                body_local = body
+            parts.append(f"## {title}\n\n")
+            parts.append(body_local)
+            parts.append("\n")
 
+        events_qs = self.events.filter(topicevent__is_deleted=False).order_by("date")
         if events_qs.exists():
-            content_md += "## Events\n\n"
-            for event in events_qs:
-                content_md += f"- {event.title} ({event.date})\n"
+            event_lines = [f"- {event.title} ({event.date})" for event in events_qs]
+            append_section("Events", "\n".join(event_lines))
 
-        contents_qs = self.contents.all()
+        contents_qs = self.contents.all().order_by("created_at")
         if contents_qs.exists():
-            content_md += "\n## Contents\n\n"
-            for c in contents_qs:
-                title = c.title or ""
-                text = c.markdown or ""
-                content_md += f"### {title}\n{text}\n\n"
+            content_sections = []
+            for content in contents_qs:
+                title = content.title or "Content"
+                text = content.markdown or ""
+                content_sections.append(f"### {title}\n{text}".strip())
+            append_section("Contents", "\n\n".join(content_sections))
 
-        # TODO: Add data insights to the context
+        entities_qs = self.entities.all().order_by("name")
+        if entities_qs.exists():
+            entity_lines = []
+            for entity in entities_qs:
+                description = getattr(entity, "description", None) or ""
+                line = entity.name
+                if entity.disambiguation:
+                    line = f"{line} ({entity.disambiguation})"
+                if description:
+                    line = f"{line}\n  Description: {description}"
+                entity_lines.append(f"- {line}")
+            append_section("Entities", "\n".join(entity_lines))
 
-        return content_md
+        documents_qs = self.documents.filter(is_deleted=False).order_by("created_at")
+        if documents_qs.exists():
+            document_lines = []
+            for document in documents_qs:
+                description = document.description or ""
+                display_title = document.display_title
+                line = f"- {display_title}: {document.url}"
+                if description:
+                    line = f"{line}\n  {description}"
+                document_lines.append(line)
+            append_section("Documents", "\n".join(document_lines))
+
+        webpages_qs = self.webpages.filter(is_deleted=False).order_by("created_at")
+        if webpages_qs.exists():
+            webpage_lines = []
+            for webpage in webpages_qs:
+                description = webpage.description or ""
+                title = webpage.title or webpage.url
+                line = f"- {title}: {webpage.url}"
+                if description:
+                    line = f"{line}\n  {description}"
+                webpage_lines.append(line)
+            append_section("Webpages", "\n".join(webpage_lines))
+
+        texts_qs = self.texts.filter(is_deleted=False).order_by("created_at")
+        if texts_qs.exists():
+            text_blocks = [text.content for text in texts_qs if text.content]
+            append_section("Text Notes", "\n\n".join(text_blocks))
+
+        recaps_qs = self.recaps.filter(is_deleted=False, status="finished").order_by("created_at")
+        if recaps_qs.exists():
+            recap_blocks = [recap.recap for recap in recaps_qs if recap.recap]
+            append_section("Recaps", "\n\n".join(recap_blocks))
+
+        images_qs = self.images.filter(is_deleted=False, status="finished").order_by("created_at")
+        if images_qs.exists():
+            image_lines = []
+            for image in images_qs:
+                image_name = getattr(image.image, "name", "") or ""
+                thumbnail_name = getattr(image.thumbnail, "name", "") or ""
+                line = f"- Image: {image_name}" if image_name else "- Image"
+                if thumbnail_name:
+                    line = f"{line}\n  Thumbnail: {thumbnail_name}"
+                image_lines.append(line)
+            append_section("Images", "\n".join(image_lines))
+
+        tweets_qs = self.tweets.filter(is_deleted=False).order_by("created_at")
+        if tweets_qs.exists():
+            tweet_lines = []
+            for tweet in tweets_qs:
+                tweet_lines.append(f"- {tweet.url}\n  {tweet.html}")
+            append_section("Tweets", "\n".join(tweet_lines))
+
+        videos_qs = self.youtube_videos.filter(is_deleted=False, status="finished").order_by("created_at")
+        if videos_qs.exists():
+            video_lines = []
+            for video in videos_qs:
+                description = video.description or ""
+                title = video.title or "Video"
+                line = f"- {title}: {video.url or video.video_id}"
+                if description:
+                    line = f"{line}\n  {description}"
+                video_lines.append(line)
+            append_section("Videos", "\n".join(video_lines))
+
+        data_qs = self.datas.filter(is_deleted=False).order_by("created_at")
+        if data_qs.exists():
+            data_sections = []
+            for dataset in data_qs:
+                name = dataset.name or "Dataset"
+                explanation = dataset.explanation or ""
+                try:
+                    data_payload = json.dumps(dataset.data, indent=2, sort_keys=True)
+                except TypeError:
+                    data_payload = str(dataset.data)
+                sources = dataset.sources or []
+                sources_repr = ""
+                if sources:
+                    try:
+                        sources_repr = json.dumps(sources, ensure_ascii=False)
+                    except TypeError:
+                        sources_repr = str(sources)
+                section_lines = [f"### {name}", data_payload]
+                if explanation:
+                    section_lines.insert(1, explanation)
+                if sources_repr:
+                    section_lines.append(f"Sources: {sources_repr}")
+                data_sections.append("\n\n".join(section_lines))
+            append_section("Data", "\n\n".join(data_sections))
+
+        insights_qs = self.data_insights.filter(is_deleted=False).order_by("created_at")
+        if insights_qs.exists():
+            insight_lines = []
+            for insight in insights_qs:
+                sources = insight.sources.all()
+                source_names = [source.name or "Dataset" for source in sources]
+                line = insight.insight
+                if source_names:
+                    line = f"{line}\n  Sources: {', '.join(source_names)}"
+                insight_lines.append(f"- {line}")
+            append_section("Data Insights", "\n".join(insight_lines))
+
+        visualizations_qs = self.data_visualizations.filter(is_deleted=False).select_related("insight").order_by("created_at")
+        if visualizations_qs.exists():
+            visualization_sections = []
+            for visualization in visualizations_qs:
+                try:
+                    chart_payload = json.dumps(visualization.chart_data, indent=2, sort_keys=True)
+                except TypeError:
+                    chart_payload = str(visualization.chart_data)
+                title = visualization.chart_type.title() if visualization.chart_type else "Visualization"
+                section_lines = [f"### {title}", chart_payload]
+                if visualization.insight_id and visualization.insight:
+                    section_lines.insert(1, f"Insight: {visualization.insight.insight}")
+                visualization_sections.append("\n\n".join(section_lines))
+            append_section("Data Visualizations", "\n\n".join(visualization_sections))
+
+        return "".join(parts)
+
+    def _context_has_substance(self, context: str) -> bool:
+        """Return ``True`` when the provided context contains useful content."""
+
+        if not context:
+            return False
+
+        stripped = context.strip()
+        if not stripped:
+            return False
+
+        # ``build_context`` always prefixes a markdown heading. Strip heading
+        # characters to detect whether any substantive text remains.
+        return bool(stripped.strip("# \n\t"))
 
     def get_embedding(self, force: bool = False):
         """
@@ -325,20 +494,27 @@ class Topic(models.Model):
         if not force and self.embedding is not None and len(self.embedding) > 0:
             return self.embedding
 
+        context = self.build_context()
+        if not self._context_has_substance(context):
+            return None
+
         with OpenAI() as client:
             embedding = client.embeddings.create(
-                input=self.build_context(),
+                input=context,
                 model='text-embedding-3-small'
             ).data[0].embedding
         return embedding
 
-    @cached_property
     def get_similar_topics(self, limit=5):
-        return (Topic.objects
-                .exclude(id=self.id)
-                .exclude(embedding__isnull=True)
-                .filter(status='published')
-                .order_by(L2Distance('embedding', self.embedding))[:limit])
+        if self.embedding is None:
+            return Topic.objects.none()
+        return (
+            Topic.objects
+            .exclude(id=self.id)
+            .exclude(embedding__isnull=True)
+            .filter(status='published')
+            .order_by(L2Distance('embedding', self.embedding))[:limit]
+        )
 
     def clone_for_user(self, user):
         """Create a draft copy of this topic for the given user.
@@ -424,7 +600,60 @@ class Topic(models.Model):
                 created_by=user,
             )
 
+        for link in self.topic_related_topics.filter(is_deleted=False):
+            RelatedTopic.objects.create(
+                topic=cloned,
+                related_topic=link.related_topic,
+                source=link.source,
+                created_by=user,
+            )
+
         return cloned
+
+
+class RelatedTopic(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        AUTO = "auto", "Automatic"
+
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="topic_related_topics",
+    )
+    related_topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="incoming_related_topic_links",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_topic_related_topics",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["topic", "related_topic"],
+                name="unique_topic_related_topic",
+            )
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.topic} → {self.related_topic}"
 
 
 class TopicContent(models.Model):

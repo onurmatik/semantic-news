@@ -75,13 +75,12 @@
     <div class="d-flex align-items-start">
 
         {% if topic.status == 'draft' or topic.status == 'published' %}
-            <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-topic-publish-button="true" data-status="published" {% if not topic.has_unpublished_changes %}disabled{% endif %}>
-                {% if topic.last_published_at %}
-                    {% trans "Re-publish" %}
-                {% else %}
-                    {% trans "Publish" %}
-                {% endif %}
-            </button>
+            <a
+                class="btn btn-outline-primary btn-sm me-1"
+                href="{% url 'topics_detail_preview' topic_uuid=topic.uuid username=topic.created_by.username %}"
+            >
+                {% trans "Preview" %}
+            </a>
         {% endif %}
 
         <a class="btn btn-outline-secondary btn-sm align-self-start" href="{{ topic.get_absolute_url }}">
@@ -197,6 +196,7 @@
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/topic_title.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
+    <script src="{% static 'topics/related_topics.js' %}"></script>
     <script src="{% static 'topics/layout.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/data/scripts.html" %}

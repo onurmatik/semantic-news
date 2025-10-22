@@ -114,6 +114,19 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["latest_relation", "relations_json", "topic"],
     },
+    "related_topics": {
+        "templates": {
+            "detail": {
+                "template": "topics/related_topics/detail_card.html",
+                "context": {"edit_mode": False},
+            },
+            "edit": {
+                "template": "topics/related_topics/edit_card.html",
+                "context": {"edit_mode": True},
+            },
+        },
+        "context_keys": ["related_topic_links", "topic"],
+    },
     "related_events": {
         "templates": {
             "detail": {
@@ -188,19 +201,24 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 6,
     },
     {
-        "module_key": "related_events",
+        "module_key": "related_topics",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 7,
+        "display_order": 11,
     },
     {
-        "module_key": "timeline",
+        "module_key": "related_events",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 8,
     },
     {
-        "module_key": "documents",
+        "module_key": "timeline",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 9,
+    },
+    {
+        "module_key": "documents",
+        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
+        "display_order": 10,
     },
 ]
 
@@ -248,6 +266,8 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         TopicModuleLayout.PLACEMENT_PRIMARY: [],
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
+
+    related_topic_modules: List[Dict[str, object]] = []
 
     text_manager = getattr(topic, "texts", None)
     if text_manager is not None:
@@ -370,13 +390,15 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
                 placements.setdefault(placement, []).append(descriptor)
             continue
 
+        placement = entry["placement"]
+        display_order = entry["display_order"]
         context_overrides = dict(template_config.get("context", {}))
         descriptor = {
             "module_key": module_key,
             "base_module_key": base_key,
             "module_identifier": identifier,
-            "placement": entry["placement"],
-            "display_order": entry["display_order"],
+            "placement": placement,
+            "display_order": display_order,
             "template_name": template_config.get("template"),
             "context_overrides": context_overrides,
             "context_keys": registry_entry.get("context_keys", []),
@@ -411,7 +433,25 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
             descriptor["visualization"] = viz
             explicit_visualization_ids.add(identifier)
 
-        placements.setdefault(entry["placement"], []).append(descriptor)
+        if base_key == "related_topics":
+            descriptor["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            related_topic_modules.append(descriptor)
+            continue
+
+        placements.setdefault(placement, []).append(descriptor)
+
+    if related_topic_modules:
+        sidebar_modules = placements.setdefault(
+            TopicModuleLayout.PLACEMENT_SIDEBAR, []
+        )
+        base_order = max(
+            (module.get("display_order", 0) for module in sidebar_modules),
+            default=0,
+        )
+        for offset, module in enumerate(related_topic_modules, start=1):
+            module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            module["display_order"] = base_order + offset
+            sidebar_modules.append(module)
 
     for modules in placements.values():
         modules.sort(key=lambda module: module["display_order"])

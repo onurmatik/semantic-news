@@ -145,12 +145,21 @@
       }
     }
 
-    function handleDragStart(event) {
-      const target = event.currentTarget;
+    function handleDragStart(event, moduleOverride = null) {
+      const target = moduleOverride || event.currentTarget;
+      if (!(target instanceof Element)) {
+        return;
+      }
       draggedModule = target;
       target.classList.add('topic-module--dragging');
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', target.dataset.module || '');
+      if (event.dataTransfer.setDragImage) {
+        const rect = target.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        event.dataTransfer.setDragImage(target, offsetX, offsetY);
+      }
     }
 
     function handleDragEnd() {
@@ -283,6 +292,11 @@
       const handle = document.createElement('span');
       handle.className = 'topic-module-handle bi bi-grip-vertical';
       handle.title = 'Drag to reorder';
+      handle.setAttribute('draggable', 'true');
+      handle.addEventListener('dragstart', (event) => {
+        handleDragStart(event, moduleEl);
+      });
+      handle.addEventListener('dragend', handleDragEnd);
       controls.appendChild(handle);
 
       const moveUpButton = document.createElement('button');
@@ -352,9 +366,6 @@
     }
 
     function initModule(moduleEl) {
-      moduleEl.setAttribute('draggable', 'true');
-      moduleEl.addEventListener('dragstart', handleDragStart);
-      moduleEl.addEventListener('dragend', handleDragEnd);
       moduleEl.addEventListener('dragover', handleDragOver);
       moduleEl.addEventListener('dragleave', handleDragLeave);
       moduleEl.addEventListener('drop', handleDrop);
