@@ -33,20 +33,62 @@
 
         </h3>
 
-        <h1 class="fs-3 d-flex align-items-center">
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+            <h1 class="fs-3 mb-0" data-topic-title-display-wrapper>
+                <span id="topicTitleDisplay" data-untitled="{% trans "Untitled" %}">
+                    {{ topic.display_title }}
+                </span>
+            </h1>
+            <button
+                type="button"
+                class="btn btn-link btn-sm text-decoration-none px-0"
+                id="topicTitleEditToggle"
+            >
+                <i class="bi bi-pencil me-1" aria-hidden="true"></i>
+                {% trans "Edit title" %}
+            </button>
+        </div>
 
-            <span id="topicTitleDisplay" data-untitled="{% trans "Untitled" %}">
-                {{ topic.display_title }}
-            </span>
-
-            <small class="fs-5 ms-2">
-                <a href="#" class="text-info-emphasis bi bi-pencil"
-                   data-bs-toggle="modal"
-                   data-bs-target="#editTopicTitleModal"
-                ></a>
-            </small>
-
-        </h1>
+        <div class="card mt-3 d-none" id="topicTitleEditor" data-topic-title-editor>
+            <div class="card-body">
+                <form id="topicTitleForm" novalidate>
+                    <label class="form-label" for="topicTitleInput">{% trans "Topic title" %}</label>
+                    <div class="input-group mb-2">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="topicTitleInput"
+                            name="title"
+                            value="{{ topic.title|default_if_none:'' }}"
+                            maxlength="200"
+                            autocomplete="off"
+                        >
+                        <button
+                            class="btn btn-outline-secondary"
+                            type="button"
+                            id="topicTitleSuggestBtn"
+                            data-default-label="{% trans "Suggest" %}"
+                            data-loading-label="{% trans "Suggesting…" %}"
+                        >
+                            <i class="bi bi-stars" aria-hidden="true"></i>
+                            <span class="ms-1" data-topic-title-suggest-label>{% trans "Suggest" %}</span>
+                        </button>
+                    </div>
+                    <div class="invalid-feedback d-none" id="editTopicTitleError"></div>
+                    <div
+                        class="mt-3 d-none"
+                        id="topicTitleSuggestions"
+                        data-no-results-message="{% trans "No suggestions yet." %}"
+                    >
+                        <div class="list-group" id="topicTitleSuggestionsList"></div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">{% trans "Save title" %}</button>
+                        <button type="button" class="btn btn-outline-secondary" id="topicTitleCancelBtn">{% trans "Cancel" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <div class="d-flex align-items-center">
 
@@ -93,36 +135,14 @@
 
 </div>
 
-<div class="alert alert-warning p-2" role="toolbar">
-
-    <div class="d-flex justify-content-between">
-
-        <div class="gap-2">
-            {% include "topics/recaps/button.html" %}
-            {% include "topics/data/button.html" %}
-            {% include "topics/documents/button.html" %}
-            {% include "topics/text/button.html" %}
-            {% include "topics/images/button.html" %}
-            {% include "topics/embeds/button.html" %}
-            {% include "topics/relations/button.html" %}
-            {% include "topics/timeline/button.html" %}
-            {% if mcp_servers %}
-                {% include "topics/mcps/button.html" %}
-            {% endif %}
-        </div>
-
-        <div class="gap-2">
-            <span class="small text-secondary mx-2">
-                {% if topic.status == "published" and topic.last_published_at %}
-                    {% blocktrans with published_on=topic.last_published_at|date published_ago=topic.last_published_at|timesince %}Published on {{ published_on }}; {{ published_ago }} ago.{% endblocktrans %}
-                {% else %}
-                    {% blocktrans with topic_status=topic.status %}This topic is {{ topic_status }}.{% endblocktrans %}
-                {% endif %}
-            </span>
-        </div>
-
-    </div>
-
+<div class="alert alert-warning d-flex justify-content-between align-items-center p-2 flex-wrap gap-2">
+    <span class="small text-secondary">
+        {% if topic.status == "published" and topic.last_published_at %}
+            {% blocktrans with published_on=topic.last_published_at|date published_ago=topic.last_published_at|timesince %}Published on {{ published_on }}; {{ published_ago }} ago.{% endblocktrans %}
+        {% else %}
+            {% blocktrans with topic_status=topic.status %}This topic is {{ topic_status }}.{% endblocktrans %}
+        {% endif %}
+    </span>
 </div>
 
 <div
@@ -148,7 +168,6 @@
         {% endfor %}
 
         {% include "topics/images/confirm_delete.html" %}
-        {% include "topics/recaps/confirm_delete.html" %}
         {% include "topics/text/confirm_delete.html" %}
         {% include "topics/relations/confirm_delete.html" %}
         {% include "topics/timeline/confirm_delete.html" %}
@@ -175,10 +194,8 @@
 </div>
 
 
-{% include "topics/topic_title_modal.html" %}
 {% include "topics/mcps/modal.html" %}
 {% include "topics/documents/modal.html" %}
-{% include "topics/recaps/modal.html" %}
 {% include "topics/data/modal.html" %}
 {% include "topics/data/analyze_modal.html" %}
 {% include "topics/data/visualize_modal.html" %}

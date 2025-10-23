@@ -1,35 +1,21 @@
 {% load i18n markdown_extras %}
-<div class="my-3{% if edit_mode %} card{% endif %}" id="topicRecapContainer"
-     {% if not latest_recap or not latest_recap.recap %}style="display:none;"{% endif %}>
-    {% if edit_mode %}
-        <div class="card-header d-flex align-items-center">
-            <h6 class="fs-5 mb-0">{% trans "Recap" %}</h6>
-
-            <div class="d-flex align-items-center gap-2 ms-auto">
-                <div class="d-flex align-items-center gap-2" id="recapPager" style="display:none;">
-                    <span class="small text-secondary me-2" id="recapCreatedAt"></span>
-                    <button class="btn btn-sm btn-outline-secondary d-none" id="recapPrev" data-show-when-multiple
-                            aria-label="{% trans 'Previous recap' %}">&lt;
-                    </button>
-                    <span class="small text-secondary d-none" id="recapPagerLabel" data-show-when-multiple>0/0</span>
-                    <button class="btn btn-sm btn-outline-secondary d-none" id="recapNext" data-show-when-multiple
-                            aria-label="{% trans 'Next recap' %}">&gt;
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
-                            aria-label="{% trans 'Delete recap' %}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-                <div class="d-flex align-items-center gap-2" data-topic-module-header-actions></div>
-            </div>
-        </div>
-    {% endif %}
-
-    <div{% if edit_mode %} class="card-body"{% endif %}>
+{% if edit_mode %}
+    {% with validation_id="recapStatusMessage" %}
+        {% include "topics/widgets/editor_card.html" with
+            widget_key="recap"
+            widget_id="topicRecapContainer"
+            title=_("Recap")
+            actions_template="topics/recaps/editor_actions.html"
+            validation_template="topics/widgets/validation_state.html"
+            content_template="topics/recaps/editor_content.html"
+        %}
+    {% endwith %}
+{% else %}
+    <div class="my-3" id="topicRecapContainer">
         <div id="topicRecapText">
             {% if latest_recap and latest_recap.recap %}
                 {{ latest_recap.recap|markdownify }}
             {% endif %}
         </div>
     </div>
-</div>
+{% endif %}
