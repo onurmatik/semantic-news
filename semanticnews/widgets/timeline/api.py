@@ -9,12 +9,12 @@ from ninja.errors import HttpError
 from django.db.models import F, Value
 from pgvector.django import CosineDistance
 
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from semanticnews.agenda.localities import get_locality_label, resolve_locality_code
 
-from ....agenda.models import Category, Event, Source
+from semanticnews.agenda.models import Category, Event, Source
 from .models import TopicEvent
-from ....openai import OpenAI
+from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
 

@@ -10,7 +10,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import Field
 
-from ...models import Topic, TopicModuleLayout
+from semanticnews.topics.models import Topic, TopicModuleLayout
 from .models import (
     TopicData,
     TopicDataInsight,

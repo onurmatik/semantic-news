@@ -2,7 +2,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 import requests
 
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from .models import MCPServer
 
 router = Router()

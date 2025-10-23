@@ -11,7 +11,7 @@ from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from .models import TopicDocument, TopicWebpage
 
 

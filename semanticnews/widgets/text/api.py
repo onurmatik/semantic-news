@@ -12,7 +12,7 @@ from ninja.errors import HttpError
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from ...models import Topic, TopicModuleLayout
+from semanticnews.topics.models import Topic, TopicModuleLayout
 from .models import TopicText
 
 router = Router()

@@ -5,9 +5,9 @@ from django.conf import settings
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from django.utils.timezone import make_naive
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from .models import TopicEntityRelation
-from ....openai import OpenAI
+from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
 router = Router()
