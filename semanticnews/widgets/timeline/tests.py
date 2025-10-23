@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from semanticnews.agenda.models import Event
 from semanticnews.topics.models import Topic
-from semanticnews.topics.utils.timeline.models import TopicEvent
+from semanticnews.widgets.timeline.models import TopicEvent
 
 
 class TimelineCreateAPITests(TestCase):

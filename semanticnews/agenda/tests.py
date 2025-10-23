@@ -444,7 +444,7 @@ class EventDetailTopicTests(TestCase):
     def test_event_detail_shows_topics(self):
         from datetime import date
         from semanticnews.topics.models import Topic
-        from semanticnews.topics.utils.timeline.models import TopicEvent
+        from semanticnews.widgets.timeline.models import TopicEvent
 
         event = Event.objects.create(
             title="My Event",
@@ -571,8 +571,8 @@ class EventListRelatedTopicsTests(TestCase):
         from datetime import date
         from semanticnews.topics.models import Topic
         from semanticnews.topics.publishing.models import TopicPublication
-        from semanticnews.topics.utils.recaps.models import TopicRecap
-        from semanticnews.topics.utils.timeline.models import TopicEvent
+        from semanticnews.widgets.recaps.models import TopicRecap
+        from semanticnews.widgets.timeline.models import TopicEvent
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")
@@ -623,8 +623,8 @@ class EventDetailRelatedTopicsTests(TestCase):
         from datetime import date
         from semanticnews.topics.models import Topic
         from semanticnews.topics.publishing.models import TopicPublication
-        from semanticnews.topics.utils.recaps.models import TopicRecap
-        from semanticnews.topics.utils.timeline.models import TopicEvent
+        from semanticnews.widgets.recaps.models import TopicRecap
+        from semanticnews.widgets.timeline.models import TopicEvent
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")

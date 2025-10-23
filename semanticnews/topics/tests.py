@@ -18,12 +18,12 @@ from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
 from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout, RelatedTopic
-from .utils.timeline.models import TopicEvent
+from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
-from .utils.recaps.models import TopicRecap
-from .utils.images.models import TopicImage
-from .utils.mcps.models import MCPServer
-from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.mcps.models import MCPServer
+from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .publishing.service import publish_topic
 
 
@@ -562,7 +562,7 @@ class SetTopicStatusAPITests(TestCase):
 class CreateRecapAPITests(TestCase):
     """Tests for the recap creation API endpoint."""
 
-    @patch("semanticnews.topics.utils.recaps.api.OpenAI")
+    @patch("semanticnews.widgets.recaps.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
@@ -612,7 +612,7 @@ class CreateRecapAPITests(TestCase):
 class AnalyzeDataAPITests(TestCase):
     """Tests for the data analysis API endpoint."""
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
@@ -648,7 +648,7 @@ class AnalyzeDataAPITests(TestCase):
         self.assertIn("Focus on anomalies", kwargs["input"])
         self.assertIn(get_default_language_instruction(), kwargs["input"])
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
@@ -680,7 +680,7 @@ class AnalyzeDataAPITests(TestCase):
         self.assertEqual(response.json(), {"insights": ["I1", "I2"]})
         self.assertEqual(topic.data_insights.count(), 0)
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
@@ -756,7 +756,7 @@ class AnalyzeDataAPITests(TestCase):
 class VisualizeDataAPITests(TestCase):
     """Tests for the data visualization API endpoint."""
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     def test_creates_visualization(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
@@ -806,7 +806,7 @@ class VisualizeDataAPITests(TestCase):
         called_kwargs = mock_client.responses.parse.call_args.kwargs
         self.assertIn("Highlight revenue trends.", called_kwargs["input"])
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     def test_creates_visualization_with_chart_type(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
@@ -850,7 +850,7 @@ class VisualizeDataAPITests(TestCase):
         )
         self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
 
-    @patch("semanticnews.topics.utils.data.api.OpenAI")
+    @patch("semanticnews.widgets.data.api.OpenAI")
     def test_visualizes_custom_insight(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client

@@ -7,9 +7,9 @@ class TopicsConfig(AppConfig):
 
     def ready(self):
         # Ensure submodule models are imported so Django sees them for migrations.
-        # from .utils.recaps import models  # noqa: F401
-        from .utils.images import models  # noqa: F401
-        from .utils.arguments import models  # noqa: F401
-        from .utils.documents import models  # noqa: F401
-        from .utils.timeline import models  # noqa: F401
+        # from semanticnews.widgets.recaps import models  # noqa: F401
+        from semanticnews.widgets.images import models  # noqa: F401
+        from semanticnews.widgets.arguments import models  # noqa: F401
+        from semanticnews.widgets.documents import models  # noqa: F401
+        from semanticnews.widgets.timeline import models  # noqa: F401
         from . import signals  # noqa: F401

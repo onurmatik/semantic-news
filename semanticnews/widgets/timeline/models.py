@@ -2,7 +2,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
-from ....utils import get_relevance
+from semanticnews.utils import get_relevance
 
 
 class TopicEvent(models.Model):

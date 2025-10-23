@@ -3,7 +3,7 @@ from django.db.models import Q, Prefetch
 from django.contrib.auth.models import User
 
 from ..topics.models import Topic, TopicContent
-from ..topics.utils.data.models import TopicDataVisualization
+from ..widgets.data.models import TopicDataVisualization
 from ..profiles.models import Profile
 
 

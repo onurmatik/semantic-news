@@ -21,17 +21,17 @@ from .layouts import (
     serialize_layout,
     _split_module_key,
 )
-from .utils.timeline.models import TopicEvent
-from .utils.timeline.api import router as timeline_router
-from .utils.recaps.api import router as recaps_router
-from .utils.mcps.api import router as mcps_router
-from .utils.images.api import router as images_router
-from .utils.embeds.api import router as embeds_router
-from .utils.relations.api import router as relations_router
-from .utils.data.api import router as data_router
-from .utils.documents.api import router as documents_router
-from .utils.text.api import router as text_router
-from .utils.data.models import (
+from semanticnews.widgets.timeline.models import TopicEvent
+from semanticnews.widgets.timeline.api import router as timeline_router
+from semanticnews.widgets.recaps.api import router as recaps_router
+from semanticnews.widgets.mcps.api import router as mcps_router
+from semanticnews.widgets.images.api import router as images_router
+from semanticnews.widgets.embeds.api import router as embeds_router
+from semanticnews.widgets.relations.api import router as relations_router
+from semanticnews.widgets.data.api import router as data_router
+from semanticnews.widgets.documents.api import router as documents_router
+from semanticnews.widgets.text.api import router as text_router
+from semanticnews.widgets.data.models import (
     TopicDataRequest,
     TopicDataAnalysisRequest,
     TopicDataVisualizationRequest,

@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 
-class ArgumentsConfig(AppConfig):
+class EmbedsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'semanticnews.topics.utils.arguments'
+    name = 'semanticnews.widgets.embeds'
     app_label = 'topics'

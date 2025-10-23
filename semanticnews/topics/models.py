@@ -13,13 +13,13 @@ from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
 from ..utils import get_relevance
-from .utils.recaps.models import TopicRecap
-from .utils.text.models import TopicText
-from .utils.images.models import TopicImage
-from .utils.embeds.models import TopicYoutubeVideo
-from .utils.relations.models import TopicEntityRelation
-from .utils.documents.models import TopicDocument, TopicWebpage
-from .utils.timeline.models import TopicEvent
+from ..widgets.recaps.models import TopicRecap
+from ..widgets.text.models import TopicText
+from ..widgets.images.models import TopicImage
+from ..widgets.embeds.models import TopicYoutubeVideo
+from ..widgets.relations.models import TopicEntityRelation
+from ..widgets.documents.models import TopicDocument, TopicWebpage
+from ..widgets.timeline.models import TopicEvent
 
 
 class TopicModuleLayout(models.Model):

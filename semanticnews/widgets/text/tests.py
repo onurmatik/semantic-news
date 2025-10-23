@@ -52,7 +52,7 @@ class TopicTextAPITests(TestCase):
             TopicModuleLayout.objects.filter(topic=self.topic, module_key=f'text:{text.id}').exists()
         )
 
-    @patch('semanticnews.topics.utils.text.api.OpenAI')
+    @patch('semanticnews.widgets.text.api.OpenAI')
     def test_revise_text_returns_transformed_content(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
@@ -74,7 +74,7 @@ class TopicTextAPITests(TestCase):
         self.assertIn('Sample Topic', kwargs['input'])
         self.assertIn(get_default_language_instruction(), kwargs['input'])
 
-    @patch('semanticnews.topics.utils.text.api.OpenAI')
+    @patch('semanticnews.widgets.text.api.OpenAI')
     def test_shorten_text_returns_transformed_content(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client
@@ -94,7 +94,7 @@ class TopicTextAPITests(TestCase):
         self.assertIn('Shorten the text', kwargs['input'])
         self.assertIn(get_default_language_instruction(), kwargs['input'])
 
-    @patch('semanticnews.topics.utils.text.api.OpenAI')
+    @patch('semanticnews.widgets.text.api.OpenAI')
     def test_expand_text_returns_transformed_content(self, mock_openai):
         mock_client = MagicMock()
         mock_openai.return_value.__enter__.return_value = mock_client

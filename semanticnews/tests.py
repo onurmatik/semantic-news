@@ -10,9 +10,9 @@ from django.urls import reverse
 from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
 from semanticnews.agenda.models import Event
-from semanticnews.topics.utils.images.models import TopicImage
-from semanticnews.topics.utils.recaps.models import TopicRecap
-from semanticnews.topics.utils.data.models import TopicDataVisualization
+from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.widgets.data.models import TopicDataVisualization
 
 
 class PromptingInstructionTests(SimpleTestCase):
