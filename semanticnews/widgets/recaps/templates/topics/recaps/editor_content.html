@@ -7,16 +7,7 @@
     {% endif %}
 </div>
 <form id="recapForm">
-    {% include "topics/widgets/suggestion_prompt.html" with
-        textarea_id="recapInstructions"
-        textarea_name="instructions"
-        label=_("Add optional instructions for AI")
-        help_text=_("Describe what the recap should focus on before requesting a suggestion.")
-        rows=2
-        button_id="fetchRecapSuggestion"
-        button_label=_("Get AI suggestions")
-        button_loading_label=_("Fetching…")
-    %}
+    {% include "topics/widgets/suggestion_prompt.html" with textarea_id="recapInstructions" textarea_name="instructions" label=_("Add optional instructions for AI") help_text=_("Describe what the recap should focus on before requesting a suggestion.") rows=2 button_id="fetchRecapSuggestion" button_label=_("Get AI suggestions") button_loading_label=_("Fetching…") %}
     <label class="form-label" for="recapText">{% trans "Recap" %}</label>
     <textarea class="form-control" id="recapText" name="recap" rows="8">{% if latest_recap %}{{ latest_recap.recap }}{% endif %}</textarea>
     <div class="d-flex gap-2 mt-3">
