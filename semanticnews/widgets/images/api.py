@@ -9,9 +9,9 @@ from io import BytesIO
 from PIL import Image
 from django.core.files.base import ContentFile
 
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from .models import TopicImage
-from ....openai import OpenAI
+from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
 router = Router()

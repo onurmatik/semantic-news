@@ -10,7 +10,7 @@ from django.utils import timezone as django_timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from ...models import Topic
+from semanticnews.topics.models import Topic
 from .models import TopicTweet, TopicYoutubeVideo
 
 router = Router()

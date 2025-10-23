@@ -9,7 +9,7 @@ from django.utils import timezone
 from ninja import Schema
 from pydantic import Field
 
-from ....openai import OpenAI
+from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 from .models import (
     TopicData,
