@@ -19,9 +19,9 @@ from semanticnews.agenda.localities import (
 from .models import Topic, TopicModuleLayout, RelatedTopic
 from .layouts import annotate_module_content, get_layout_for_mode
 from .publishing.service import build_publication_context, build_publication_modules
-from .utils.timeline.models import TopicEvent
-from .utils.data.models import TopicDataVisualization
-from .utils.mcps.models import MCPServer
+from semanticnews.widgets.timeline.models import TopicEvent
+from semanticnews.widgets.data.models import TopicDataVisualization
+from semanticnews.widgets.mcps.models import MCPServer
 
 
 @login_required

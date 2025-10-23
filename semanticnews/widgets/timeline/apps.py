@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class TextConfig(AppConfig):
+class TimelineConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'semanticnews.topics.utils.text'
+    name = 'semanticnews.widgets.timeline'

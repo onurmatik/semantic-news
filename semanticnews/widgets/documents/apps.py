@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class RelationsConfig(AppConfig):
+class DocumentsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'semanticnews.topics.utils.relations'
+    name = 'semanticnews.widgets.documents'

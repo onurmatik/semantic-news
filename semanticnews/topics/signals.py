@@ -3,12 +3,12 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from .models import Topic, TopicContent
-from .utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
-from .utils.timeline.models import TopicEvent
-from .utils.recaps.models import TopicRecap
-from .utils.text.models import TopicText
-from .utils.images.models import TopicImage
-from .utils.relations.models import TopicEntityRelation
+from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from semanticnews.widgets.timeline.models import TopicEvent
+from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.widgets.text.models import TopicText
+from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.relations.models import TopicEntityRelation
 
 
 def touch_topic(topic_id):

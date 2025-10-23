@@ -12,7 +12,7 @@ from django.utils.translation import gettext as _
 from .forms import DisplayNameForm
 from .models import Profile
 from ..topics.models import Topic, TopicContent
-from ..topics.utils.data.models import TopicDataVisualization
+from ..widgets.data.models import TopicDataVisualization
 
 
 def user_list(request):

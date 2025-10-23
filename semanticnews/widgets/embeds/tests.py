@@ -13,7 +13,7 @@ class TopicTweetAPITests(TestCase):
     """Tests for embedding tweets."""
 
     @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
-    @patch('semanticnews.topics.utils.embeds.api.requests.get')
+    @patch('semanticnews.widgets.embeds.api.requests.get')
     def test_create_tweet_embed(self, mock_get, mock_embedding):
         User = get_user_model()
         user = User.objects.create_user('user', 'user@example.com', 'password')
@@ -41,7 +41,7 @@ class TopicTweetAPITests(TestCase):
         self.assertEqual(TopicTweet.objects.count(), 1)
 
     @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
-    @patch('semanticnews.topics.utils.embeds.api.requests.get')
+    @patch('semanticnews.widgets.embeds.api.requests.get')
     def test_prevents_duplicate_tweets(self, mock_get, mock_embedding):
         User = get_user_model()
         user = User.objects.create_user('user', 'user@example.com', 'password')
@@ -85,7 +85,7 @@ class TopicTweetAPITests(TestCase):
         self.assertEqual(response.status_code, 401)
 
     @patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536)
-    @patch('semanticnews.topics.utils.embeds.api.requests.get')
+    @patch('semanticnews.widgets.embeds.api.requests.get')
     def test_invalid_tweet_url(self, mock_get, mock_embedding):
         User = get_user_model()
         user = User.objects.create_user('user', 'user@example.com', 'password')
@@ -112,7 +112,7 @@ class TopicVideoEmbedAPITests(TestCase):
         with patch('semanticnews.topics.models.Topic.get_embedding', return_value=[0.0] * 1536):
             self.topic = Topic.objects.create(title='Test Topic', created_by=self.user)
 
-    @patch('semanticnews.topics.utils.embeds.api.yt_dlp.YoutubeDL.extract_info')
+    @patch('semanticnews.widgets.embeds.api.yt_dlp.YoutubeDL.extract_info')
     def test_add_video_embed(self, mock_extract_info):
         mock_extract_info.return_value = {
             'title': 'Sample Title',

@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
-from semanticnews.topics.utils.text.models import TopicText
+from semanticnews.widgets.text.models import TopicText
 
 
 class SuggestTopicsAPITests(TestCase):

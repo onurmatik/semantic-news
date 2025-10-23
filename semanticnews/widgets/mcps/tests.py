@@ -9,7 +9,7 @@ from .models import MCPServer
 class MCPContextAPITests(TestCase):
     """Tests for the MCP context API endpoint."""
 
-    @patch("semanticnews.topics.utils.mcps.api.requests.post")
+    @patch("semanticnews.widgets.mcps.api.requests.post")
     def test_fetches_context(self, mock_post):
         User = get_user_model()
         user = User.objects.create_user("user", "user@example.com", "password")

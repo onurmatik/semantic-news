@@ -128,7 +128,7 @@ class TopicDocumentAPITests(TestCase):
         self.embedding_patcher.start()
         self.addCleanup(self.embedding_patcher.stop)
 
-        self.requests_patcher = patch('semanticnews.topics.utils.documents.api.requests.get')
+        self.requests_patcher = patch('semanticnews.widgets.documents.api.requests.get')
         self.mock_requests_get = self.requests_patcher.start()
         self.addCleanup(self.requests_patcher.stop)
         self.mock_requests_get.return_value = build_mock_html_response()
@@ -273,7 +273,7 @@ class TopicWebpageAPITests(TestCase):
         self.embedding_patcher.start()
         self.addCleanup(self.embedding_patcher.stop)
 
-        self.requests_patcher = patch('semanticnews.topics.utils.documents.api.requests.get')
+        self.requests_patcher = patch('semanticnews.widgets.documents.api.requests.get')
         self.mock_requests_get = self.requests_patcher.start()
         self.addCleanup(self.requests_patcher.stop)
         self.mock_requests_get.return_value = build_mock_html_response()

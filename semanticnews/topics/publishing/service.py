@@ -20,14 +20,14 @@ from ..layouts import (
     _split_module_key,
 )
 from ..models import Topic, TopicModuleLayout, RelatedTopic
-from ..utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
-from ..utils.documents.models import TopicDocument, TopicWebpage
-from ..utils.embeds.models import TopicTweet, TopicYoutubeVideo
-from ..utils.images.models import TopicImage
-from ..utils.recaps.models import TopicRecap
-from ..utils.relations.models import TopicEntityRelation
-from ..utils.text.models import TopicText
-from ..utils.timeline.models import TopicEvent
+from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from semanticnews.widgets.documents.models import TopicDocument, TopicWebpage
+from semanticnews.widgets.embeds.models import TopicTweet, TopicYoutubeVideo
+from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.widgets.relations.models import TopicEntityRelation
+from semanticnews.widgets.text.models import TopicText
+from semanticnews.widgets.timeline.models import TopicEvent
 from .models import TopicPublication, TopicPublicationModule, TopicPublicationSnapshot
 
 
