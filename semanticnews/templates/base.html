@@ -227,7 +227,6 @@
 
 
 {% if request.user.is_authenticated %}
-    {% include "topics/topic_create_modal.html" %}
 {% endif %}
 
 <div aria-live="polite" aria-atomic="true" class="position-relative">
@@ -251,7 +250,6 @@
 
 
 {% if request.user.is_authenticated %}
-<script src="{% static 'topics/topic_create_modal.js' %}"></script>
 {% endif %}
 
 

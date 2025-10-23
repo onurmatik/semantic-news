@@ -141,6 +141,7 @@ window.setupTopicHistory = function (options) {
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
   const deleteSpinner = document.getElementById(`confirmDelete${capitalize(key)}Spinner`);
   const confirmModal = confirmModalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(confirmModalEl) : null;
+  const fallbackDeleteMessage = (messages && messages.deleteConfirm) || 'Are you sure you want to delete this item?';
 
   const container = document.querySelector('[data-topic-uuid]');
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
@@ -296,27 +297,55 @@ window.setupTopicHistory = function (options) {
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
     nextBtn && nextBtn.addEventListener('click', () => applyIndex(currentIndex + 1));
 
-    // delete flow
-    deleteBtn && deleteBtn.addEventListener('click', () => {
+    const executeDelete = async () => {
+      const item = current();
+      if (!item) return;
+      const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Delete failed');
+      window.location.reload(); // per requirement
+    };
+
+    const performDeleteWithUi = async ({ useUi = true } = {}) => {
+      const item = current();
+      if (!item) return;
+      if (useUi && confirmBtn) {
+        confirmBtn.disabled = true;
+        deleteSpinner && deleteSpinner.classList.remove('d-none');
+      }
+      try {
+        await executeDelete();
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        if (useUi && confirmBtn) {
+          confirmBtn.disabled = false;
+          deleteSpinner && deleteSpinner.classList.add('d-none');
+        }
+        confirmModal && confirmModal.hide();
+      }
+    };
+
+    deleteBtn && deleteBtn.addEventListener('click', async () => {
       if (!current()) return;
-      confirmModal && confirmModal.show();
+      if (confirmModal && confirmBtn) {
+        confirmModal.show();
+        return;
+      }
+      if (window.confirm(fallbackDeleteMessage)) {
+        try {
+          await performDeleteWithUi({ useUi: false });
+        } catch (e) {
+          // already logged in performDeleteWithUi
+        }
+      }
     });
 
     confirmBtn && confirmBtn.addEventListener('click', async () => {
-      const item = current();
-      if (!item) return;
-      confirmBtn.disabled = true;
-      deleteSpinner && deleteSpinner.classList.remove('d-none');
       try {
-        const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) throw new Error('Delete failed');
-        window.location.reload(); // per requirement
+        await performDeleteWithUi({ useUi: true });
       } catch (e) {
-        console.error(e);
         confirmModal && confirmModal.hide();
-      } finally {
-        confirmBtn.disabled = false;
-        deleteSpinner && deleteSpinner.classList.add('d-none');
       }
     });
   }
