@@ -6,8 +6,16 @@
     <span class="small text-secondary d-none" id="recapPagerLabel" data-show-when-multiple>0/0</span>
     <button class="btn btn-sm btn-outline-secondary d-none" id="recapNext" data-show-when-multiple
             aria-label="{% trans 'Next recap' %}">&gt;</button>
-    <button class="btn btn-sm btn-outline-danger" id="recapDeleteBtn"
-            aria-label="{% trans 'Delete recap' %}">
-        <i class="bi bi-trash"></i>
-    </button>
 </div>
+<button
+    type="button"
+    class="btn btn-outline-secondary btn-sm"
+    id="recapButton"
+    aria-label="{% trans 'Suggest recap' %}"
+>
+    <span id="recapSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+    <i id="recapErrorIcon" class="bi bi-exclamation-triangle-fill text-danger me-1 d-none" aria-hidden="true"></i>
+    <i id="recapSuccessIcon" class="bi bi-check-circle-fill text-success me-1 d-none" aria-hidden="true"></i>
+    <i class="bi bi-stars" aria-hidden="true"></i>
+    <span class="visually-hidden">{% trans "Suggest recap" %}</span>
+</button>

@@ -22,6 +22,7 @@ class TopicRecapCreateRequest(Schema):
     topic_uuid: str
     recap: Optional[str] = None
     instructions: Optional[str] = None
+    context: Optional[str] = None
 
 
 class TopicRecapCreateResponse(Schema):
@@ -62,7 +63,8 @@ def create_recap(request, payload: TopicRecapCreateRequest):
     # Create immediately; default status is "in_progress"
     recap_obj = TopicRecap.objects.create(topic=topic, recap="")
 
-    content_md = topic.build_context()
+    context_override = (payload.context or "").strip()
+    content_md = context_override or topic.build_context()
 
     prompt = (
         f"Below is a list of events and contents related to {topic.title}."
