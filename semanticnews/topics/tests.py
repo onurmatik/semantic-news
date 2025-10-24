@@ -1487,6 +1487,61 @@ class RelatedTopicPublishTests(TestCase):
         self.assertIsNotNone(link.published_at)
 
 
+class TopicPublishSnapshotImageTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "owner", "owner@example.com", "password"
+        )
+
+    def _create_topic(self):
+        topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        TopicRecap.objects.create(topic=topic, recap="Summary", status="finished")
+        return topic
+
+    def _create_image(self, topic, **overrides):
+        image_bytes = (
+            b"\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
+            b"\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        defaults = {
+            "image": SimpleUploadedFile("test.gif", image_bytes, content_type="image/gif"),
+            "status": "finished",
+            "is_hero": False,
+        }
+        defaults.update(overrides)
+        return TopicImage.objects.create(topic=topic, **defaults)
+
+    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_publish_excludes_cleared_hero_image(
+        self, _mock_embedding, _mock_similar
+    ):
+        topic = self._create_topic()
+        self._create_image(topic, is_hero=False)
+
+        publication = publish_topic(topic, self.owner)
+
+        self.assertIsNone(publication.context_snapshot.get("image"))
+        self.assertEqual(len(publication.context_snapshot.get("images", [])), 1)
+        self.assertFalse(publication.context_snapshot["images"][0].get("is_hero"))
+
+    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_publish_marks_active_hero_image(
+        self, _mock_embedding, _mock_similar
+    ):
+        topic = self._create_topic()
+        self._create_image(topic, is_hero=True)
+
+        publication = publish_topic(topic, self.owner)
+
+        hero_image = publication.context_snapshot.get("image")
+        self.assertIsNotNone(hero_image)
+        self.assertTrue(hero_image.get("is_hero"))
+        self.assertTrue(publication.context_snapshot["images"][0].get("is_hero"))
+
+
 class RelatedTopicsAPITests(TestCase):
     def setUp(self):
         self.User = get_user_model()
