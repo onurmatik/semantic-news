@@ -1,28 +1,102 @@
+function normalizeTitle(value, fallback = '') {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  return trimmed || fallback;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  const modalEl = document.getElementById('editTopicTitleModal');
   const topicEl = document.querySelector('[data-topic-uuid]');
-  if (!modalEl || !topicEl) {
+  const form = document.getElementById('topicTitleForm');
+  const input = document.getElementById('topicTitleInput');
+  const errorEl = document.getElementById('editTopicTitleError');
+  const suggestBtn = document.getElementById('topicTitleSuggestBtn');
+  const statusIcon = document.getElementById('topicTitleStatusIcon');
+  const statusText = document.getElementById('topicTitleStatusText');
+  const untitledLabel = input?.dataset?.untitled ?? '';
+
+  if (!topicEl || !form || !input) {
     return;
   }
 
-  const form = modalEl.querySelector('form');
-  if (!form) {
-    return;
-  }
+  const topicUuid = topicEl.dataset.topicUuid || '';
+  const maxLength = Number.parseInt(input.dataset.maxlength ?? '0', 10) || 0;
+  let isSaving = false;
+  let pendingTitle = null;
+  let inFlightTitle = null;
+  let statusResetTimeout = null;
 
-  const input = form.querySelector('input[name="title"]');
-  const errorEl = modalEl.querySelector('#editTopicTitleError');
-  const displayEl = document.getElementById('topicTitleDisplay');
-  const defaultTitle = displayEl?.dataset.untitled ?? '';
-  const suggestBtn = modalEl.querySelector('#topicTitleSuggestBtn');
-  const suggestionsContainer = modalEl.querySelector('#topicTitleSuggestions');
-  const suggestionsList = modalEl.querySelector('#topicTitleSuggestionsList');
+  const messageIdle = statusText?.dataset?.messageIdle || 'Title ready to edit.';
+  const messageSaving = statusText?.dataset?.messageSaving || 'Saving title…';
+  const messageSuccess = statusText?.dataset?.messageSuccess || 'Title saved.';
+  const messageError = statusText?.dataset?.messageError || 'Unable to update the topic title.';
+
+  const STATUS_STATES = {
+    idle: {
+      iconClass: 'bi bi-pencil text-secondary',
+      message: messageIdle,
+    },
+    saving: {
+      iconClass: 'spinner-border spinner-border-sm text-secondary',
+      message: messageSaving,
+    },
+    success: {
+      iconClass: 'bi bi-check-lg text-success',
+      message: messageSuccess,
+    },
+    error: {
+      iconClass: 'bi bi-x-lg text-danger',
+      message: messageError,
+    },
+  };
+
+  const updateStatus = (state, overrideMessage) => {
+    const status = STATUS_STATES[state] ?? STATUS_STATES.idle;
+    if (statusIcon) {
+      statusIcon.className = status.iconClass;
+    }
+    if (statusText) {
+      statusText.textContent = overrideMessage || status.message;
+    }
+
+    if (statusResetTimeout) {
+      window.clearTimeout(statusResetTimeout);
+      statusResetTimeout = null;
+    }
+
+    if (state === 'success' || state === 'error') {
+      statusResetTimeout = window.setTimeout(() => {
+        updateStatus('idle');
+      }, 4000);
+    }
+  };
+
+  const readResponseMessage = async (response, fallback) => {
+    let message = fallback;
+    try {
+      const data = await response.json();
+      if (typeof data?.detail === 'string' && data.detail.trim()) {
+        message = data.detail.trim();
+      }
+    } catch (jsonError) {
+      try {
+        const text = await response.text();
+        if (text && text.trim()) {
+          message = text.trim();
+        }
+      } catch (textError) {
+        console.error(textError);
+      }
+    }
+    return message;
+  };
 
   const clearError = () => {
     if (errorEl) {
       errorEl.classList.add('d-none');
       errorEl.textContent = '';
     }
+    input.classList.remove('border-danger');
+    input.classList.add('border-dark-subtle');
+    form.classList.remove('was-validated');
   };
 
   const showError = (message) => {
@@ -30,112 +104,100 @@ document.addEventListener('DOMContentLoaded', () => {
       errorEl.textContent = message;
       errorEl.classList.remove('d-none');
     }
+    input.classList.remove('border-dark-subtle');
+    input.classList.add('border-danger');
+    form.classList.add('was-validated');
   };
 
-  const resetSuggestBtn = () => {
-    if (!suggestBtn) {
-      return;
-    }
-    suggestBtn.disabled = false;
-    const defaultLabel = suggestBtn.dataset.defaultLabel || suggestBtn.textContent || '';
-    if (defaultLabel) {
-      suggestBtn.textContent = defaultLabel;
-    }
-  };
-
-  const setSuggestBtnLoading = (isLoading) => {
-    if (!suggestBtn) {
-      return;
-    }
-    suggestBtn.disabled = isLoading;
-    const label = isLoading
-      ? suggestBtn.dataset.loadingLabel || suggestBtn.dataset.defaultLabel || ''
-      : suggestBtn.dataset.defaultLabel || '';
-    if (label) {
-      suggestBtn.textContent = label;
+  const setDocumentTitle = (title) => {
+    const normalized = normalizeTitle(title, untitledLabel);
+    if (normalized) {
+      document.title = normalized;
     }
   };
 
-  const hideSuggestions = () => {
-    if (suggestionsContainer) {
-      suggestionsContainer.classList.add('d-none');
+  const getCurrentTitle = () => topicEl.dataset.topicTitle || '';
+
+  const applyPlaceholder = () => {
+    if (!untitledLabel) {
+      input.textContent = '';
+      input.dataset.placeholderActive = 'false';
+      input.classList.remove('text-secondary');
+      return;
     }
-    if (suggestionsList) {
-      suggestionsList.innerHTML = '';
+    input.textContent = untitledLabel;
+    input.dataset.placeholderActive = 'true';
+    input.classList.add('text-secondary');
+  };
+
+  const clearPlaceholder = () => {
+    if (input.dataset.placeholderActive === 'true') {
+      input.textContent = '';
+      input.dataset.placeholderActive = 'false';
+      input.classList.remove('text-secondary');
     }
   };
 
-  const renderSuggestions = (suggestions) => {
-    if (!suggestionsContainer || !suggestionsList) {
-      return;
-    }
-
-    suggestionsList.innerHTML = '';
-
-    if (!Array.isArray(suggestions) || suggestions.length === 0) {
-      const message = suggestionsContainer.dataset.noResultsMessage || '';
-      if (message) {
-        const item = document.createElement('div');
-        item.className = 'list-group-item text-body-secondary';
-        item.textContent = message;
-        suggestionsList.appendChild(item);
-        suggestionsContainer.classList.remove('d-none');
-      } else {
-        hideSuggestions();
-      }
-      return;
-    }
-
-    suggestions.forEach((suggestion) => {
-      if (typeof suggestion !== 'string' || !suggestion.trim()) {
-        return;
-      }
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'list-group-item list-group-item-action';
-      button.dataset.suggestion = suggestion;
-      button.textContent = suggestion;
-      suggestionsList.appendChild(button);
-    });
-
-    if (suggestionsList.childElementCount > 0) {
-      suggestionsContainer.classList.remove('d-none');
+  const syncInputWithDataset = () => {
+    const currentTitle = getCurrentTitle();
+    if (currentTitle) {
+      input.textContent = currentTitle;
+      input.dataset.placeholderActive = 'false';
+      input.classList.remove('text-secondary');
     } else {
-      hideSuggestions();
+      applyPlaceholder();
+    }
+    setDocumentTitle(currentTitle);
+  };
+
+  syncInputWithDataset();
+
+  const getInputValue = () =>
+    input.dataset.placeholderActive === 'true' ? '' : input.textContent.trim();
+
+  const enforceMaxLength = () => {
+    if (!maxLength) {
+      return;
+    }
+    const value = input.textContent ?? '';
+    if (value.length > maxLength) {
+      input.textContent = value.slice(0, maxLength);
+      const range = document.createRange();
+      const selection = window.getSelection();
+      range.selectNodeContents(input);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
     }
   };
 
-  modalEl.addEventListener('show.bs.modal', () => {
-    clearError();
-    hideSuggestions();
-    resetSuggestBtn();
-    if (input) {
-      input.value = topicEl.dataset.topicTitle ?? '';
-      requestAnimationFrame(() => {
-        input.focus();
-        input.select();
-      });
-    }
-  });
-
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!input) {
+  const processPendingSave = async () => {
+    if (isSaving) {
       return;
     }
 
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      submitBtn.disabled = true;
+    const nextTitle = pendingTitle;
+    if (nextTitle === null) {
+      return;
     }
-    clearError();
 
-    const payload = {
-      topic_uuid: topicEl.dataset.topicUuid,
-      title: input.value.trim(),
-    };
+    const currentTitle = getCurrentTitle();
+    if (nextTitle === currentTitle) {
+      pendingTitle = null;
+      return;
+    }
+
+    pendingTitle = null;
+    inFlightTitle = nextTitle;
+    clearError();
+    updateStatus('saving');
+    isSaving = true;
 
     try {
+      const payload = {
+        topic_uuid: topicUuid,
+        title: nextTitle,
+      };
       const response = await fetch('/api/topics/set-title', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,141 +205,133 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        let message = 'Unable to update the topic title.';
-        try {
-          const errorData = await response.json();
-          if (typeof errorData?.detail === 'string' && errorData.detail.trim()) {
-            message = errorData.detail;
-          }
-        } catch (jsonError) {
-          const text = await response.text();
-          if (text.trim()) {
-            message = text;
-          }
-        }
+        const message = await readResponseMessage(
+          response,
+          'Unable to update the topic title.'
+        );
         throw new Error(message);
       }
 
       const data = await response.json();
-      const newTitle = data.title ?? '';
-      topicEl.dataset.topicTitle = newTitle;
-
-      if (displayEl) {
-        displayEl.textContent = newTitle.trim() ? newTitle : defaultTitle;
-      }
-      if (newTitle.trim()) {
-        document.title = newTitle;
-      } else if (defaultTitle) {
-        document.title = defaultTitle;
-      }
-
-      const modalInstance =
-        bootstrap.Modal.getInstance(modalEl) ||
-        bootstrap.Modal.getOrCreateInstance(modalEl);
+      const updatedTitle = data.title ?? '';
+      topicEl.dataset.topicTitle = updatedTitle;
       if (typeof data.slug === 'string' && data.slug) {
         topicEl.dataset.topicSlug = data.slug;
       }
 
-      if (typeof data.edit_url === 'string' && data.edit_url && data.edit_url !== window.location.pathname) {
-        window.location.href = data.edit_url;
-        return;
-      }
+      syncInputWithDataset();
+      updateStatus('success');
 
-      if (modalInstance) {
-        modalInstance.hide();
+      if (
+        typeof data.edit_url === 'string' &&
+        data.edit_url &&
+        data.edit_url !== window.location.pathname
+      ) {
+        window.location.href = data.edit_url;
       }
     } catch (error) {
       console.error(error);
-      if (errorEl) {
-        errorEl.textContent = error.message || 'Unable to update the topic title.';
-        errorEl.classList.remove('d-none');
-      }
+      showError(error?.message || 'Unable to update the topic title.');
+      updateStatus('error', error?.message);
     } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
+      isSaving = false;
+      inFlightTitle = null;
+      if (pendingTitle !== null) {
+        void processPendingSave();
       }
+    }
+  };
+
+  const queueTitleSave = () => {
+    const newTitle = getInputValue();
+    const baselineTitle =
+      pendingTitle ?? inFlightTitle ?? getCurrentTitle();
+
+    if (newTitle === baselineTitle) {
+      return;
+    }
+
+    pendingTitle = newTitle;
+    void processPendingSave();
+  };
+
+  input.addEventListener('focus', () => {
+    clearPlaceholder();
+  });
+
+  input.addEventListener('blur', () => {
+    const value = getInputValue();
+    if (!value) {
+      applyPlaceholder();
+    }
+    queueTitleSave();
+  });
+
+  input.addEventListener('input', () => {
+    enforceMaxLength();
+    clearError();
+  });
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      input.blur();
     }
   });
 
-  if (suggestionsList) {
-    suggestionsList.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+  });
 
-      const suggestion = target.dataset?.suggestion;
-      if (!suggestion || !input) {
-        return;
-      }
-
-      input.value = suggestion;
-      input.focus();
-      const length = suggestion.length;
-      if (typeof input.setSelectionRange === 'function') {
-        input.setSelectionRange(length, length);
-      }
-    });
-  }
-
-  if (suggestBtn && input) {
+  if (suggestBtn) {
     suggestBtn.addEventListener('click', async () => {
-      const about = input.value.trim();
-      if (!about) {
-        showError(suggestBtn.dataset.emptyInputMessage || '');
-        input.focus();
-        return;
-      }
-
       clearError();
-      hideSuggestions();
-      setSuggestBtnLoading(true);
+      suggestBtn.disabled = true;
 
       try {
-        const params = new URLSearchParams({
-          about,
-          limit: '5',
-        });
+        const params = new URLSearchParams({ limit: '1' });
+        if (topicUuid) {
+          params.set('topic_uuid', topicUuid);
+        }
         const response = await fetch(`/api/topics/suggest?${params.toString()}`);
         if (!response.ok) {
-          let message = suggestBtn.dataset.genericErrorMessage || '';
-          try {
-            const raw = await response.text();
-            if (raw) {
-              try {
-                const data = JSON.parse(raw);
-                if (typeof data?.detail === 'string' && data.detail.trim()) {
-                  message = data.detail;
-                } else if (Array.isArray(data) && data.length > 0) {
-                  renderSuggestions(data);
-                  return;
-                }
-              } catch (parseError) {
-                if (raw.trim()) {
-                  message = raw;
-                }
-              }
-            }
-          } catch (readError) {
-            console.error(readError);
-          }
-          throw new Error(message || '');
+          const message = await readResponseMessage(
+            response,
+            'Unable to suggest a title.'
+          );
+          throw new Error(message);
         }
-
         const data = await response.json();
-        renderSuggestions(Array.isArray(data) ? data : []);
+        if (!Array.isArray(data) || data.length === 0) {
+          showError('No suggestions available yet.');
+          return;
+        }
+        const suggestion = data.find((item) => typeof item === 'string' && item.trim());
+        if (!suggestion) {
+          showError('No suggestions available yet.');
+          return;
+        }
+        clearPlaceholder();
+        input.textContent = suggestion;
+        input.focus();
+        const length = suggestion.length;
+        const range = document.createRange();
+        const selection = window.getSelection();
+        if (selection) {
+          range.selectNodeContents(input);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
       } catch (error) {
         console.error(error);
-        const message =
-          (error && typeof error.message === 'string' && error.message.trim())
-            ? error.message
-            : suggestBtn.dataset.genericErrorMessage || '';
-        if (message) {
-          showError(message);
-        }
+        showError(error?.message || 'Unable to suggest a title.');
+        updateStatus('error', error?.message || 'Unable to suggest a title.');
       } finally {
-        setSuggestBtnLoading(false);
+        suggestBtn.disabled = false;
       }
     });
   }
+
+  updateStatus('idle');
 });

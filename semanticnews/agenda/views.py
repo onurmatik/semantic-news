@@ -14,6 +14,8 @@ from semanticnews.agenda.localities import (
 
 from .models import Event, Category, Source
 from semanticnews.topics.models import Topic
+from semanticnews.widgets.data.models import TopicDataVisualization
+from semanticnews.widgets.recaps.models import TopicRecap
 
 
 DISTANCE_THRESHOLD = 1
@@ -29,11 +31,22 @@ def recent_event_list(request):
         .order_by("-updated_at", "-date", "-created_at")
     )
 
-    context = {"events": events}
-    if request.user.is_authenticated:
-        context["user_topics"] = Topic.objects.filter(created_by=request.user).order_by(
-            "-updated_at"
-        )
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
+    recent_topics = (
+        Topic.objects.filter(status="published")
+        .select_related("created_by", "latest_publication")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
+        .order_by("-updated_at", "-created_at")[:5]
+    )
+
+    context = {
+        "events": events,
+        "recent_topics": recent_topics,
+    }
 
     return render(request, "agenda/event_recent_list.html", context)
 
@@ -81,9 +94,30 @@ def event_detail(request, year, month, day, slug):
 
     localities = get_locality_options()
 
+    related_topics = (
+        Topic.objects.filter(
+            topicevent__event=obj,
+            topicevent__is_deleted=False,
+            status="published",
+        )
+        .select_related("latest_publication")
+        .prefetch_related(
+            Prefetch(
+                "recaps",
+                queryset=(
+                    TopicRecap.objects.filter(is_deleted=False, status="finished")
+                    .order_by("-created_at")
+                ),
+                to_attr="prefetched_recaps",
+            )
+        )
+        .order_by("-last_published_at", "-updated_at", "-created_at")
+        .distinct()[:10]
+    )
+
     context = {
         "event": obj,
-        "topics": obj.topics.all(),
+        "related_topics": related_topics,
         "similar_events": similar_events,
         "exclude_events": exclude_events,
         "localities": localities,
@@ -200,6 +234,29 @@ def event_list(request, year, month=None, day=None):
 
     localities = get_locality_options()
 
+    related_topics = Topic.objects.none()
+    if events.object_list:
+        related_topics = (
+            Topic.objects.filter(
+                topicevent__event__in=events.object_list,
+                topicevent__is_deleted=False,
+                status="published",
+            )
+            .select_related("latest_publication")
+            .prefetch_related(
+                Prefetch(
+                    "recaps",
+                    queryset=(
+                        TopicRecap.objects.filter(is_deleted=False, status="finished")
+                        .order_by("-created_at")
+                    ),
+                    to_attr="prefetched_recaps",
+                )
+            )
+            .order_by("-last_published_at", "-updated_at", "-created_at")
+            .distinct()[:10]
+        )
+
     context = {
         "events": events,
         "period": period,   # helpful for headings/breadcrumbs
@@ -212,6 +269,7 @@ def event_list(request, year, month=None, day=None):
         "domains": domains,
         "prev_url": prev_url,
         "next_url": next_url,
+        "related_topics": related_topics,
     }
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user)

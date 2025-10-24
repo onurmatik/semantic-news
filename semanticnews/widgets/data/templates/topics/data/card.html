@@ -1,0 +1,92 @@
+{% load i18n data_extras %}
+{% with dataset=data %}
+<div class="my-3{% if edit_mode %} card{% endif %}">
+    {% if edit_mode %}
+        <div class="card-header d-flex align-items-center">
+            <h6 class="fs-5 mb-0">{% trans "Data" %}</h6>
+            <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
+        </div>
+    {% endif %}
+    <div{% if edit_mode %} class="card-body"{% endif %}>
+        {% if dataset %}
+            {% with table=dataset.data %}
+                {% with headers=table.headers rows=table.rows %}
+                    {% if headers or rows %}
+                        <div class="table-responsive mb-3" data-scrollable-table style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm mb-0">
+                                {% if headers %}
+                                <thead class="table-light">
+                                    <tr>
+                                        {% for header in headers %}
+                                            <th>{{ header }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                {% endif %}
+                                <tbody>
+                                    {% if rows %}
+                                        {% for row in rows %}
+                                            <tr>
+                                                {% for cell in row %}
+                                                    <td>{{ cell }}</td>
+                                                {% endfor %}
+                                            </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td class="text-muted fst-italic"{% if headers %} colspan="{{ headers|length }}"{% endif %}>
+                                                {% trans "No rows available." %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted fst-italic mb-3">{% trans "This data table is empty." %}</p>
+                    {% endif %}
+                {% endwith %}
+            {% endwith %}
+
+            <p class="fw-semibold mb-2">
+                {% if dataset.name %}
+                    {{ dataset.name }}
+                {% else %}
+                    {{ dataset.created_at|date:"Y-m-d" }}
+                {% endif %}
+            </p>
+
+            {% if dataset.sources %}
+            <div class="small text-muted mb-2">
+                <strong>{% trans "Sources" %}:</strong>
+                <ul class="mb-0 ps-3">
+                    {% for source in dataset.sources %}
+                        <li><a href="{{ source }}" target="_blank" rel="noopener noreferrer">{{ source }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if dataset.explanation %}
+            <p class="small text-muted mb-0">{{ dataset.explanation }}</p>
+            {% endif %}
+        {% else %}
+            <p class="text-muted fst-italic mb-0">{% trans "This data table could not be found." %}</p>
+        {% endif %}
+
+        {% with dataset_insights=dataset|insights_for_data:data_insights %}
+            {% if show_data_insights and dataset_insights %}
+                <hr>
+                <h6 class="fs-6 mt-3">{% trans "Insights" %}</h6>
+                <ul class="mb-0">
+                    {% for insight in dataset_insights %}
+                    <li>
+                        {{ insight.insight }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endwith %}

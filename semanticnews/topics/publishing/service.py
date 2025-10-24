@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 import json
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 from types import SimpleNamespace
 
 from django.contrib.contenttypes.models import ContentType
@@ -19,15 +19,15 @@ from ..layouts import (
     get_layout_for_mode,
     _split_module_key,
 )
-from ..models import Topic, TopicModuleLayout
-from ..utils.data.models import TopicData, TopicDataInsight, TopicDataVisualization
-from ..utils.documents.models import TopicDocument, TopicWebpage
-from ..utils.embeds.models import TopicTweet, TopicYoutubeVideo
-from ..utils.images.models import TopicImage
-from ..utils.recaps.models import TopicRecap
-from ..utils.relations.models import TopicEntityRelation
-from ..utils.text.models import TopicText
-from ..utils.timeline.models import TopicEvent
+from ..models import Topic, TopicModuleLayout, RelatedTopic
+from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
+from semanticnews.widgets.documents.models import TopicDocument, TopicWebpage
+from semanticnews.widgets.embeds.models import TopicTweet, TopicYoutubeVideo
+from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.widgets.relations.models import TopicEntityRelation
+from semanticnews.widgets.text.models import TopicText
+from semanticnews.widgets.timeline.models import TopicEvent
 from .models import TopicPublication, TopicPublicationModule, TopicPublicationSnapshot
 
 
@@ -61,6 +61,20 @@ class SerializableRelation:
     relations: List[dict]
     status: str
     created_at: str
+
+
+@dataclass
+class SerializableRelatedTopic:
+    id: int
+    topic_uuid: str
+    title: Optional[str]
+    slug: Optional[str]
+    username: Optional[str]
+    display_name: Optional[str]
+    source: str
+    is_deleted: bool
+    created_at: str
+    published_at: Optional[str]
 
 
 @dataclass
@@ -146,6 +160,7 @@ class LiveTopicContent:
     latest_recap: Optional[TopicRecap]
     recaps: List[TopicRecap]
     latest_relation: Optional[TopicEntityRelation]
+    related_topic_links: List[RelatedTopic]
     latest_data: Optional[TopicData]
     datas: List[TopicData]
     data_insights: List[TopicDataInsight]
@@ -227,6 +242,37 @@ def _serialize_relation(
         status=relation.status,
         created_at=_serialize_dt(relation.created_at) or "",
     )
+
+
+def _serialize_related_topics(
+    links: Iterable[RelatedTopic],
+) -> List[SerializableRelatedTopic]:
+    output: List[SerializableRelatedTopic] = []
+    for link in links:
+        related_topic = link.related_topic
+        created_by = getattr(related_topic, "created_by", None)
+        username = getattr(created_by, "username", None)
+        display_name = None
+        if created_by is not None:
+            if hasattr(created_by, "get_full_name"):
+                display_name = created_by.get_full_name() or None
+            if not display_name:
+                display_name = str(created_by)
+        output.append(
+            SerializableRelatedTopic(
+                id=link.id,
+                topic_uuid=str(getattr(related_topic, "uuid", "")),
+                title=getattr(related_topic, "title", None),
+                slug=getattr(related_topic, "slug", None),
+                username=username,
+                display_name=display_name,
+                source=link.source,
+                is_deleted=link.is_deleted,
+                created_at=_serialize_dt(link.created_at) or "",
+                published_at=_serialize_dt(link.published_at),
+            )
+        )
+    return output
 
 
 def _serialize_documents(docs: Iterable[TopicDocument]) -> List[SerializableDocument]:
@@ -404,6 +450,18 @@ def _snapshot_relations(topic: Topic, content: LiveTopicContent) -> Iterable[Sna
     return [SnapshotRecord(payload=payload, content_object=content.latest_relation)]
 
 
+@register_snapshot_serializer("related_topic")
+def _snapshot_related_topics(
+    topic: Topic, content: LiveTopicContent
+) -> Iterable[SnapshotRecord]:
+    records: List[SnapshotRecord] = []
+    serialized_links = _serialize_related_topics(content.related_topic_links)
+    for link_obj, serialized in zip(content.related_topic_links, serialized_links):
+        payload = _payload_with_original_id(asdict(serialized), link_obj.id)
+        records.append(SnapshotRecord(payload=payload, content_object=link_obj))
+    return records
+
+
 @register_snapshot_serializer("document")
 def _snapshot_documents(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
     records: List[SnapshotRecord] = []
@@ -577,6 +635,11 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
         .select_related("event")
         .order_by("-created_at")
     )
+    related_topic_links = list(
+        RelatedTopic.objects.filter(topic=topic, is_deleted=False)
+        .select_related("related_topic__created_by")
+        .order_by("-created_at")
+    )
 
     latest_recap = recaps[0] if recaps else None
 
@@ -587,6 +650,7 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
         latest_recap=latest_recap,
         recaps=recaps,
         latest_relation=relations_qs.first(),
+        related_topic_links=related_topic_links,
         latest_data=datas_qs.first(),
         datas=list(datas_qs),
         data_insights=list(data_insights_qs),
@@ -625,6 +689,7 @@ def _build_context_snapshot_from_snapshots(
     documents = _payloads("document")
     webpages = _payloads("webpage")
     events = _payloads("event")
+    related_topics = _payloads("related_topic")
 
     relations_json = ""
     relations_json_pretty = ""
@@ -659,6 +724,7 @@ def _build_context_snapshot_from_snapshots(
         "webpages": webpages,
         "related_event_ids": related_event_ids,
         "events": events,
+        "related_topic_links": related_topics,
     }
 
 
@@ -670,6 +736,38 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
         topic=topic,
         published_by=user,
     )
+
+    if topic.last_published_at is None:
+        manual_links_exist = topic.topic_related_topics.filter(
+            is_deleted=False,
+            source=RelatedTopic.Source.MANUAL,
+        ).exists()
+        if not manual_links_exist:
+            seeded = 0
+            creator = user if getattr(user, "is_authenticated", False) else topic.created_by
+            for similar in topic.get_similar_topics(limit=2):
+                link, created = RelatedTopic.objects.get_or_create(
+                    topic=topic,
+                    related_topic=similar,
+                    defaults={
+                        "source": RelatedTopic.Source.AUTO,
+                        "created_by": creator,
+                    },
+                )
+                if not created and link.is_deleted:
+                    link.is_deleted = False
+                    update_fields = ["is_deleted", "updated_at"]
+                    if link.source != RelatedTopic.Source.AUTO:
+                        link.source = RelatedTopic.Source.AUTO
+                        update_fields.append("source")
+                    if creator and link.created_by_id != getattr(creator, "id", None):
+                        link.created_by = creator
+                        update_fields.append("created_by")
+                    link.save(update_fields=update_fields)
+                if not link.is_deleted:
+                    seeded += 1
+                if seeded >= 2:
+                    break
 
     content = _collect_live_content(topic)
     content_type_cache: Dict[type, ContentType] = {}
@@ -777,6 +875,9 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     topic.images.filter(is_deleted=False).update(published_at=now)
     topic.tweets.filter(is_deleted=False).update(published_at=now)
     topic.youtube_videos.filter(is_deleted=False).update(published_at=now)
+    RelatedTopic.objects.filter(topic=topic, is_deleted=False).update(
+        published_at=now
+    )
     TopicEvent.objects.filter(topic=topic, is_deleted=False).update(published_at=now)
 
     # Remove older publications to avoid retaining orphaned snapshots
@@ -867,6 +968,56 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
         if event_id in event_map
     ]
 
+    related_topic_payloads = snapshot.get("related_topic_links")
+    if related_topic_payloads is None:
+        related_topic_payloads = [
+            _payload_from_snapshot(row)
+            for row in publication.snapshots.filter(component_type="related_topic")
+        ]
+
+    class PublishedRelatedTopicLink:
+        __slots__ = (
+            "id",
+            "topic_uuid",
+            "title",
+            "slug",
+            "username",
+            "display_name",
+            "source",
+            "is_deleted",
+            "created_at",
+            "published_at",
+            "_related_topic",
+        )
+
+        def __init__(self, payload: Dict[str, Any]):
+            self.id = payload.get("id")
+            self.topic_uuid = payload.get("topic_uuid")
+            self.title = payload.get("title")
+            self.slug = payload.get("slug")
+            self.username = payload.get("username")
+            self.display_name = payload.get("display_name")
+            self.source = payload.get("source")
+            self.is_deleted = payload.get("is_deleted", False)
+            self.created_at = payload.get("created_at")
+            self.published_at = payload.get("published_at")
+            self._related_topic = None
+
+        @property
+        def related_topic(self) -> SimpleNamespace:
+            if self._related_topic is None:
+                created_by = SimpleNamespace(
+                    username=self.username,
+                    display_name=self.display_name,
+                )
+                self._related_topic = SimpleNamespace(
+                    uuid=self.topic_uuid,
+                    title=self.title,
+                    slug=self.slug,
+                    created_by=created_by,
+                )
+            return self._related_topic
+
     context: Dict[str, Any] = {
         "topic": topic,
         "related_events": related_events,
@@ -888,6 +1039,10 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
         "recaps": [_ns(recap) for recap in snapshot.get("recaps", [])],
         "images": [_ns(image) for image in snapshot.get("images", [])],
         "event_snapshots": event_metadata,
+        "related_topic_links": [
+            PublishedRelatedTopicLink(payload)
+            for payload in related_topic_payloads
+        ],
     }
 
     if not context["latest_recap"]:
@@ -897,29 +1052,46 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
 
     image_data = snapshot.get("image")
     if image_data:
-        image_obj = SimpleNamespace(
-            image=SimpleNamespace(url=image_data.get("image_url")),
-            thumbnail=SimpleNamespace(url=image_data.get("thumbnail_url")),
-            created_at=image_data.get("created_at"),
-        )
+        image_url = image_data.get("image_url") or ""
+        thumbnail_url = image_data.get("thumbnail_url") or ""
 
-        class TopicProxy:
-            def __init__(self, base: Topic, image):
-                self._base = base
-                self._image = image
+        # ``Topic.image`` normally returns the ``ImageFieldFile`` associated with
+        # the latest ``TopicImage`` record. Downstream templates expect to access
+        # ``topic.image.url`` (and, in edit mode, ``topic.image.image.url``), so
+        # the publication proxy needs to mimic that interface. When only a
+        # thumbnail exists we still want to surface it, but avoid rendering an
+        # empty ``src`` attribute if neither URL is available.
+        hero_display_url = image_url or thumbnail_url
+        if hero_display_url:
+            image_field = SimpleNamespace(url=image_url) if image_url else None
+            thumbnail_field = (
+                SimpleNamespace(url=thumbnail_url) if thumbnail_url else None
+            )
+            image_obj = SimpleNamespace(
+                url=hero_display_url,
+                image=image_field or thumbnail_field,
+                thumbnail=thumbnail_field,
+                created_at=image_data.get("created_at"),
+            )
 
-            def __getattr__(self, item):
-                return getattr(self._base, item)
+            class TopicProxy:
+                def __init__(self, base: Topic, image, thumbnail):
+                    self._base = base
+                    self._image = image
+                    self._thumbnail = thumbnail
 
-            @property
-            def image(self):
-                return self._image
+                def __getattr__(self, item):
+                    return getattr(self._base, item)
 
-            @property
-            def thumbnail(self):
-                return self._image
+                @property
+                def image(self):
+                    return self._image
 
-        context["topic"] = TopicProxy(topic, image_obj)
+                @property
+                def thumbnail(self):
+                    return self._thumbnail
+
+            context["topic"] = TopicProxy(topic, image_obj, thumbnail_field)
     return context
 
 
@@ -939,6 +1111,18 @@ def build_publication_modules(
     texts = context.get("texts", [])
     datas = context.get("datas", [])
     visualizations = context.get("data_visualizations", [])
+    data_insights = context.get("data_insights", [])
+
+    data_ids_with_insights: Set[str] = set()
+    has_unsourced_insight = False
+    for insight in data_insights:
+        source_ids = getattr(insight, "source_ids", None)
+        if source_ids:
+            for source_id in source_ids:
+                if source_id is not None:
+                    data_ids_with_insights.add(str(source_id))
+        else:
+            has_unsourced_insight = True
 
     text_by_snapshot = _index_by(texts, "snapshot_id")
     text_by_id = _index_by(texts, "id")
@@ -951,6 +1135,10 @@ def build_publication_modules(
         TopicModuleLayout.PLACEMENT_PRIMARY: [],
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
+
+    unsourced_insights_assigned = False
+
+    related_topic_modules: List[Dict[str, Any]] = []
 
     for placement in modules.keys():
         module_entries = publication.layout_snapshot.get(placement, [])
@@ -1016,9 +1204,29 @@ def build_publication_modules(
                 if data_obj:
                     descriptor["data"] = data_obj
                     descriptor["context_overrides"]["data"] = data_obj
-                descriptor["context_overrides"]["show_data_insights"] = payload.get(
-                    "show_data_insights", False
+                data_identifier_value = None
+                if data_obj is not None:
+                    data_identifier_value = getattr(data_obj, "id", None)
+                if data_identifier_value is None:
+                    data_identifier_value = payload.get("data_id") or identifier
+                data_identifier = (
+                    str(data_identifier_value)
+                    if data_identifier_value is not None
+                    else None
                 )
+                should_show_insights = bool(
+                    data_identifier and data_identifier in data_ids_with_insights
+                )
+                if (
+                    not should_show_insights
+                    and has_unsourced_insight
+                    and not unsourced_insights_assigned
+                ):
+                    should_show_insights = True
+                    unsourced_insights_assigned = True
+                if payload.get("show_data_insights") is True:
+                    should_show_insights = True
+                descriptor["context_overrides"]["show_data_insights"] = should_show_insights
 
             if base_key == "data_visualizations":
                 snapshot_id = (
@@ -1035,8 +1243,27 @@ def build_publication_modules(
                         viz_obj = viz_by_snapshot.get(key) or viz_by_id.get(key)
                 descriptor["visualization"] = viz_obj
 
+            if base_key == "related_topics":
+                descriptor["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+                related_topic_modules.append(descriptor)
+                continue
+
             modules[placement].append(descriptor)
 
         modules[placement].sort(key=lambda module: module["display_order"])
+
+    if related_topic_modules:
+        sidebar_modules = modules.setdefault(
+            TopicModuleLayout.PLACEMENT_SIDEBAR, []
+        )
+        base_order = max(
+            (module.get("display_order", 0) for module in sidebar_modules),
+            default=0,
+        )
+        for offset, module in enumerate(related_topic_modules, start=1):
+            module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            module["display_order"] = base_order + offset
+            sidebar_modules.append(module)
+        sidebar_modules.sort(key=lambda module: module["display_order"])
 
     return modules

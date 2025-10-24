@@ -1,0 +1,51 @@
+{% load markdown_extras %}
+
+<div class="related-topic-item position-relative mb-4 pb-4 border-bottom" data-topic-uuid="{{ topic.uuid }}">
+    <h3 class="fs-6 mb-2">
+        <a href="{{ topic.get_absolute_url }}" class="text-decoration-none text-body">{{ topic.display_title }}</a>
+    </h3>
+    <a href="{{ topic.get_absolute_url }}" class="stretched-link" aria-hidden="true"></a>
+
+    {% with publication=topic.latest_publication %}
+        {% if publication %}
+            {% with snapshot=publication.context_snapshot %}
+                {% with image=snapshot.image %}
+                    {% if image.thumbnail_url %}
+                        <img src="{{ image.thumbnail_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
+                    {% elif image.image_url %}
+                        <img src="{{ image.image_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
+                    {% elif topic.thumbnail %}
+                        <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
+                    {% endif %}
+                {% endwith %}
+
+                {% if snapshot.latest_recap %}
+                    <div class="small text-body">{{ snapshot.latest_recap.recap|markdownify }}</div>
+                {% elif snapshot.recaps %}
+                    {% with fallback=snapshot.recaps|first %}
+                        {% if fallback %}
+                            <div class="small text-body">{{ fallback.recap|markdownify }}</div>
+                        {% endif %}
+                    {% endwith %}
+                {% elif topic.prefetched_recaps %}
+                    {% with fallback=topic.prefetched_recaps|first %}
+                        {% if fallback %}
+                            <div class="small text-body">{{ fallback.recap|markdownify }}</div>
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
+            {% endwith %}
+        {% else %}
+            {% if topic.thumbnail %}
+                <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
+            {% endif %}
+            {% if topic.prefetched_recaps %}
+                {% with fallback=topic.prefetched_recaps|first %}
+                    {% if fallback %}
+                        <div class="small text-body">{{ fallback.recap|markdownify }}</div>
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
+        {% endif %}
+    {% endwith %}
+</div>

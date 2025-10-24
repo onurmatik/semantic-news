@@ -2,11 +2,31 @@
 
 {% load static i18n humanize markdown_extras topic_layout %}
 
-{% block title %}{{ topic.title }}{% endblock %}
+{% block title %}{{ topic.display_title }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    {% if canonical_url %}
+        <link rel="canonical" href="{{ canonical_url }}">
+        <meta property="og:url" content="{{ canonical_url }}">
+    {% endif %}
+    <meta name="description" content="{{ meta_description|default:topic.title }}">
+    <meta property="og:type" content="{{ open_graph_type|default:'article' }}">
+    <meta property="og:title" content="{{ meta_title|default:topic.title }}">
+    <meta property="og:description" content="{{ meta_description|default:topic.title }}">
+    {% if meta_site_name %}
+        <meta property="og:site_name" content="{{ meta_site_name|default:'Semantic News' }}">
+    {% endif %}
+    {% if og_image_url %}
+        <meta property="og:image" content="{{ og_image_url }}">
+    {% endif %}
+    <meta name="twitter:card" content="{{ twitter_card|default:'summary' }}">
+    <meta name="twitter:title" content="{{ meta_title|default:topic.title }}">
+    <meta name="twitter:description" content="{{ meta_description|default:topic.title }}">
+    {% if og_image_url %}
+        <meta name="twitter:image" content="{{ og_image_url }}">
+    {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -33,19 +53,23 @@
 
         <h1 class="fs-3">
 
-            {{ topic.title }}
+            {{ topic.display_title }}
 
-            <small class="fs-5 ms-2">
+            {% if is_preview %}
+                <small class="badge bg-info text-dark ms-2 fs-6">{% trans "Preview" %}</small>
+            {% else %}
+                <small class="fs-5 ms-2">
 
-                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
-                   class="text-info-emphasis bi bi-bookmark"
-                ></a>
+                    <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Bookmark this topic" %}"
+                       class="text-info-emphasis bi bi-bookmark"
+                    ></a>
 
-                <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Copy link" %}"
-                   class="text-info-emphasis bi bi-link copy-link ms-1"
-                   data-url="{{ topic.get_absolute_url }}"></a>
+                    <a href="#" data-bs-toggle="tooltip" data-bs-title="{% trans "Copy link" %}"
+                       class="text-info-emphasis bi bi-link copy-link ms-1"
+                       data-url="{{ topic.get_absolute_url }}"></a>
 
-            </small>
+                </small>
+            {% endif %}
 
         </h1>
 
@@ -62,9 +86,9 @@
                 {% endif %}
 
                 {% if topic.status == "draft" %}
-                    <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
+                    <span class="badge bg-warning pill ms-1">{% trans "Draft" %}</span>
                 {% elif topic.status == "archived" %}
-                    <span class="badge bg-secondary  pill ms-1">{% trans "Archived" %}</span>
+                    <span class="badge bg-secondary pill ms-1">{% trans "Archived" %}</span>
                 {% endif %}
 
             </p>
@@ -75,13 +99,7 @@
 
     <div class="d-flex align-items-start">
 
-        {% if topic.created_by != user %}
-            <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
-               class="btn btn-outline-primary btn-sm ms-1"
-               data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
-                {% trans "Clone" %}
-            </a>
-        {% elif user == topic.created_by %}
+        {% if is_preview %}
             {% if topic.status == 'draft' or topic.status == 'published' %}
                 <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-topic-publish-button="true" data-status="published" {% if not topic.has_unpublished_changes %}disabled{% endif %}>
                     {% if topic.last_published_at %}
@@ -91,24 +109,36 @@
                     {% endif %}
                 </button>
             {% endif %}
-            {% if topic.status == 'published' %}
-                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="archived">
-                    {% trans "Archive" %}
-                </button>
-            {% elif topic.status == 'archived' %}
-                <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
-                    {% trans "Unarchive" %}
-                </button>
-            {% endif %}
+            <a class="btn btn-outline-secondary btn-sm align-self-start" href="{% url 'topics_detail_edit' topic_uuid=topic.uuid username=topic.created_by.username %}">
+                {% trans "Edit" %}
+            </a>
+        {% else %}
+            {% if topic.created_by != user %}
+                <a href="{% url 'topics_clone' slug=topic.slug username=topic.created_by.username %}"
+                   class="btn btn-outline-primary btn-sm ms-1"
+                   data-bs-toggle="tooltip" data-bs-title="{% trans "Clone topic" %}">
+                    {% trans "Clone" %}
+                </a>
+            {% elif user == topic.created_by %}
+                {% if topic.status == 'published' %}
+                    <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="archived">
+                        {% trans "Archive" %}
+                    </button>
+                {% elif topic.status == 'archived' %}
+                    <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-status="published">
+                        {% trans "Unarchive" %}
+                    </button>
+                {% endif %}
 
-            {% if topic.status == 'archived' %}
-                <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
-                    {% trans "Edit" %}
-                </a>
-            {% else %}
-                <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' topic_uuid=topic.uuid username=topic.created_by.username %}">
-                    {% trans "Edit" %}
-                </a>
+                {% if topic.status == 'archived' %}
+                    <a class="btn btn-outline-primary btn-sm disabled align-self-start" role="button" aria-disabled="true">
+                        {% trans "Edit" %}
+                    </a>
+                {% else %}
+                    <a class="btn btn-outline-primary btn-sm align-self-start" href="{% url 'topics_detail_edit' topic_uuid=topic.uuid username=topic.created_by.username %}">
+                        {% trans "Edit" %}
+                    </a>
+                {% endif %}
             {% endif %}
         {% endif %}
 
