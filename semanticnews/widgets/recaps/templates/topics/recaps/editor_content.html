@@ -1,7 +1,7 @@
 {% load i18n %}
 <form id="recapForm">
     <textarea class="form-control" id="recapText" name="recap" rows="8">{% if latest_recap %}{{ latest_recap.recap }}{% endif %}</textarea>
-    <div class="d-flex justify-content-end mt-2 small">
-        <span class="text-muted" id="recapSaveIndicator" aria-live="polite"></span>
+    <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">{% trans "Save recap" %}</button>
     </div>
 </form>
