@@ -181,6 +181,11 @@ class TopicImageClearResponse(Schema):
     error_message: Optional[str] = None
 
 
+class TopicImageSelectResponse(Schema):
+    status: StatusLiteral
+    error_message: Optional[str] = None
+
+
 @router.post("/{topic_uuid}/clear", response=TopicImageClearResponse)
 def clear_image(request, topic_uuid: str):
     user = getattr(request, "user", None)
@@ -209,6 +214,39 @@ def clear_image(request, topic_uuid: str):
         hero.save(update_fields=["is_hero"])
 
     return TopicImageClearResponse(status="finished")
+
+
+@router.post("/{topic_uuid}/select/{image_id}", response=TopicImageSelectResponse)
+def select_image(request, topic_uuid: str, image_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    try:
+        image = TopicImage.objects.get(id=image_id, topic=topic, is_deleted=False)
+    except TopicImage.DoesNotExist:
+        raise HttpError(404, "Image not found")
+
+    (
+        TopicImage.objects
+        .filter(topic=topic, is_deleted=False, is_hero=True)
+        .exclude(pk=image.pk)
+        .update(is_hero=False)
+    )
+
+    if not image.is_hero:
+        image.is_hero = True
+        image.save(update_fields=["is_hero"])
+
+    return TopicImageSelectResponse(status="finished")
 
 
 @router.delete("/{image_id}", response={204: None})

@@ -163,6 +163,12 @@ window.setupTopicHistory = function (options) {
   const onInitialItemMissing = typeof options.onInitialItemMissing === 'function'
     ? options.onInitialItemMissing
     : null;
+  const onItemsChanged = typeof options.onItemsChanged === 'function'
+    ? options.onItemsChanged
+    : null;
+  const onItemApplied = typeof options.onItemApplied === 'function'
+    ? options.onItemApplied
+    : null;
 
   const confirmModalEl = document.getElementById(`confirmDelete${capitalize(key)}Modal`);
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
@@ -511,6 +517,32 @@ window.setupTopicHistory = function (options) {
       }
       markDirtyFromValue();
     }
+
+    if (typeof onItemApplied === 'function') {
+      try {
+        onItemApplied({
+          item,
+          items: recs.slice(),
+          index: currentIndex,
+        });
+      } catch (err) {
+        console.error('history onItemApplied failed:', err);
+      }
+    }
+  };
+
+  const handleInitialItemMissing = (items) => {
+    if (typeof onInitialItemMissing === 'function') {
+      try {
+        onInitialItemMissing({ items });
+      } catch (err) {
+        console.error('history onInitialItemMissing failed:', err);
+      }
+      return;
+    }
+    if (cardContent) {
+      cardContent.textContent = '';
+    }
   };
 
   const handleInitialItemMissing = (items) => {
@@ -554,6 +586,14 @@ window.setupTopicHistory = function (options) {
 
         recs.length = 0;
         items.forEach(r => recs.push(r));
+
+        if (typeof onItemsChanged === 'function') {
+          try {
+            onItemsChanged({ items: recs.slice() });
+          } catch (err) {
+            console.error('history onItemsChanged failed:', err);
+          }
+        }
         if (recs.length) {
           let initialIndex = recs.length - 1;
           if (getInitialIndex) {
@@ -597,6 +637,13 @@ window.setupTopicHistory = function (options) {
         } else {
           pagerEl && (pagerEl.style.display = 'none');
           currentIndex = -1;
+          if (typeof onItemsChanged === 'function') {
+            try {
+              onItemsChanged({ items: [] });
+            } catch (err) {
+              console.error('history onItemsChanged failed:', err);
+            }
+          }
           handleInitialItemMissing([]);
           if (autoSaveEnabled) {
             lastPersistedAt = null;

@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearBtnDefaultTitle = clearBtn ? clearBtn.getAttribute('title') || '' : '';
   const clearBtnDefaultLabel = clearBtn ? clearBtn.getAttribute('aria-label') || '' : '';
   const clearBtnRemovedLabel = 'Cover image removed';
+  const defaultSelectError = 'Unable to set the cover image. Please try again.';
+  let currentHeroId = null;
+  let selectHeroAbortController = null;
+  const canAbortHeroSelection = typeof AbortController === 'function';
 
   const setImageState = ({ hasImage }) => {
     const effectiveHasImage = Boolean(hasImage);
@@ -153,12 +157,56 @@ document.addEventListener('DOMContentLoaded', () => {
       if (imageEl) imageEl.src = '';
       setImageState({ hasImage: false });
       clearStatusMessage();
+      currentHeroId = null;
       document.dispatchEvent(new CustomEvent('topic:changed'));
     } catch (err) {
       console.error(err);
       showStatusMessage('error', defaultClearError);
     } finally {
       if (clearBtn) clearBtn.disabled = false;
+    }
+  };
+
+  const performHeroSelection = async (imageId) => {
+    if (!topicUuid || !imageId) return false;
+    if (canAbortHeroSelection && selectHeroAbortController) {
+      selectHeroAbortController.abort();
+    } else {
+      selectHeroAbortController = null;
+    }
+    const controller = canAbortHeroSelection ? new AbortController() : null;
+    selectHeroAbortController = controller;
+    try {
+      const requestOptions = { method: 'POST' };
+      if (controller) {
+        requestOptions.signal = controller.signal;
+      }
+      const res = await fetch(`/api/topics/image/${topicUuid}/select/${imageId}`, requestOptions);
+      const data = await res.json().catch(() => null);
+      const status = data && typeof data.status === 'string' ? data.status.toLowerCase() : '';
+      if (!res.ok || status === 'error') {
+        const message = (data && data.error_message) || defaultSelectError;
+        showStatusMessage('error', message);
+        return false;
+      }
+
+      currentHeroId = imageId;
+      await triggerReload().catch(() => {});
+      clearStatusMessage();
+      setImageState({ hasImage: true });
+      document.dispatchEvent(new CustomEvent('topic:changed'));
+      return true;
+    } catch (err) {
+      if (controller && err && err.name === 'AbortError') {
+        return false;
+      }
+      console.error(err);
+      showStatusMessage('error', defaultSelectError);
+      return false;
+    } finally {
+      if (selectHeroAbortController === controller) {
+        selectHeroAbortController = null;
+      }
     }
   };
 
@@ -221,6 +269,41 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setImageState({ hasImage: false });
       clearStatusMessage();
+      currentHeroId = null;
+    },
+    onItemsChanged: ({ items }) => {
+      if (!Array.isArray(items)) {
+        currentHeroId = null;
+        return;
+      }
+      const heroItem = items.find((entry) => entry && entry.is_hero);
+      currentHeroId = heroItem && heroItem.id ? heroItem.id : null;
+    },
+    onItemApplied: ({ item, items }) => {
+      if (!item || !item.id) {
+        return;
+      }
+      if (item.is_hero) {
+        currentHeroId = item.id;
+        return;
+      }
+      if (currentHeroId === item.id) {
+        return;
+      }
+      performHeroSelection(item.id).then((wasApplied) => {
+        if (!wasApplied) {
+          return;
+        }
+        if (Array.isArray(items)) {
+          items.forEach((entry) => {
+            if (entry && typeof entry === 'object') {
+              entry.is_hero = entry.id === item.id;
+            }
+          });
+        } else {
+          item.is_hero = true;
+        }
+      });
     },
   });
 
