@@ -531,39 +531,25 @@ window.setupTopicHistory = function (options) {
     }
   };
 
-  const handleInitialItemMissing = (items) => {
-    if (typeof onInitialItemMissing === 'function') {
-      try {
-        onInitialItemMissing({ items });
-      } catch (err) {
-        console.error('history onInitialItemMissing failed:', err);
+    function handleInitialItemMissing(items) {
+      if (typeof onInitialItemMissing === 'function') {
+        try {
+          onInitialItemMissing({ items });
+        } catch (err) {
+          console.error('history onInitialItemMissing failed:', err);
+        }
+        return;
       }
-      return;
-    }
-    if (cardContent) {
-      cardContent.textContent = '';
-    }
-  };
-
-  const handleInitialItemMissing = (items) => {
-    if (typeof onInitialItemMissing === 'function') {
-      try {
-        onInitialItemMissing({ items });
-      } catch (err) {
-        console.error('history onInitialItemMissing failed:', err);
+      if (cardContent) {
+        cardContent.textContent = '';
       }
-      return;
     }
-    if (cardContent) {
-      cardContent.textContent = '';
-    }
-  };
 
-  const getItemText = (item) => {
-    const v = item && item[field];
-    if (typeof v === 'string') return v;
-    return JSON.stringify(v, null, 2);
-  };
+    function getItemText(item) {
+      const v = item && item[field];
+      if (typeof v === 'string') return v;
+      return JSON.stringify(v, null, 2);
+    }
 
   let reload = async ({ notify = true } = {}) => {
     if (notify) {
