@@ -286,6 +286,11 @@
         return;
       }
 
+      const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
+      if (moduleKey === 'recap') {
+        return;
+      }
+
       const controls = document.createElement('div');
       controls.className = 'topic-module-controls';
 
