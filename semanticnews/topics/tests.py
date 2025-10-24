@@ -87,21 +87,46 @@ class TopicCreateViewTests(TestCase):
     def test_requires_authentication(self):
         """Anonymous users are redirected to the login page."""
 
-        response = self.client.get(reverse("topics_create"))
+        response = self.client.post(reverse("topics_create"))
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("login", response["Location"])
 
-    def test_redirects_without_creating_topic(self):
-        """Visiting the legacy endpoint no longer creates a topic."""
+    def test_get_is_not_allowed_for_authenticated_users(self):
+        """Authenticated users must submit a POST request to create a topic."""
 
         user = self.User.objects.create_user("user", "user@example.com", "password")
         self.client.force_login(user)
 
-        response = self.client.get(reverse("topics_create"), {"title": "My Draft Topic"})
+        response = self.client.get(reverse("topics_create"))
 
-        self.assertRedirects(response, reverse("topics_list"))
+        self.assertEqual(response.status_code, 405)
         self.assertFalse(Topic.objects.exists())
+
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_creates_topic_on_post(self, mock_get_embedding):
+        """Authenticated users can create a topic with a POST request."""
+
+        user = self.User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("topics_create"),
+            {"title": "My Draft Topic"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Topic.objects.count(), 1)
+
+        topic = Topic.objects.get()
+        self.assertEqual(topic.created_by, user)
+        self.assertEqual(topic.title, "My Draft Topic")
+
+        expected_url = reverse(
+            "topics_detail_edit",
+            kwargs={"topic_uuid": str(topic.uuid), "username": user.username},
+        )
+        self.assertRedirects(response, expected_url)
 
 
 class TopicDetailRedirectViewTests(TestCase):

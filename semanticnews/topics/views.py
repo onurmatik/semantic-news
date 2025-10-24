@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, Http404
+from django.views.decorators.http import require_POST
 from pgvector.django import L2Distance
 import json
 
@@ -21,17 +22,24 @@ from .utils.mcps.models import MCPServer
 
 
 @login_required
+@require_POST
 def topic_create(request):
-    """Legacy endpoint retained for backwards compatibility.
+    """Create a new draft topic for the authenticated user via POST only."""
 
-    Previously, this view created a draft topic and redirected the user to the
-    edit page. The creation flow now happens client-side via a modal dialog, so
-    this view simply redirects authenticated users back to the topics list
-    without creating a new topic. This prevents accidental topic creation when
-    the legacy URL is visited directly or linked from outdated clients.
-    """
+    raw_title = request.POST.get("title")
+    title = raw_title.strip() if isinstance(raw_title, str) else ""
 
-    return redirect("topics_list")
+    topic_kwargs = {"created_by": request.user}
+    if title:
+        topic_kwargs["title"] = title
+
+    topic = Topic.objects.create(**topic_kwargs)
+
+    return redirect(
+        "topics_detail_edit",
+        topic_uuid=topic.uuid,
+        username=request.user.username,
+    )
 
 
 def _topic_is_visible_to_user(topic, user):
