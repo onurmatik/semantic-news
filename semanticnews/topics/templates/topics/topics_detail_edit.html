@@ -67,29 +67,48 @@
                 </div>
             </div>
 
-            <form id="topicTitleForm" class="d-flex align-items-center gap-2 flex-wrap" novalidate>
+            <form id="topicTitleForm" class="d-flex align-items-center gap-3 flex-wrap" novalidate>
                 <label class="visually-hidden" for="topicTitleInput">{% trans "Topic title" %}</label>
-                <input
-                    type="text"
-                    class="form-control form-control-lg border-0 px-0 fw-semibold flex-grow-1"
-                    id="topicTitleInput"
-                    name="title"
-                    value="{{ topic.title|default_if_none:'' }}"
-                    maxlength="200"
-                    autocomplete="off"
-                    placeholder="{% trans "Untitled" %}"
-                    data-untitled="{% trans "Untitled" %}"
-                >
-                <button
-                    class="btn btn-outline-secondary btn-sm"
-                    type="button"
-                    id="topicTitleSuggestBtn"
-                    title="{% trans "Suggest title" %}"
-                    aria-label="{% trans "Suggest title" %}"
-                >
-                    <i class="bi bi-stars" aria-hidden="true"></i>
-                </button>
-                <button type="submit" class="btn btn-primary btn-sm">{% trans "Save title" %}</button>
+                <div class="flex-grow-1">
+                    <div
+                        id="topicTitleInput"
+                        class="fw-semibold fs-4 px-0 pb-1 border-0 border-bottom border-2 border-dark-subtle rounded-0"
+                        role="textbox"
+                        contenteditable="true"
+                        spellcheck="true"
+                        data-untitled="{% trans "Untitled" %}"
+                        data-placeholder-active="false"
+                        aria-label="{% trans "Topic title" %}"
+                        aria-multiline="false"
+                        data-maxlength="200"
+                    >{{ topic.title|default_if_none:'' }}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span
+                        class="d-inline-flex align-items-center text-secondary"
+                        id="topicTitleStatus"
+                        aria-live="polite"
+                    >
+                        <i id="topicTitleStatusIcon" class="bi bi-pencil" aria-hidden="true"></i>
+                        <span
+                            class="visually-hidden"
+                            id="topicTitleStatusText"
+                            data-message-idle="{% trans "Title ready to edit." %}"
+                            data-message-saving="{% trans "Saving title…" %}"
+                            data-message-success="{% trans "Title saved." %}"
+                            data-message-error="{% trans "Unable to update the topic title." %}"
+                        >{% trans "Title ready to edit." %}</span>
+                    </span>
+                    <button
+                        class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        id="topicTitleSuggestBtn"
+                        title="{% trans "Suggest title" %}"
+                        aria-label="{% trans "Suggest title" %}"
+                    >
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div class="invalid-feedback d-none w-100" id="editTopicTitleError"></div>
             </form>
 
