@@ -289,24 +289,23 @@ class Topic(models.Model):
         return self.updated_at > self.last_published_at
 
     @cached_property
-    def image(self):
-        latest = (
+    def hero_image(self):
+        return (
             self.images
-            .filter(status="finished")
+            .filter(status="finished", is_deleted=False, is_hero=True)
             .order_by("-created_at")
             .first()
         )
-        return latest.image if latest else None
+
+    @cached_property
+    def image(self):
+        hero = self.hero_image
+        return hero.image if hero else None
 
     @cached_property
     def thumbnail(self):
-        latest = (
-            self.images
-            .filter(status="finished")
-            .order_by("-created_at")
-            .first()
-        )
-        return latest.thumbnail if latest else None
+        hero = self.hero_image
+        return hero.thumbnail if hero else None
 
     def build_context(self):
         parts = [f"# {self.title or ''}\n\n"]
@@ -571,6 +570,7 @@ class Topic(models.Model):
                 topic=cloned,
                 image=image.image,
                 thumbnail=image.thumbnail,
+                is_hero=image.is_hero,
             )
 
         for document in self.documents.filter(is_deleted=False):

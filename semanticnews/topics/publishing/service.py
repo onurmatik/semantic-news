@@ -405,12 +405,12 @@ def _payload_from_snapshot(snapshot: TopicPublicationSnapshot) -> Dict[str, Any]
 @register_snapshot_serializer("image")
 def _snapshot_images(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
     records: List[SnapshotRecord] = []
-    for index, image in enumerate(content.images):
+    for image in content.images:
         serialized = _serialize_image(image)
         if not serialized:
             continue
         payload = _payload_with_original_id(asdict(serialized), image.id)
-        payload["is_hero"] = index == 0
+        payload["is_hero"] = bool(getattr(image, "is_hero", False))
         records.append(SnapshotRecord(payload=payload, content_object=image))
     return records
 
@@ -627,9 +627,10 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
     tweets = list(topic.tweets.filter(is_deleted=False).order_by("-created_at"))
     documents = list(topic.documents.filter(is_deleted=False).order_by("-created_at"))
     webpages = list(topic.webpages.filter(is_deleted=False).order_by("-created_at"))
-    images = list(
-        topic.images.filter(status="finished", is_deleted=False).order_by("-created_at")
+    images_qs = topic.images.filter(status="finished", is_deleted=False).order_by(
+        "-is_hero", "-created_at"
     )
+    images = list(images_qs)
     events = list(
         TopicEvent.objects.filter(topic=topic, is_deleted=False)
         .select_related("event")
@@ -644,7 +645,7 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
     latest_recap = recaps[0] if recaps else None
 
     return LiveTopicContent(
-        hero_image=images[0] if images else None,
+        hero_image=images[0] if images and images[0].is_hero else None,
         images=images,
         texts=texts,
         latest_recap=latest_recap,
@@ -675,7 +676,9 @@ def _build_context_snapshot_from_snapshots(
     image_payloads = _payloads("image")
     hero_image = next((img for img in image_payloads if img.get("is_hero")), None)
     if not hero_image and image_payloads:
-        hero_image = image_payloads[0]
+        legacy_images = [img for img in image_payloads if "is_hero" not in img]
+        if legacy_images:
+            hero_image = legacy_images[0]
 
     texts = _payloads("text")
     recaps = _payloads("recap")
