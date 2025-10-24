@@ -286,8 +286,14 @@ window.setupTopicHistory = function (options) {
     }
   };
 
+  let saveInFlight = false;
+  let pendingRestoreValue = null;
+
   const handleEditorChange = () => {
     if (suppressDirtyTracking) return;
+    if (saveInFlight) {
+      pendingRestoreValue = getValue();
+    }
     updateSubmitButtonState();
     markDirtyFromValue();
   };
@@ -328,29 +334,36 @@ window.setupTopicHistory = function (options) {
     Object.assign(payload, parsedInput);
 
     let res;
+    saveInFlight = true;
+    pendingRestoreValue = null;
     try {
       res = await fetch(createUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-    } catch (err) {
-      throw err;
-    }
-    const data = await parseJsonIfPossible(res);
-    const fallback = messages.updateError;
-    if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
-      const errorMessage = resolveErrorMessage(data, fallback);
-      const error = new Error(errorMessage || fallback);
-      error.name = 'PersistError';
-      throw error;
-    }
+      const data = await parseJsonIfPossible(res);
+      const fallback = messages.updateError;
+      if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+        const errorMessage = resolveErrorMessage(data, fallback);
+        const error = new Error(errorMessage || fallback);
+        error.name = 'PersistError';
+        throw error;
+      }
 
-    await afterPersistedChange();
-    baseline = norm(getValue());
-    updateSubmitButtonState();
-    markDirtyFromValue();
-    return true;
+      await afterPersistedChange();
+      baseline = norm(getValue());
+      if (pendingRestoreValue !== null) {
+        setValue(pendingRestoreValue);
+        pendingRestoreValue = null;
+      }
+      updateSubmitButtonState();
+      markDirtyFromValue();
+      return true;
+    } finally {
+      saveInFlight = false;
+      pendingRestoreValue = null;
+    }
   };
 
   const executeAutoSave = async ({ reason = 'manual', force = false } = {}) => {
