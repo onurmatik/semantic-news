@@ -101,6 +101,15 @@ def create_image(request, payload: TopicImageCreateRequest):
         topic_image.error_code = None
         topic_image.save()
 
+        (
+            TopicImage.objects
+            .filter(topic=topic, is_deleted=False, is_hero=True)
+            .exclude(pk=topic_image.pk)
+            .update(is_hero=False)
+        )
+        topic_image.is_hero = True
+        topic_image.save(update_fields=["is_hero"])
+
         return TopicImageCreateResponse(
             image_url=topic_image.image.url,
             thumbnail_url=topic_image.thumbnail.url if topic_image.thumbnail else "",
@@ -126,6 +135,7 @@ class TopicImageItem(Schema):
     image_url: str
     thumbnail_url: str
     created_at: datetime
+    is_hero: bool
 
 
 class TopicImageListResponse(Schema):
@@ -159,10 +169,46 @@ def list_images(request, topic_uuid: str):
             image_url=img.image.url,
             thumbnail_url=img.thumbnail.url if img.thumbnail else "",
             created_at=make_naive(img.created_at),
+            is_hero=img.is_hero,
         )
         for img in images
     ]
     return TopicImageListResponse(total=len(items), items=items)
+
+
+class TopicImageClearResponse(Schema):
+    status: StatusLiteral
+    error_message: Optional[str] = None
+
+
+@router.post("/{topic_uuid}/clear", response=TopicImageClearResponse)
+def clear_image(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    heroes = list(
+        TopicImage.objects
+        .filter(topic=topic, is_deleted=False, is_hero=True)
+        .order_by("-created_at")
+    )
+
+    if not heroes:
+        return TopicImageClearResponse(status="finished")
+
+    for hero in heroes:
+        hero.is_hero = False
+        hero.save(update_fields=["is_hero"])
+
+    return TopicImageClearResponse(status="finished")
 
 
 @router.delete("/{image_id}", response={204: None})

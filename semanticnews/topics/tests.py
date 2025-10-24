@@ -1063,6 +1063,7 @@ class TopicDetailViewTests(TestCase):
         TopicImage.objects.create(
             topic=topic,
             image=SimpleUploadedFile("image.gif", image_bytes, content_type="image/gif"),
+            is_hero=True,
         )
 
         response = self.client.get(topic.get_absolute_url())
@@ -1147,7 +1148,7 @@ class TopicCloneTests(TestCase):
             b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;"
         )
         image_file = SimpleUploadedFile("image.gif", image_data, content_type="image/gif")
-        TopicImage.objects.create(topic=self.topic, image=image_file)
+        TopicImage.objects.create(topic=self.topic, image=image_file, is_hero=True)
 
         keyword = Keyword.objects.create(name="Keyword")
         TopicKeyword.objects.create(topic=self.topic, keyword=keyword, created_by=self.owner)
@@ -1272,6 +1273,7 @@ class TopicUpdatedAtTests(TestCase):
             TopicImage.objects.create(
                 topic=topic,
                 image=SimpleUploadedFile("test.gif", image_bytes, content_type="image/gif"),
+                is_hero=True,
             )
 
         topic.refresh_from_db()

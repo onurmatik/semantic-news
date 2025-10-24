@@ -103,7 +103,7 @@ class HomeViewTopicListItemTests(TestCase):
         )
         image_file = SimpleUploadedFile("image.gif", image_data, content_type="image/gif")
         thumb_file = SimpleUploadedFile("thumb.gif", image_data, content_type="image/gif")
-        TopicImage.objects.create(topic=topic, image=image_file, thumbnail=thumb_file)
+        TopicImage.objects.create(topic=topic, image=image_file, thumbnail=thumb_file, is_hero=True)
 
         TopicRecap.objects.create(topic=topic, recap="My recap", status="finished")
 
