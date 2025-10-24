@@ -4,33 +4,16 @@
         max-width: 100%;
         border-radius: .5rem;
     }
-
-    #topicImageContainer .image-preview--inactive img {
-        opacity: .65;
-        filter: grayscale(.3);
-    }
 </style>
 <div
     class="topic-widget card border-light my-3"
     id="topicImageContainer"
     data-topic-image-card
-    data-hero-active="{% if topic.hero_image %}true{% else %}false{% endif %}"
 >
     <div class="card-header d-flex align-items-center flex-wrap gap-2">
         <h6 class="fs-5 mb-0 me-auto">{% trans "Cover image" %}</h6>
         <div class="d-flex align-items-center gap-2 flex-wrap" data-topic-module-header-actions>
-            <span
-                class="badge {% if topic.hero_image %}text-bg-success{% else %}text-bg-secondary{% endif %}"
-                id="imageActiveBadge"
-                data-label-active="{% trans 'Active' %}"
-                data-label-inactive="{% trans 'Inactive' %}"
-            >
-                {% if topic.hero_image %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
-            </span>
             <div class="d-flex align-items-center gap-2" id="imagePager" style="display:none;">
-                <span class="small text-secondary" id="imageCreatedAt">
-                    {% if topic.hero_image %}{{ topic.hero_image.created_at|date:"M d, Y H:i" }}{% endif %}
-                </span>
                 <button
                     class="btn btn-sm btn-outline-secondary d-none"
                     id="imagePrev"
@@ -56,16 +39,7 @@
                 title="{% trans 'Remove cover image' %}"
                 aria-label="{% trans 'Remove cover image' %}"
             >
-                <i class="bi bi-slash-lg" aria-hidden="true"></i>
-            </button>
-            <button
-                type="button"
-                class="btn btn-outline-danger btn-sm d-none"
-                id="imageDeleteBtn"
-                title="{% trans 'Delete image from history' %}"
-                aria-label="{% trans 'Delete image from history' %}"
-            >
-                <i class="bi bi-trash" aria-hidden="true"></i>
+                /
             </button>
             <button
                 type="button"
@@ -81,10 +55,10 @@
             </button>
         </div>
     </div>
+    <div id="imageStatusMessage" class="alert alert-danger small d-none mx-3 mt-3" role="alert"></div>
     <div class="card-body">
-        <div id="imageStatusMessage" class="alert alert-danger small d-none" role="alert"></div>
         <div
-            class="image-preview{% if topic.hero_image %}{% else %} image-preview--inactive{% endif %}"
+            class="image-preview"
             id="imagePreviewWrapper"
             {% if not topic.hero_image %}style="display:none"{% endif %}
         >
@@ -95,18 +69,6 @@
                 src="{% if topic.hero_image %}{{ topic.hero_image.image.url }}{% endif %}"
                 alt="{{ topic.title }}"
             />
-        </div>
-        <p
-            class="small text-secondary mt-3{% if topic.hero_image %} d-none{% endif %}"
-            id="imageInactiveNote"
-        >
-            {% trans "The topic currently has no active cover image." %}
-        </p>
-        <div
-            class="text-secondary small{% if topic.hero_image %} d-none{% endif %}"
-            id="imageEmptyState"
-        >
-            {% trans "No cover images yet. Use the stars button to create one." %}
         </div>
     </div>
 </div>
