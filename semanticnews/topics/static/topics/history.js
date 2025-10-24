@@ -20,6 +20,13 @@ window.setupTopicHistory = function (options) {
   const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`) || triggerButton;
   const textarea = document.getElementById(`${key}Text`);
   const easyMDE = useMarkdown && textarea && window.EasyMDE ? new EasyMDE({ element: textarea }) : null;
+  if (easyMDE && easyMDE.codemirror && typeof easyMDE.codemirror.getWrapperElement === 'function') {
+    const wrapperEl = easyMDE.codemirror.getWrapperElement();
+    const easyMDEContainer = wrapperEl && wrapperEl.closest('.EasyMDEContainer');
+    if (easyMDEContainer) {
+      easyMDEContainer.classList.add('rounded-0');
+    }
+  }
   // expose MDE handle so other scripts can access it (status checker / fallbacks)
   if (textarea && easyMDE) textarea._easyMDE = easyMDE;
 
@@ -217,11 +224,13 @@ window.setupTopicHistory = function (options) {
       lastPersistedAt = savedAt;
     }
     if (autoSaveContainerEl) {
-      autoSaveContainerEl.classList.remove('text-success', 'text-danger', 'text-secondary', 'text-muted');
+      autoSaveContainerEl.classList.remove('text-success', 'text-danger', 'text-secondary', 'text-muted', 'text-warning');
       if (state === 'saved') {
         autoSaveContainerEl.classList.add('text-success');
       } else if (state === 'error') {
         autoSaveContainerEl.classList.add('text-danger');
+      } else if (state === 'dirty') {
+        autoSaveContainerEl.classList.add('text-warning');
       } else {
         autoSaveContainerEl.classList.add('text-secondary');
       }
