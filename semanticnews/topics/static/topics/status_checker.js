@@ -9,6 +9,21 @@ document.addEventListener('DOMContentLoaded', () => {
     recap: 'recapButton',
     relation: 'relationButton',
     image: 'imageButton',
+    data: 'dataButton',
+  };
+
+  const updateButtonDataset = (buttonId, info) => {
+    if (!buttonId) return;
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    const status = info && typeof info.status === 'string' ? info.status : 'finished';
+    btn.dataset.status = status;
+    const message = info && typeof info.error_message === 'string' ? info.error_message.trim() : '';
+    if (message) {
+      btn.dataset.error = message;
+    } else if (btn.dataset.error) {
+      delete btn.dataset.error;
+    }
   };
 
   const INPROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
@@ -133,14 +148,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/topics/${topicUuid}/generation-status`);
       if (!res.ok) return;
 
-      const data = await res.json();
+      const payload = await res.json();
       let anyStillInProgress = false;
 
-      const now = data.current ? new Date(data.current) : new Date();
+      const now = payload.current ? new Date(payload.current) : new Date();
 
       for (const key of KEYS_TO_CHECK) {
-        const info = data[key];
+        const info = payload[key];
         const buttonId = mapping[key];
+        if (buttonId) {
+          updateButtonDataset(buttonId, info || null);
+        }
         if (!info || !buttonId) continue;
 
         const status = info.status; // "in_progress" | "finished" | "error"
@@ -178,6 +196,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setController(buttonId, 'finished'); // neutral/default
+      }
+
+      const dataInfo = payload.data;
+      const dataButtonId = mapping.data;
+      if (dataButtonId && dataInfo) {
+        const entries = Object.values(dataInfo).filter(Boolean);
+        if (entries.length) {
+          let hasFreshInProgress = false;
+          let hasError = false;
+          let hasFinished = false;
+
+          for (const entry of entries) {
+            const entryStatus = entry.status;
+            if (!entryStatus) continue;
+
+            if (entryStatus === 'in_progress') {
+              const createdAt = entry.created_at ? new Date(entry.created_at) : null;
+              const isFresh = !createdAt || (now - createdAt) <= INPROGRESS_TIMEOUT_MS;
+              if (isFresh) {
+                hasFreshInProgress = true;
+              }
+              continue;
+            }
+
+            if (entryStatus === 'error') {
+              hasError = true;
+            } else if (entryStatus === 'finished') {
+              hasFinished = true;
+            }
+          }
+
+          let nextState = 'finished';
+          let datasetInfo = { status: 'finished' };
+
+          if (hasFreshInProgress) {
+            seenInProgress.data = true;
+            nextState = 'in_progress';
+            const inProgressEntry = entries.find((entry) => entry.status === 'in_progress');
+            datasetInfo = inProgressEntry ? { ...inProgressEntry, status: 'in_progress' } : { status: 'in_progress' };
+            anyStillInProgress = true;
+          } else if (hasError) {
+            nextState = 'error';
+            const errorEntry = entries.find((entry) => entry.status === 'error');
+            datasetInfo = errorEntry ? { ...errorEntry, status: 'error' } : { status: 'error' };
+          } else if (hasFinished) {
+            nextState = 'success';
+            const finishedEntry = entries.find((entry) => entry.status === 'finished');
+            if (finishedEntry) {
+              datasetInfo = { ...finishedEntry, status: 'success' };
+            } else {
+              datasetInfo = { status: 'success' };
+            }
+          } else if (seenInProgress.data) {
+            datasetInfo = { status: 'finished' };
+          } else {
+            datasetInfo = { status: 'finished' };
+          }
+
+          setController(dataButtonId, nextState);
+          updateButtonDataset(dataButtonId, datasetInfo);
+        } else {
+          setController(dataButtonId, 'finished');
+          updateButtonDataset(dataButtonId, { status: 'finished' });
+        }
       }
 
       if (!anyStillInProgress && intervalId) {

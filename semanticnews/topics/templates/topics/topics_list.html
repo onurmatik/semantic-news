@@ -3,20 +3,19 @@
 
 {% block content %}
 <div class="container py-4">
-    <div class="row">
-        <div class="col-12 col-lg-8 mx-auto">
+    <div class="row g-4 g-lg-5">
+        <div class="col-12 col-lg-8">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h1 class="fs-3 mb-0">{% trans "Latest topics" %}</h1>
                 {% if user.is_authenticated %}
-                    <button
-                        type="button"
+                    <a
                         class="btn btn-sm btn-outline-secondary"
-                        data-topic-create
+                        href="{% url 'topics_create' %}"
                         title="{% trans 'Add topic' %}"
                         aria-label="{% trans 'Add topic' %}"
                     >
                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                    </button>
+                    </a>
                 {% endif %}
             </div>
 
@@ -27,6 +26,21 @@
             {% else %}
                 <p class="text-secondary">{% trans "No topics have been published yet." %}</p>
             {% endif %}
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="pt-4 pt-lg-0 ps-lg-3">
+                <div class="mb-4">
+                    <h2 class="fs-6 text-uppercase text-secondary mb-3">{% trans "Latest events" %}</h2>
+                    {% if recent_events %}
+                        {% for event in recent_events %}
+                            {% include "agenda/event_list_item.html" with event=event %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="small text-secondary mb-0">{% trans "No events have been published yet." %}</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

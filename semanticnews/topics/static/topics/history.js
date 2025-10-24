@@ -10,6 +10,8 @@ window.setupTopicHistory = function (options) {
     parseInput,     // function(text) -> data for create
     controller,     // generation button controller
     useMarkdown = false, // whether to enhance textarea with EasyMDE
+    statusMessageId,
+    messages: messageOverrides = {},
   } = options;
 
   const form = document.getElementById(`${key}Form`);
@@ -25,6 +27,97 @@ window.setupTopicHistory = function (options) {
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
   const modalEl = document.getElementById(`${key}Modal`);
   const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+
+  const defaultMessages = {
+    suggestionError: 'Unable to fetch suggestions. Please try again.',
+    updateError: 'Unable to save your changes. Please try again.',
+    parseError: 'Please review your input and try again.',
+  };
+  const messages = { ...defaultMessages, ...(messageOverrides || {}) };
+  const fallbackModalErrorMessage = (
+    messages.suggestionError || messages.updateError || defaultMessages.updateError || ''
+  ).trim();
+
+  const statusMessageEl = statusMessageId
+    ? document.getElementById(statusMessageId)
+    : document.getElementById(`${key}StatusMessage`);
+
+  const triggerButton = document.getElementById(`${key}Button`);
+
+  const parseJsonIfPossible = async (res) => {
+    try {
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const resolveErrorMessage = (data, fallback) => {
+    if (data && typeof data === 'object') {
+      const fields = ['error_message', 'error', 'detail', 'message'];
+      for (const field of fields) {
+        const value = data[field];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+    }
+    return fallback;
+  };
+
+  const clearStatusMessage = () => {
+    if (!statusMessageEl) return;
+    statusMessageEl.classList.add('d-none');
+    statusMessageEl.classList.remove('alert-info', 'alert-success', 'alert-danger');
+    statusMessageEl.textContent = '';
+  };
+
+  const showStatusMessage = (type, message) => {
+    if (!statusMessageEl) return;
+    const className = type === 'success'
+      ? 'alert-success'
+      : type === 'error'
+        ? 'alert-danger'
+        : 'alert-info';
+    statusMessageEl.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+    statusMessageEl.classList.add(className);
+    statusMessageEl.textContent = message;
+  };
+
+  const setButtonError = (message) => {
+    if (!triggerButton) return;
+    if (message) {
+      triggerButton.dataset.error = message;
+    } else if (triggerButton.dataset) {
+      delete triggerButton.dataset.error;
+    }
+  };
+
+  const getButtonError = () => {
+    if (!triggerButton || !triggerButton.dataset) return '';
+    const value = triggerButton.dataset.error;
+    return typeof value === 'string' ? value.trim() : '';
+  };
+
+  const syncModalErrorFromButton = () => {
+    const existingError = getButtonError();
+    if (existingError) {
+      showStatusMessage('error', existingError);
+      return;
+    }
+    const status = triggerButton && triggerButton.dataset
+      ? (triggerButton.dataset.status || '').trim().toLowerCase()
+      : '';
+    if (status === 'error' && fallbackModalErrorMessage) {
+      showStatusMessage('error', fallbackModalErrorMessage);
+      return;
+    }
+    clearStatusMessage();
+  };
+
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', syncModalErrorFromButton);
+  }
 
   const notifyTopicChanged = () => {
     document.dispatchEvent(new CustomEvent('topic:changed'));
@@ -48,6 +141,7 @@ window.setupTopicHistory = function (options) {
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
   const deleteSpinner = document.getElementById(`confirmDelete${capitalize(key)}Spinner`);
   const confirmModal = confirmModalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(confirmModalEl) : null;
+  const fallbackDeleteMessage = (messages && messages.deleteConfirm) || 'Are you sure you want to delete this item?';
 
   const container = document.querySelector('[data-topic-uuid]');
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
@@ -203,27 +297,55 @@ window.setupTopicHistory = function (options) {
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
     nextBtn && nextBtn.addEventListener('click', () => applyIndex(currentIndex + 1));
 
-    // delete flow
-    deleteBtn && deleteBtn.addEventListener('click', () => {
+    const executeDelete = async () => {
+      const item = current();
+      if (!item) return;
+      const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Delete failed');
+      window.location.reload(); // per requirement
+    };
+
+    const performDeleteWithUi = async ({ useUi = true } = {}) => {
+      const item = current();
+      if (!item) return;
+      if (useUi && confirmBtn) {
+        confirmBtn.disabled = true;
+        deleteSpinner && deleteSpinner.classList.remove('d-none');
+      }
+      try {
+        await executeDelete();
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        if (useUi && confirmBtn) {
+          confirmBtn.disabled = false;
+          deleteSpinner && deleteSpinner.classList.add('d-none');
+        }
+        confirmModal && confirmModal.hide();
+      }
+    };
+
+    deleteBtn && deleteBtn.addEventListener('click', async () => {
       if (!current()) return;
-      confirmModal && confirmModal.show();
+      if (confirmModal && confirmBtn) {
+        confirmModal.show();
+        return;
+      }
+      if (window.confirm(fallbackDeleteMessage)) {
+        try {
+          await performDeleteWithUi({ useUi: false });
+        } catch (e) {
+          // already logged in performDeleteWithUi
+        }
+      }
     });
 
     confirmBtn && confirmBtn.addEventListener('click', async () => {
-      const item = current();
-      if (!item) return;
-      confirmBtn.disabled = true;
-      deleteSpinner && deleteSpinner.classList.remove('d-none');
       try {
-        const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) throw new Error('Delete failed');
-        window.location.reload(); // per requirement
+        await performDeleteWithUi({ useUi: true });
       } catch (e) {
-        console.error(e);
         confirmModal && confirmModal.hide();
-      } finally {
-        confirmBtn.disabled = false;
-        deleteSpinner && deleteSpinner.classList.add('d-none');
       }
     });
   }
@@ -241,6 +363,8 @@ window.setupTopicHistory = function (options) {
   // Suggest flow
   if (suggestionBtn && textarea && form) {
     suggestionBtn.addEventListener('click', async () => {
+      clearStatusMessage();
+      setButtonError(null);
       controller && controller.showLoading();
       modal && modal.hide();
       suggestionBtn.disabled = true;
@@ -255,14 +379,27 @@ window.setupTopicHistory = function (options) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
+        const data = await parseJsonIfPossible(res);
+        const fallback = messages.suggestionError || messages.updateError;
+        if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+          const errorMessage = resolveErrorMessage(data, fallback);
+          throw new Error(errorMessage);
+        }
 
         controller && controller.showSuccess();
+        setButtonError(null);
+        clearStatusMessage();
         await afterPersistedChange();
       } catch (err) {
         console.error(err);
         controller && controller.showError();
+        const fallback = messages.suggestionError || messages.updateError;
+        const message = (!err || !err.message || err.name === 'TypeError')
+          ? fallback
+          : err.message;
+        setButtonError(message);
+        showStatusMessage('error', message);
+        modal && modal.show();
       } finally {
         suggestionBtn.disabled = false;
       }
@@ -275,6 +412,8 @@ window.setupTopicHistory = function (options) {
       e.preventDefault();
       submitBtn && (submitBtn.disabled = true);
       controller && controller.showLoading();
+      clearStatusMessage();
+      setButtonError(null);
       // Close modal if present
       const modalEl = document.getElementById(`${key}Modal`);
       const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
@@ -290,15 +429,35 @@ window.setupTopicHistory = function (options) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
+        const data = await parseJsonIfPossible(res);
+        const fallback = messages.updateError;
+        if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+          const errorMessage = resolveErrorMessage(data, fallback);
+          throw new Error(errorMessage);
+        }
 
         // Manual update -> neutral (same as recap flow)
         controller && controller.reset();
+        setButtonError(null);
+        clearStatusMessage();
         await afterPersistedChange();
       } catch (err) {
         console.error(err);
         controller && controller.showError();
+        const fallback = messages.updateError;
+        let message = fallback;
+        if (err && err.message) {
+          if (err.message === 'Invalid JSON') {
+            message = messages.parseError || fallback;
+          } else if (err.name === 'TypeError') {
+            message = fallback;
+          } else {
+            message = err.message;
+          }
+        }
+        setButtonError(message);
+        showStatusMessage('error', message);
+        modal && modal.show();
       } finally {
         if (textarea) {
           submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);

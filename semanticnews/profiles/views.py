@@ -12,7 +12,7 @@ from django.utils.translation import gettext as _
 from .forms import DisplayNameForm
 from .models import Profile
 from ..topics.models import Topic, TopicContent
-from ..topics.utils.data.models import TopicDataVisualization
+from ..widgets.data.models import TopicDataVisualization
 
 
 def user_list(request):
@@ -57,7 +57,24 @@ def user_list(request):
         .order_by("-last_activity", "username")
     )
 
-    return render(request, "profiles/user_list.html", {"users": users})
+    visualizations_prefetch = Prefetch(
+        "data_visualizations",
+        queryset=TopicDataVisualization.objects.order_by("-created_at"),
+    )
+
+    recent_topics = (
+        Topic.objects.filter(status="published")
+        .select_related("created_by", "latest_publication")
+        .prefetch_related("recaps", "images", visualizations_prefetch)
+        .order_by("-updated_at", "-created_at")[:5]
+    )
+
+    context = {
+        "users": users,
+        "recent_topics": recent_topics,
+    }
+
+    return render(request, "profiles/user_list.html", context)
 
 
 def user_profile(request, username):

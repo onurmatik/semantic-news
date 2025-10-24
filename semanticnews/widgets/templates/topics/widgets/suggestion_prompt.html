@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+Reusable prompt area for AI suggestions.
+Expected context:
+- textarea_id: id for instructions textarea (required)
+- textarea_name: optional form name
+- label: optional label text
+- help_text: optional helper text
+- rows: optional textarea rows
+- button_id: id for suggestion button (required)
+- button_label: button text
+- button_loading_label: optional loading text
+{% endcomment %}
+<div class="mb-3" data-widget-suggestion>
+    {% if label %}
+        <label class="form-label" for="{{ textarea_id }}">{{ label }}</label>
+    {% endif %}
+    <textarea
+        class="form-control"
+        id="{{ textarea_id }}"
+        {% if textarea_name %}name="{{ textarea_name }}"{% endif %}
+        rows="{{ rows|default:3 }}"
+    ></textarea>
+    {% if help_text %}
+        <div class="form-text">{{ help_text }}</div>
+    {% endif %}
+    <div class="d-flex gap-2 mt-2">
+        <button
+            type="button"
+            class="btn btn-outline-primary"
+            id="{{ button_id }}"
+            {% if button_loading_label %}data-loading-label="{{ button_loading_label }}"{% endif %}
+        >
+            <i class="bi bi-stars me-1" aria-hidden="true"></i>
+            {{ button_label|default:_('Get suggestion') }}
+        </button>
+    </div>
+</div>

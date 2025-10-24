@@ -2,7 +2,7 @@
 
 {% load static i18n humanize markdown_extras topic_layout %}
 
-{% block title %}{{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}{% endblock %}
+{% block title %}{{ topic.display_title }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
@@ -11,7 +11,7 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between pb-2 align-items-start">
+<div class="pb-2">
 
     <div
         data-topic-uuid="{{ topic.uuid }}"
@@ -33,95 +33,87 @@
 
         </h3>
 
-        <h1 class="fs-3 d-flex align-items-center">
+        <div class="d-flex flex-column gap-3">
 
-            <span id="topicTitleDisplay" data-untitled="{% trans "Untitled" %}">
-                {{ topic.title|default_if_none:_("Untitled")|default:_("Untitled") }}
-            </span>
+            <div class="alert alert-light d-flex align-items-center justify-content-between gap-2 flex-wrap" data-topic-toolbar>
+                <div class="d-flex align-items-center flex-wrap gap-2 small text-secondary">
+                    <span>
+                        {% blocktrans with created_date=topic.created_at|date modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} · Updated {{ modified_ago }} ago{% endblocktrans %}
+                    </span>
+                    {% if topic.based_on %}
+                        {% url 'topics_detail' username=topic.based_on.created_by.username slug=topic.based_on.slug as based_on_url %}
+                        <span>
+                            {% blocktrans trimmed with based_on_url=based_on_url %}Based on <a class="text-info-emphasis" href="{{ based_on_url }}">previous version</a>.{% endblocktrans %}
+                        </span>
+                    {% endif %}
+                    {% if topic.status == "draft" %}
+                        <span class="badge bg-warning rounded-pill">{% trans "Draft" %}</span>
+                    {% elif topic.status == "archived" %}
+                        <span class="badge bg-secondary rounded-pill">{% trans "Archived" %}</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if topic.status == 'draft' or topic.status == 'published' %}
+                        <a
+                            class="btn btn-outline-primary btn-sm"
+                            href="{% url 'topics_detail_preview' topic_uuid=topic.uuid username=topic.created_by.username %}"
+                        >
+                            {% trans "Preview" %}
+                        </a>
+                    {% endif %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ topic.get_absolute_url }}">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </div>
 
-            <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm ms-3"
-                data-bs-toggle="modal"
-                data-bs-target="#editTopicTitleModal"
-            >
-                {% trans "Edit" %}
-            </button>
+            <form id="topicTitleForm" class="d-flex align-items-center gap-3 flex-wrap" novalidate>
+                <label class="visually-hidden" for="topicTitleInput">{% trans "Topic title" %}</label>
+                <div class="flex-grow-1">
+                    <div
+                        id="topicTitleInput"
+                        class="fw-semibold fs-4 px-0 pb-1 border-0 border-bottom border-2 border-dark-subtle rounded-0"
+                        role="textbox"
+                        contenteditable="true"
+                        spellcheck="true"
+                        data-untitled="{% trans "Untitled" %}"
+                        data-placeholder-active="false"
+                        aria-label="{% trans "Topic title" %}"
+                        aria-multiline="false"
+                        data-maxlength="200"
+                    >{{ topic.title|default_if_none:'' }}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span
+                        class="d-inline-flex align-items-center text-secondary"
+                        id="topicTitleStatus"
+                        aria-live="polite"
+                    >
+                        <i id="topicTitleStatusIcon" class="bi bi-pencil" aria-hidden="true"></i>
+                        <span
+                            class="visually-hidden"
+                            id="topicTitleStatusText"
+                            data-message-idle="{% trans "Title ready to edit." %}"
+                            data-message-saving="{% trans "Saving title…" %}"
+                            data-message-success="{% trans "Title saved." %}"
+                            data-message-error="{% trans "Unable to update the topic title." %}"
+                        >{% trans "Title ready to edit." %}</span>
+                    </span>
+                    <button
+                        class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        id="topicTitleSuggestBtn"
+                        title="{% trans "Suggest title" %}"
+                        aria-label="{% trans "Suggest title" %}"
+                    >
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="invalid-feedback d-none w-100" id="editTopicTitleError"></div>
+            </form>
 
-        </h1>
+            <div id="publishTopicError" class="alert alert-danger small d-none mt-2" role="alert"></div>
 
-        <div class="d-flex align-items-center">
-
-            <p class="text-secondary small">
-
-                {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
-                {% if topic.based_on %}
-                    {% url 'topics_detail' username=topic.based_on.created_by.username slug=topic.based_on.slug as based_on_url %}
-                    {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince based_on_user=topic.based_on.created_by %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago; based on <a class="text-info-emphasis" href="{{ based_on_url }}">{{ based_on_user }}'s version</a>.{% endblocktrans %}
-                {% else %}
-                    {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by modified_ago=topic.updated_at|timesince %}Created by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a> on {{ created_date }}; updated {{ modified_ago }} ago.{% endblocktrans %}
-                {% endif %}
-
-                {% if topic.status == "draft" %}
-                    <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
-                {% elif topic.status == "archived" %}
-                    <span class="badge bg-secondary  pill ms-1">{% trans "Archived" %}</span>
-                {% endif %}
-
-            </p>
-
-        </div>
-
-    </div>
-
-    <div class="d-flex align-items-start">
-
-        {% if topic.status == 'draft' or topic.status == 'published' %}
-            <button class="btn btn-outline-primary btn-sm me-1" data-topic-status-button data-topic-publish-button="true" data-status="published" {% if not topic.has_unpublished_changes %}disabled{% endif %}>
-                {% if topic.last_published_at %}
-                    {% trans "Re-publish" %}
-                {% else %}
-                    {% trans "Publish" %}
-                {% endif %}
-            </button>
-        {% endif %}
-
-        <a class="btn btn-outline-secondary btn-sm align-self-start" href="{% url 'topics_detail' slug=topic.slug username=topic.created_by.username %}">
-            {% trans "Exit" %}
-        </a>
-
-    </div>
-
-    <div id="publishTopicError" class="alert alert-danger small mt-2 d-none" role="alert"></div>
-
-</div>
-
-<div class="alert alert-warning p-2" role="toolbar">
-
-    <div class="d-flex justify-content-between">
-
-        <div class="gap-2">
-            {% include "topics/recaps/button.html" %}
-            {% include "topics/data/button.html" %}
-            {% include "topics/documents/button.html" %}
-            {% include "topics/text/button.html" %}
-            {% include "topics/images/button.html" %}
-            {% include "topics/embeds/button.html" %}
-            {% include "topics/relations/button.html" %}
-            {% include "topics/timeline/button.html" %}
-            {% if mcp_servers %}
-                {% include "topics/mcps/button.html" %}
-            {% endif %}
-        </div>
-
-        <div class="gap-2">
-            <span class="small text-secondary mx-2">
-                {% if topic.status == "published" and topic.last_published_at %}
-                    {% blocktrans with published_on=topic.last_published_at|date published_ago=topic.last_published_at|timesince %}Published on {{ published_on }}; {{ published_ago }} ago.{% endblocktrans %}
-                {% else %}
-                    {% blocktrans with topic_status=topic.status %}This topic is {{ topic_status }}.{% endblocktrans %}
-                {% endif %}
-            </span>
         </div>
 
     </div>
@@ -151,7 +143,6 @@
         {% endfor %}
 
         {% include "topics/images/confirm_delete.html" %}
-        {% include "topics/recaps/confirm_delete.html" %}
         {% include "topics/text/confirm_delete.html" %}
         {% include "topics/relations/confirm_delete.html" %}
         {% include "topics/timeline/confirm_delete.html" %}
@@ -178,10 +169,8 @@
 </div>
 
 
-{% include "topics/topic_title_modal.html" %}
 {% include "topics/mcps/modal.html" %}
 {% include "topics/documents/modal.html" %}
-{% include "topics/recaps/modal.html" %}
 {% include "topics/data/modal.html" %}
 {% include "topics/data/analyze_modal.html" %}
 {% include "topics/data/visualize_modal.html" %}
@@ -199,6 +188,7 @@
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/topic_title.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
+    <script src="{% static 'topics/related_topics.js' %}"></script>
     <script src="{% static 'topics/layout.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
     {% include "topics/data/scripts.html" %}

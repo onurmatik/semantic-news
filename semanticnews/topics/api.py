@@ -6,12 +6,13 @@ from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from django.db import transaction
+from django.db.models import Q
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from .models import Topic, TopicModuleLayout
+from .models import Topic, TopicModuleLayout, RelatedTopic
 from .publishing.service import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
@@ -20,16 +21,21 @@ from .layouts import (
     serialize_layout,
     _split_module_key,
 )
-from .utils.timeline.models import TopicEvent
-from .utils.timeline.api import router as timeline_router
-from .utils.recaps.api import router as recaps_router
-from .utils.mcps.api import router as mcps_router
-from .utils.images.api import router as images_router
-from .utils.embeds.api import router as embeds_router
-from .utils.relations.api import router as relations_router
-from .utils.data.api import router as data_router
-from .utils.documents.api import router as documents_router
-from .utils.text.api import router as text_router
+from semanticnews.widgets.timeline.models import TopicEvent
+from semanticnews.widgets.timeline.api import router as timeline_router
+from semanticnews.widgets.recaps.api import router as recaps_router
+from semanticnews.widgets.mcps.api import router as mcps_router
+from semanticnews.widgets.images.api import router as images_router
+from semanticnews.widgets.embeds.api import router as embeds_router
+from semanticnews.widgets.relations.api import router as relations_router
+from semanticnews.widgets.data.api import router as data_router
+from semanticnews.widgets.documents.api import router as documents_router
+from semanticnews.widgets.text.api import router as text_router
+from semanticnews.widgets.data.models import (
+    TopicDataRequest,
+    TopicDataAnalysisRequest,
+    TopicDataVisualizationRequest,
+)
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
@@ -51,12 +57,19 @@ class GenerationStatus(Schema):
     created_at: Optional[datetime] = None
 
 
+class DataGenerationStatuses(Schema):
+    add: Optional[GenerationStatus] = None
+    analyze: Optional[GenerationStatus] = None
+    visualize: Optional[GenerationStatus] = None
+
+
 class GenerationStatusResponse(Schema):
     current: datetime
     recap: Optional[GenerationStatus] = None
     text: Optional[GenerationStatus] = None
     relation: Optional[GenerationStatus] = None
     image: Optional[GenerationStatus] = None
+    data: Optional[DataGenerationStatuses] = None
 
 
 @api.get("/{topic_uuid}/generation-status", response=GenerationStatusResponse)
@@ -81,12 +94,59 @@ def generation_status(request, topic_uuid: str):
         )
         return row or None
 
+    data_status_map = {
+        TopicDataRequest.Status.PENDING: "in_progress",
+        TopicDataRequest.Status.STARTED: "in_progress",
+        TopicDataRequest.Status.SUCCESS: "finished",
+        TopicDataRequest.Status.FAILURE: "error",
+        TopicDataAnalysisRequest.Status.PENDING: "in_progress",
+        TopicDataAnalysisRequest.Status.STARTED: "in_progress",
+        TopicDataAnalysisRequest.Status.SUCCESS: "finished",
+        TopicDataAnalysisRequest.Status.FAILURE: "error",
+        TopicDataVisualizationRequest.Status.PENDING: "in_progress",
+        TopicDataVisualizationRequest.Status.STARTED: "in_progress",
+        TopicDataVisualizationRequest.Status.SUCCESS: "finished",
+        TopicDataVisualizationRequest.Status.FAILURE: "error",
+    }
+
+    def latest_data_status(qs):
+        row = (
+            qs.filter(user_id=user.id)
+              .order_by("-updated_at")
+              .values("status", "error_message", "created_at", "updated_at")
+              .first()
+        )
+        if not row:
+            return None
+        mapped = data_status_map.get(row.get("status"))
+        if not mapped:
+            return None
+        timestamp = row.get("updated_at") or row.get("created_at")
+        return {
+            "status": mapped,
+            "error_message": row.get("error_message"),
+            "created_at": timestamp,
+        }
+
+    data_statuses = {
+        "add": latest_data_status(topic.data_requests),
+        "analyze": latest_data_status(topic.data_analysis_requests),
+        "visualize": latest_data_status(topic.data_visualization_requests),
+    }
+
+    data_payload = (
+        DataGenerationStatuses(**data_statuses)
+        if any(data_statuses.values())
+        else None
+    )
+
     return GenerationStatusResponse(
         current=timezone.now(),
         recap=latest(topic.recaps.filter(is_deleted=False)),
         text=latest(topic.texts.filter(is_deleted=False)),
         relation=latest(topic.entity_relations.filter(is_deleted=False)),
         image=latest(topic.images.filter(is_deleted=False)),
+        data=data_payload,
     )
 
 
@@ -515,6 +575,222 @@ def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     )
 
 
+class RelatedTopicLinkSchema(Schema):
+    id: int
+    topic_uuid: str
+    title: Optional[str]
+    slug: Optional[str]
+    username: Optional[str]
+    display_name: Optional[str]
+    source: str
+    is_deleted: bool
+    created_at: datetime
+    published_at: Optional[datetime]
+
+
+class RelatedTopicSearchResult(Schema):
+    uuid: str
+    title: Optional[str]
+    slug: Optional[str]
+    username: Optional[str]
+    is_already_linked: bool = False
+
+
+class RelatedTopicCreateRequest(Schema):
+    related_topic_uuid: str
+
+
+def _require_owned_topic(request, topic_uuid: str) -> Topic:
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    return topic
+
+
+def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:
+    related_topic = link.related_topic
+    created_by = getattr(related_topic, "created_by", None)
+    username = getattr(created_by, "username", None)
+    display_name = None
+    if created_by is not None:
+        if hasattr(created_by, "get_full_name"):
+            display_name = created_by.get_full_name() or None
+        if not display_name:
+            display_name = str(created_by)
+    return RelatedTopicLinkSchema(
+        id=link.id,
+        topic_uuid=str(getattr(related_topic, "uuid", "")),
+        title=getattr(related_topic, "title", None),
+        slug=getattr(related_topic, "slug", None),
+        username=username,
+        display_name=display_name,
+        source=link.source,
+        is_deleted=link.is_deleted,
+        created_at=link.created_at,
+        published_at=link.published_at,
+    )
+
+
+@api.get("/{topic_uuid}/related-topics", response=List[RelatedTopicLinkSchema])
+def list_related_topics(request, topic_uuid: str):
+    topic = _require_owned_topic(request, topic_uuid)
+    links = (
+        RelatedTopic.objects.filter(topic=topic)
+        .select_related("related_topic__created_by")
+        .order_by("-created_at")
+    )
+    return [_serialize_related_topic_link(link) for link in links]
+
+
+@api.get(
+    "/{topic_uuid}/related-topics/search",
+    response=List[RelatedTopicSearchResult],
+)
+def search_related_topics(request, topic_uuid: str, query: Optional[str] = None):
+    topic = _require_owned_topic(request, topic_uuid)
+    existing_links = {
+        link.related_topic_id: link
+        for link in RelatedTopic.objects.filter(topic=topic)
+    }
+
+    qs = (
+        Topic.objects.filter(status="published")
+        .exclude(uuid=topic.uuid)
+        .select_related("created_by")
+    )
+
+    if query:
+        qs = qs.filter(
+            Q(title__icontains=query)
+            | Q(created_by__username__icontains=query)
+        )
+
+    qs = qs.order_by("-updated_at", "-created_at")[:10]
+
+    results: List[RelatedTopicSearchResult] = []
+    for result in qs:
+        link = existing_links.get(result.id)
+        results.append(
+            RelatedTopicSearchResult(
+                uuid=str(result.uuid),
+                title=result.title,
+                slug=result.slug,
+                username=getattr(result.created_by, "username", None),
+                is_already_linked=link is not None and not link.is_deleted,
+            )
+        )
+
+    return results
+
+
+@api.post(
+    "/{topic_uuid}/related-topics",
+    response=RelatedTopicLinkSchema,
+)
+def add_related_topic(
+    request, topic_uuid: str, payload: RelatedTopicCreateRequest
+):
+    topic = _require_owned_topic(request, topic_uuid)
+
+    try:
+        related_topic = Topic.objects.get(uuid=payload.related_topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Related topic not found")
+
+    if related_topic == topic:
+        raise HttpError(400, "Cannot relate a topic to itself")
+
+    link, created = RelatedTopic.objects.get_or_create(
+        topic=topic,
+        related_topic=related_topic,
+        defaults={
+            "source": RelatedTopic.Source.MANUAL,
+            "created_by": request.user,
+        },
+    )
+
+    if not created:
+        if not link.is_deleted:
+            raise HttpError(400, "Related topic already linked")
+
+        update_fields = ["is_deleted", "updated_at"]
+        link.is_deleted = False
+        if link.source != RelatedTopic.Source.MANUAL:
+            link.source = RelatedTopic.Source.MANUAL
+            update_fields.append("source")
+        if link.created_by_id != request.user.id:
+            link.created_by = request.user
+            update_fields.append("created_by")
+        link.save(update_fields=update_fields)
+
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
+
+    return _serialize_related_topic_link(link)
+
+
+@api.delete(
+    "/{topic_uuid}/related-topics/{link_id}",
+    response=RelatedTopicLinkSchema,
+)
+def remove_related_topic(request, topic_uuid: str, link_id: int):
+    topic = _require_owned_topic(request, topic_uuid)
+
+    try:
+        link = RelatedTopic.objects.select_related("related_topic").get(
+            topic=topic,
+            id=link_id,
+        )
+    except RelatedTopic.DoesNotExist:
+        raise HttpError(404, "Related topic link not found")
+
+    if not link.is_deleted:
+        link.is_deleted = True
+        link.save(update_fields=["is_deleted", "updated_at"])
+
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
+
+    return _serialize_related_topic_link(link)
+
+
+@api.post(
+    "/{topic_uuid}/related-topics/{link_id}/restore",
+    response=RelatedTopicLinkSchema,
+)
+def restore_related_topic(request, topic_uuid: str, link_id: int):
+    topic = _require_owned_topic(request, topic_uuid)
+
+    try:
+        link = RelatedTopic.objects.select_related("related_topic").get(
+            topic=topic,
+            id=link_id,
+        )
+    except RelatedTopic.DoesNotExist:
+        raise HttpError(404, "Related topic link not found")
+
+    if link.is_deleted:
+        link.is_deleted = False
+        link.save(update_fields=["is_deleted", "updated_at"])
+
+    from .signals import touch_topic
+
+    touch_topic(topic.pk)
+
+    return _serialize_related_topic_link(link)
+
+
 class TopicSuggestionList(Schema):
     """Schema representing a list of suggested topic titles."""
 
@@ -522,26 +798,71 @@ class TopicSuggestionList(Schema):
 
 
 class SuggestTopicsRequest(Schema):
-    """Request body for suggesting topics based on a description.
+    """Request body for suggesting topics based on available information.
 
     Attributes:
-        about (str): Description of the subject to suggest topics about.
+        about (Optional[str]): Description of the subject to suggest topics about.
         limit (int): Maximum number of topics to return. Defaults to ``3``.
+        topic_uuid (Optional[str]): UUID of an existing topic whose context should
+            be used when generating suggestions.
     """
 
-    about: str
+    about: Optional[str] = None
     limit: int = 3
+    topic_uuid: Optional[str] = None
 
 
-def suggest_topics(about: str, limit: int = 3) -> List[str]:
-    """Return a list of suggested topics for a given description."""
+def _has_meaningful_context(context: str) -> bool:
+    """Return ``True`` when the provided context contains useful content."""
+
+    if not context:
+        return False
+
+    stripped = context.strip()
+    if not stripped:
+        return False
+
+    # ``Topic.build_context`` always prefixes a markdown heading. Strip heading
+    # characters to detect whether any substantive text remains.
+    return bool(stripped.strip("# \n\t"))
+
+
+def suggest_topics(
+    *, about: Optional[str] = None, limit: int = 3, topic_uuid: Optional[str] = None
+) -> List[str]:
+    """Return a list of suggested topics for available context."""
+
+    description = (about or "").strip()
+
+    topic_context = ""
+    if topic_uuid:
+        try:
+            topic = Topic.objects.get(uuid=topic_uuid)
+        except Topic.DoesNotExist:
+            raise HttpError(404, "Topic not found")
+        topic_context = topic.build_context()
+
+    context_parts = []
+    if description:
+        context_parts.append(f"Description:\n{description}")
+    if _has_meaningful_context(topic_context):
+        context_parts.append(f"Existing topic context:\n{topic_context.strip()}")
+
+    if not context_parts:
+        raise HttpError(
+            400,
+            "Provide a description or add content to the topic before requesting suggestions.",
+        )
 
     prompt = (
-        f"Suggest {limit} topic ideas about {about}. "
+        f"Suggest {limit} topic ideas for a news topic. "
         f"Each topic should be a short, broad phrase in nominalized passive form. "
         f"Avoid overly specific or literal restatements of the subject. "
         f"Make the {limit} suggestions vary in scope, but none too specific. "
     )
+
+    prompt += "\n\nUse the following information as context:\n\n"
+    prompt += "\n\n".join(context_parts)
     prompt = append_default_language_instruction(prompt)
 
     with OpenAI() as client:
@@ -555,16 +876,20 @@ def suggest_topics(about: str, limit: int = 3) -> List[str]:
 
 
 @api.get("/suggest", response=List[str])
-def suggest_topics_get(request, about: str, limit: int = 3):
-    """Return suggested topics for a description via GET."""
+def suggest_topics_get(
+    request, about: Optional[str] = None, limit: int = 3, topic_uuid: Optional[str] = None
+):
+    """Return suggested topics for a description and/or context via GET."""
 
-    return suggest_topics(about=about, limit=limit)
+    return suggest_topics(about=about, limit=limit, topic_uuid=topic_uuid)
 
 
 @api.post("/suggest", response=List[str])
 def suggest_topics_post(request, payload: SuggestTopicsRequest):
-    """Return suggested topics for a description via POST."""
+    """Return suggested topics for a description and/or context via POST."""
 
-    return suggest_topics(about=payload.about, limit=payload.limit)
+    return suggest_topics(
+        about=payload.about, limit=payload.limit, topic_uuid=payload.topic_uuid
+    )
 
 
