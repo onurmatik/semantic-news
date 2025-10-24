@@ -631,11 +631,29 @@ window.setupTopicHistory = function (options) {
       }
       clearStatusMessage();
       baseline = normalizedText;
+      const preReloadValue = textarea ? getValue() : null;
+      const preReloadNormalized = textarea ? norm(preReloadValue) : '';
+      const hadUnsavedDuringSave = textarea ? preReloadNormalized !== normalizedText : false;
       await afterPersistedChange();
-      baseline = norm(getValue());
+      if (textarea) {
+        const postReloadValue = getValue();
+        const postReloadNormalized = norm(postReloadValue);
+        if (
+          hadUnsavedDuringSave &&
+          preReloadValue !== null &&
+          postReloadNormalized !== preReloadNormalized
+        ) {
+          setValue(preReloadValue);
+        }
+        baseline = hadUnsavedDuringSave ? normalizedText : postReloadNormalized;
+      }
       updateSubmitButtonState();
       if (autoSaveEnabled) {
-        setSaveIndicator('saved', { savedAt: new Date() });
+        if (hadUnsavedDuringSave) {
+          setSaveIndicator('dirty');
+        } else {
+          setSaveIndicator('saved', { savedAt: new Date() });
+        }
       }
       return true;
     } catch (err) {
