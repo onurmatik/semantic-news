@@ -90,6 +90,15 @@
     let draggedModule = null;
     let saveTimeout = null;
     let lastKnownLayoutSignature = null;
+    const layoutLockedModules = new Set(['recap', 'recaps']);
+
+    function isLayoutLocked(moduleEl) {
+      if (!(moduleEl instanceof Element)) {
+        return false;
+      }
+      const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
+      return layoutLockedModules.has(moduleKey);
+    }
 
     function scheduleSave() {
       if (saveTimeout) {
@@ -285,6 +294,9 @@
       if (moduleEl.dataset.hasContent !== 'true') {
         return;
       }
+      if (isLayoutLocked(moduleEl)) {
+        return;
+      }
 
       const controls = document.createElement('div');
       controls.className = 'topic-module-controls';
@@ -372,6 +384,10 @@
       if (!moduleEl.dataset.placement) {
         const column = moduleEl.closest('[data-layout-column]');
         moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
+      }
+      if (isLayoutLocked(moduleEl)) {
+        moduleEl.classList.add('topic-module--layout-locked');
+        return;
       }
       addControls(moduleEl);
     }

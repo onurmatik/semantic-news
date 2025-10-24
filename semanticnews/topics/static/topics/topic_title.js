@@ -20,8 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const topicUuid = topicEl.dataset.topicUuid || '';
   const maxLength = Number.parseInt(input.dataset.maxlength ?? '0', 10) || 0;
   let isSaving = false;
-  let pendingTitle = null;
-  let inFlightTitle = null;
   let statusResetTimeout = null;
 
   const messageIdle = statusText?.dataset?.messageIdle || 'Title ready to edit.';
@@ -31,19 +29,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const STATUS_STATES = {
     idle: {
-      iconClass: 'bi bi-pencil text-secondary',
+      icon: 'bi-pencil',
+      className: 'text-secondary',
       message: messageIdle,
     },
     saving: {
-      iconClass: 'spinner-border spinner-border-sm text-secondary',
+      icon: 'bi-pencil',
+      className: 'text-secondary',
       message: messageSaving,
     },
     success: {
-      iconClass: 'bi bi-check-lg text-success',
+      icon: 'bi-check-lg',
+      className: 'text-success',
       message: messageSuccess,
     },
     error: {
-      iconClass: 'bi bi-x-lg text-danger',
+      icon: 'bi-x-lg',
+      className: 'text-danger',
       message: messageError,
     },
   };
@@ -51,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateStatus = (state, overrideMessage) => {
     const status = STATUS_STATES[state] ?? STATUS_STATES.idle;
     if (statusIcon) {
-      statusIcon.className = status.iconClass;
+      statusIcon.className = `bi ${status.icon} ${status.className}`;
     }
     if (statusText) {
       statusText.textContent = overrideMessage || status.message;
@@ -171,24 +173,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const processPendingSave = async () => {
+  const saveTitle = async () => {
     if (isSaving) {
       return;
     }
 
-    const nextTitle = pendingTitle;
-    if (nextTitle === null) {
-      return;
-    }
-
+    const newTitle = getInputValue();
     const currentTitle = getCurrentTitle();
-    if (nextTitle === currentTitle) {
-      pendingTitle = null;
+
+    if (newTitle === currentTitle) {
       return;
     }
 
-    pendingTitle = null;
-    inFlightTitle = nextTitle;
     clearError();
     updateStatus('saving');
     isSaving = true;
@@ -196,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const payload = {
         topic_uuid: topicUuid,
-        title: nextTitle,
+        title: newTitle,
       };
       const response = await fetch('/api/topics/set-title', {
         method: 'POST',
@@ -235,24 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStatus('error', error?.message);
     } finally {
       isSaving = false;
-      inFlightTitle = null;
-      if (pendingTitle !== null) {
-        void processPendingSave();
-      }
     }
-  };
-
-  const queueTitleSave = () => {
-    const newTitle = getInputValue();
-    const baselineTitle =
-      pendingTitle ?? inFlightTitle ?? getCurrentTitle();
-
-    if (newTitle === baselineTitle) {
-      return;
-    }
-
-    pendingTitle = newTitle;
-    void processPendingSave();
   };
 
   input.addEventListener('focus', () => {
@@ -264,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!value) {
       applyPlaceholder();
     }
-    queueTitleSave();
+    saveTitle();
   });
 
   input.addEventListener('input', () => {

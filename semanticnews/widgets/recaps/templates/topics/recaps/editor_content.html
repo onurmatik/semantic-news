@@ -1,16 +1,7 @@
-{% load i18n markdown_extras %}
-<div class="mb-4" id="topicRecapText">
-    {% if latest_recap and latest_recap.recap %}
-        {{ latest_recap.recap|markdownify }}
-    {% else %}
-        <p class="text-secondary fst-italic mb-0">{% trans "No recap has been generated yet." %}</p>
-    {% endif %}
-</div>
+{% load i18n %}
 <form id="recapForm">
-    {% include "topics/widgets/suggestion_prompt.html" with textarea_id="recapInstructions" textarea_name="instructions" label=_("Add optional instructions for AI") help_text=_("Describe what the recap should focus on before requesting a suggestion.") rows=2 button_id="fetchRecapSuggestion" button_label=_("Get AI suggestions") button_loading_label=_("Fetching…") %}
-    <label class="form-label" for="recapText">{% trans "Recap" %}</label>
     <textarea class="form-control" id="recapText" name="recap" rows="8">{% if latest_recap %}{{ latest_recap.recap }}{% endif %}</textarea>
-    <div class="d-flex gap-2 mt-3">
-        <button type="submit" class="btn btn-primary">{% trans "Save recap" %}</button>
+    <div class="d-flex justify-content-end mt-2 small">
+        <span class="text-muted" id="recapSaveIndicator" aria-live="polite"></span>
     </div>
 </form>
