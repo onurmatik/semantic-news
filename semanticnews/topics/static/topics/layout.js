@@ -287,7 +287,7 @@
       }
 
       const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
-      if (moduleKey === 'recap') {
+      if (moduleKey.startsWith('recap')) {
         return;
       }
 
