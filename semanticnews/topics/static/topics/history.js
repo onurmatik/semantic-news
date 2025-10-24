@@ -545,6 +545,20 @@ window.setupTopicHistory = function (options) {
     }
   };
 
+  const handleInitialItemMissing = (items) => {
+    if (typeof onInitialItemMissing === 'function') {
+      try {
+        onInitialItemMissing({ items });
+      } catch (err) {
+        console.error('history onInitialItemMissing failed:', err);
+      }
+      return;
+    }
+    if (cardContent) {
+      cardContent.textContent = '';
+    }
+  };
+
   const getItemText = (item) => {
     const v = item && item[field];
     if (typeof v === 'string') return v;
