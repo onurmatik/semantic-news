@@ -12,6 +12,7 @@ window.setupTopicHistory = function (options) {
     useMarkdown = false, // whether to enhance textarea with EasyMDE
     statusMessageId,
     messages: messageOverrides = {},
+    autoSave: autoSaveOptions = null,
   } = options;
 
   const form = document.getElementById(`${key}Form`);
@@ -22,8 +23,19 @@ window.setupTopicHistory = function (options) {
   // expose MDE handle so other scripts can access it (status checker / fallbacks)
   if (textarea && easyMDE) textarea._easyMDE = easyMDE;
 
+  let suppressDirtyTracking = false;
   const getValue = () => easyMDE ? easyMDE.value() : (textarea ? textarea.value : '');
-  const setValue = (v) => { if (easyMDE) easyMDE.value(v); else if (textarea) textarea.value = v; };
+  const setValue = (v) => {
+    suppressDirtyTracking = true;
+    if (easyMDE) {
+      easyMDE.value(v);
+    } else if (textarea) {
+      textarea.value = v;
+    }
+    window.setTimeout(() => {
+      suppressDirtyTracking = false;
+    }, 0);
+  };
   const cardContainer = document.getElementById(`topic${capitalize(key)}Container`);
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
   const modalEl = document.getElementById(`${key}Modal`);
@@ -164,12 +176,256 @@ window.setupTopicHistory = function (options) {
     if (!submitBtn || !textarea) return;
     submitBtn.disabled = norm(getValue()) === baseline;
   };
+
+  const autoSaveConfig = autoSaveOptions && typeof autoSaveOptions === 'object' ? autoSaveOptions : null;
+  const autoSaveEnabled = Boolean(autoSaveConfig && autoSaveConfig.enabled && textarea);
+  const autoSaveContainerEl = autoSaveEnabled && autoSaveConfig.statusContainerId
+    ? document.getElementById(autoSaveConfig.statusContainerId)
+    : null;
+  const autoSaveTextEl = autoSaveEnabled && autoSaveConfig.statusTextId
+    ? document.getElementById(autoSaveConfig.statusTextId)
+    : null;
+  const autoSaveSpinnerEl = autoSaveEnabled && autoSaveConfig.statusSpinnerId
+    ? document.getElementById(autoSaveConfig.statusSpinnerId)
+    : null;
+  const autoSaveInactivityMs = autoSaveEnabled && typeof autoSaveConfig.inactivityMs === 'number'
+    ? Math.max(1000, autoSaveConfig.inactivityMs)
+    : 5000;
+  let autoSaveTimer = null;
+  let autoSaveInFlight = null;
+  let autoSavePending = false;
+  let lastPersistedAt = null;
+
+  const formatSavedMessage = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return (autoSaveConfig && autoSaveConfig.savedMessage) || 'Saved';
+    }
+    const diffMs = Date.now() - date.getTime();
+    if (diffMs < 45000) {
+      return (autoSaveConfig && autoSaveConfig.savedJustNowMessage) || 'Saved just now';
+    }
+    if (autoSaveConfig && typeof autoSaveConfig.savedAtFormatter === 'function') {
+      return autoSaveConfig.savedAtFormatter(date);
+    }
+    const prefix = (autoSaveConfig && autoSaveConfig.savedPrefix) || 'Saved at';
+    return `${prefix} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  };
+
+  const setAutoSaveState = (state, { savedAt, errorMessage } = {}) => {
+    if (!autoSaveEnabled) return;
+    if (state === 'saved' && savedAt instanceof Date && !Number.isNaN(savedAt.getTime())) {
+      lastPersistedAt = savedAt;
+    }
+    if (autoSaveContainerEl) {
+      autoSaveContainerEl.classList.remove('text-success', 'text-danger', 'text-secondary', 'text-muted');
+      if (state === 'saved') {
+        autoSaveContainerEl.classList.add('text-success');
+      } else if (state === 'error') {
+        autoSaveContainerEl.classList.add('text-danger');
+      } else {
+        autoSaveContainerEl.classList.add('text-secondary');
+      }
+    }
+    if (autoSaveSpinnerEl) {
+      if (state === 'saving') {
+        autoSaveSpinnerEl.classList.remove('d-none');
+      } else {
+        autoSaveSpinnerEl.classList.add('d-none');
+      }
+    }
+    if (autoSaveTextEl) {
+      let message = '';
+      switch (state) {
+        case 'saving':
+          message = (autoSaveConfig && autoSaveConfig.savingMessage) || 'Saving…';
+          break;
+        case 'dirty':
+          message = (autoSaveConfig && autoSaveConfig.dirtyMessage) || 'Unsaved changes';
+          break;
+        case 'error':
+          message = errorMessage || (autoSaveConfig && autoSaveConfig.errorMessage) || 'Failed to save';
+          break;
+        case 'saved':
+          message = formatSavedMessage(savedAt || lastPersistedAt);
+          break;
+        default:
+          message = (autoSaveConfig && autoSaveConfig.idleMessage) || '';
+      }
+      autoSaveTextEl.textContent = message;
+    }
+  };
+
+  const cancelAutoSave = () => {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+    }
+  };
+
+  const isDirty = () => textarea ? norm(getValue()) !== baseline : false;
+
+  let scheduleAutoSave = () => {};
+
+  const markDirtyFromValue = () => {
+    if (!autoSaveEnabled) return;
+    if (isDirty()) {
+      setAutoSaveState('dirty');
+      scheduleAutoSave();
+    } else {
+      cancelAutoSave();
+      setAutoSaveState('saved', { savedAt: lastPersistedAt });
+    }
+  };
+
+  const handleEditorChange = () => {
+    if (suppressDirtyTracking) return;
+    updateSubmitButtonState();
+    markDirtyFromValue();
+  };
+
   if (easyMDE) {
-    easyMDE.codemirror.on('change', updateSubmitButtonState);
+    easyMDE.codemirror.on('change', handleEditorChange);
   } else {
-    textarea && textarea.addEventListener('input', updateSubmitButtonState);
+    textarea && textarea.addEventListener('input', handleEditorChange);
   }
   updateSubmitButtonState();
+  markDirtyFromValue();
+
+  const persistChanges = async () => {
+    if (!textarea) return false;
+    const currentText = getValue();
+    const normalized = norm(currentText);
+    if (normalized === baseline) {
+      return false;
+    }
+    if (!topicUuid) {
+      return false;
+    }
+
+    const payload = { topic_uuid: topicUuid };
+    let parsedInput = {};
+    try {
+      parsedInput = parseInput(currentText) || {};
+    } catch (err) {
+      const error = new Error(err && err.message ? err.message : 'Invalid JSON');
+      error.name = err && err.name ? err.name : 'ParseError';
+      throw error;
+    }
+    if (typeof parsedInput !== 'object') {
+      const error = new Error('Invalid JSON');
+      error.name = 'ParseError';
+      throw error;
+    }
+    Object.assign(payload, parsedInput);
+
+    let res;
+    try {
+      res = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      throw err;
+    }
+    const data = await parseJsonIfPossible(res);
+    const fallback = messages.updateError;
+    if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+      const errorMessage = resolveErrorMessage(data, fallback);
+      const error = new Error(errorMessage || fallback);
+      error.name = 'PersistError';
+      throw error;
+    }
+
+    await afterPersistedChange();
+    baseline = norm(getValue());
+    updateSubmitButtonState();
+    markDirtyFromValue();
+    return true;
+  };
+
+  const executeAutoSave = async ({ reason = 'manual', force = false } = {}) => {
+    if (!autoSaveEnabled || !textarea) return false;
+    if (!force && !isDirty()) {
+      setAutoSaveState('saved', { savedAt: lastPersistedAt });
+      return false;
+    }
+    if (autoSaveInFlight) {
+      autoSavePending = true;
+      return autoSaveInFlight;
+    }
+    cancelAutoSave();
+    setAutoSaveState('saving');
+    autoSaveInFlight = (async () => {
+      let hadError = false;
+      try {
+        const changed = await persistChanges();
+        if (changed) {
+          const savedAt = new Date();
+          setAutoSaveState('saved', { savedAt });
+        } else {
+          setAutoSaveState('saved', { savedAt: lastPersistedAt });
+        }
+        autoSavePending = false;
+        return changed;
+      } catch (err) {
+        hadError = true;
+        const fallback = messages.updateError;
+        const message = (!err || !err.message || err.name === 'TypeError')
+          ? fallback
+          : err.message;
+        setAutoSaveState('error', { errorMessage: message });
+        throw err;
+      } finally {
+        autoSaveInFlight = null;
+        if (autoSavePending) {
+          autoSavePending = false;
+          if (isDirty()) {
+            executeAutoSave({ reason: 'queued' }).catch(() => {});
+          } else if (!hadError) {
+            markDirtyFromValue();
+          }
+        } else if (!hadError) {
+          markDirtyFromValue();
+        }
+      }
+    })();
+    return autoSaveInFlight;
+  };
+
+  scheduleAutoSave = () => {
+    if (!autoSaveEnabled) return;
+    cancelAutoSave();
+    autoSaveTimer = window.setTimeout(() => {
+      autoSaveTimer = null;
+      executeAutoSave({ reason: 'inactivity' }).catch(() => {});
+    }, autoSaveInactivityMs);
+  };
+
+  if (autoSaveEnabled) {
+    const handleShortcut = (event) => {
+      if (!event) return;
+      const key = (event.key || '').toLowerCase();
+      if (key === 's' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        executeAutoSave({ reason: 'shortcut', force: true }).catch(() => {});
+      }
+    };
+
+    if (easyMDE && easyMDE.codemirror) {
+      easyMDE.codemirror.on('blur', () => {
+        executeAutoSave({ reason: 'blur' }).catch(() => {});
+      });
+      easyMDE.codemirror.on('keydown', (_cm, event) => {
+        handleShortcut(event);
+      });
+    } else if (textarea) {
+      textarea.addEventListener('blur', () => {
+        executeAutoSave({ reason: 'blur' }).catch(() => {});
+      });
+      textarea.addEventListener('keydown', handleShortcut);
+    }
+  }
 
   // list + pager
   const recs = [];
@@ -216,6 +472,16 @@ window.setupTopicHistory = function (options) {
     prevBtn && (prevBtn.disabled = currentIndex <= 0);
     nextBtn && (nextBtn.disabled = currentIndex >= recs.length - 1);
     createdAtEl && (createdAtEl.textContent = formatDateTime(item.created_at));
+
+    if (autoSaveEnabled) {
+      if (item && item.created_at) {
+        const savedDate = new Date(item.created_at);
+        if (!Number.isNaN(savedDate.getTime())) {
+          lastPersistedAt = savedDate;
+        }
+      }
+      markDirtyFromValue();
+    }
   };
 
   const getItemText = (item) => {
@@ -249,6 +515,10 @@ window.setupTopicHistory = function (options) {
           applyIndex(recs.length - 1);
         } else {
           pagerEl.style.display = 'none';
+          if (autoSaveEnabled) {
+            lastPersistedAt = null;
+            markDirtyFromValue();
+          }
         }
         if (notify && changed) {
           notifyTopicChanged();
@@ -284,6 +554,15 @@ window.setupTopicHistory = function (options) {
           createdAtEl.textContent = d.toLocaleString(undefined, {
             year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
           });
+        }
+        if (autoSaveEnabled) {
+          if (createdAtIso) {
+            const savedDate = new Date(createdAtIso);
+            if (!Number.isNaN(savedDate.getTime())) {
+              lastPersistedAt = savedDate;
+            }
+          }
+          markDirtyFromValue();
         }
         notifyTopicChanged();
       };
@@ -421,27 +700,14 @@ window.setupTopicHistory = function (options) {
       modal && modal.hide();
 
       try {
-        const payload = { topic_uuid: topicUuid };
-        // Pass current text if textarea exists; otherwise an empty string
-        const currentText = textarea ? getValue() : '';
-        Object.assign(payload, parseInput(currentText));
-        const res = await fetch(createUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await parseJsonIfPossible(res);
-        const fallback = messages.updateError;
-        if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
-          const errorMessage = resolveErrorMessage(data, fallback);
-          throw new Error(errorMessage);
-        }
-
-        // Manual update -> neutral (same as recap flow)
+        const changed = await persistChanges();
         controller && controller.reset();
         setButtonError(null);
         clearStatusMessage();
-        await afterPersistedChange();
+        if (changed && autoSaveEnabled) {
+          const savedAt = new Date();
+          setAutoSaveState('saved', { savedAt });
+        }
       } catch (err) {
         console.error(err);
         controller && controller.showError();
@@ -459,6 +725,9 @@ window.setupTopicHistory = function (options) {
         setButtonError(message);
         showStatusMessage('error', message);
         modal && modal.show();
+        if (autoSaveEnabled) {
+          setAutoSaveState('error', { errorMessage: message });
+        }
       } finally {
         if (textarea) {
           submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);

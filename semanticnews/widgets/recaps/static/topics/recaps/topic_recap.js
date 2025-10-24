@@ -106,6 +106,13 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteUrl: (id) => `/api/topics/recap/${id}`,
     renderItem: (item, el) => { if (el) el.innerHTML = renderMarkdownLite(item.recap || ''); },
     parseInput: (text) => ({ recap: text }),
+    autoSave: {
+      enabled: true,
+      inactivityMs: 5000,
+      statusContainerId: 'recapSaveStatus',
+      statusTextId: 'recapSaveStatusText',
+      statusSpinnerId: 'recapSaveStatusSpinner',
+    },
     buildSuggestionPayload: ({ topicUuid }) => {
       const payload = { topic_uuid: topicUuid };
       const context = collectTopicContext();
