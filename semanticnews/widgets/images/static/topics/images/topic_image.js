@@ -14,10 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const imageEl = document.getElementById('topicImageLatest');
   const statusMessageEl = document.getElementById('imageStatusMessage');
   const clearBtn = document.getElementById('imageClearBtn');
+  const clearBtnDefaultTitle = clearBtn ? clearBtn.getAttribute('title') || '' : '';
+  const clearBtnDefaultLabel = clearBtn ? clearBtn.getAttribute('aria-label') || '' : '';
+  const clearBtnRemovedLabel = 'Cover image removed';
 
   const setImageState = ({ hasImage }) => {
+    const effectiveHasImage = Boolean(hasImage);
     if (previewWrapper) {
-      if (hasImage) {
+      if (effectiveHasImage) {
         previewWrapper.style.display = '';
       } else {
         previewWrapper.style.display = 'none';
@@ -25,8 +29,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (clearBtn) {
-      clearBtn.classList.toggle('d-none', !hasImage);
+      clearBtn.classList.remove('d-none');
       clearBtn.disabled = false;
+      clearBtn.classList.toggle('btn-outline-secondary', effectiveHasImage);
+      clearBtn.classList.toggle('btn-outline-warning', !effectiveHasImage);
+      clearBtn.classList.toggle('text-warning', !effectiveHasImage);
+      if (effectiveHasImage) {
+        if (clearBtnDefaultTitle) {
+          clearBtn.setAttribute('title', clearBtnDefaultTitle);
+        }
+        if (clearBtnDefaultLabel) {
+          clearBtn.setAttribute('aria-label', clearBtnDefaultLabel);
+        }
+      } else {
+        const removedTitle = clearBtnDefaultTitle || clearBtnRemovedLabel;
+        const removedLabel = clearBtnDefaultLabel || clearBtnRemovedLabel;
+        clearBtn.setAttribute('title', removedTitle);
+        clearBtn.setAttribute('aria-label', removedLabel);
+      }
     }
   };
 
@@ -132,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await triggerReload();
       if (imageEl) imageEl.src = '';
       setImageState({ hasImage: false });
-      showStatusMessage('info', 'Cover image removed.');
+      clearStatusMessage();
       document.dispatchEvent(new CustomEvent('topic:changed'));
     } catch (err) {
       console.error(err);
@@ -184,6 +204,23 @@ document.addEventListener('DOMContentLoaded', () => {
     useMarkdown: false,
     messages: {
       updateError: defaultErrorMessage,
+    },
+    getInitialIndex: ({ items }) => {
+      if (!Array.isArray(items) || !items.length) {
+        return null;
+      }
+      const heroIndex = items.findIndex((item) => item && item.is_hero);
+      if (heroIndex >= 0) {
+        return heroIndex;
+      }
+      return null;
+    },
+    onInitialItemMissing: () => {
+      if (imageEl) {
+        imageEl.removeAttribute('src');
+      }
+      setImageState({ hasImage: false });
+      clearStatusMessage();
     },
   });
 
