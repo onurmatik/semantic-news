@@ -291,6 +291,10 @@
         return;
       }
 
+      if (moduleKey === 'images') {
+        return;
+      }
+
       const controls = document.createElement('div');
       controls.className = 'topic-module-controls';
 
