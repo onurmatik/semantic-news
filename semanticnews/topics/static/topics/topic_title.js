@@ -5,31 +5,36 @@ function normalizeTitle(value, fallback = '') {
 
 document.addEventListener('DOMContentLoaded', () => {
   const topicEl = document.querySelector('[data-topic-uuid]');
-  const displayEl = document.getElementById('topicTitleDisplay');
-  const editToggle = document.getElementById('topicTitleEditToggle');
-  const editorCard = document.getElementById('topicTitleEditor');
   const form = document.getElementById('topicTitleForm');
   const input = document.getElementById('topicTitleInput');
-  const cancelBtn = document.getElementById('topicTitleCancelBtn');
   const errorEl = document.getElementById('editTopicTitleError');
   const suggestBtn = document.getElementById('topicTitleSuggestBtn');
-  const suggestionsContainer = document.getElementById('topicTitleSuggestions');
-  const suggestionsList = document.getElementById('topicTitleSuggestionsList');
-  const untitledLabel = displayEl?.dataset?.untitled ?? '';
+  const untitledLabel = input?.dataset?.untitled ?? '';
 
-  if (!topicEl || !displayEl || !form || !input) {
+  if (!topicEl || !form || !input) {
     return;
   }
 
   const topicUuid = topicEl.dataset.topicUuid || '';
 
-  const hideSuggestions = () => {
-    if (suggestionsContainer) {
-      suggestionsContainer.classList.add('d-none');
+  const readResponseMessage = async (response, fallback) => {
+    let message = fallback;
+    try {
+      const data = await response.json();
+      if (typeof data?.detail === 'string' && data.detail.trim()) {
+        message = data.detail.trim();
+      }
+    } catch (jsonError) {
+      try {
+        const text = await response.text();
+        if (text && text.trim()) {
+          message = text.trim();
+        }
+      } catch (textError) {
+        console.error(textError);
+      }
     }
-    if (suggestionsList) {
-      suggestionsList.innerHTML = '';
-    }
+    return message;
   };
 
   const clearError = () => {
@@ -37,55 +42,41 @@ document.addEventListener('DOMContentLoaded', () => {
       errorEl.classList.add('d-none');
       errorEl.textContent = '';
     }
-    form.classList.remove('was-validated');
     input.classList.remove('is-invalid');
+    form.classList.remove('was-validated');
   };
 
   const showError = (message) => {
     if (errorEl && message) {
       errorEl.textContent = message;
       errorEl.classList.remove('d-none');
-      input.classList.add('is-invalid');
     }
+    input.classList.add('is-invalid');
+    form.classList.add('was-validated');
   };
 
-  const setDisplayTitle = (title) => {
+  const setDocumentTitle = (title) => {
     const normalized = normalizeTitle(title, untitledLabel);
-    displayEl.textContent = normalized;
-    document.title = normalized || document.title;
+    if (normalized) {
+      document.title = normalized;
+    }
   };
 
   const getCurrentTitle = () => topicEl.dataset.topicTitle || '';
 
-  const resetEditorValue = () => {
-    input.value = getCurrentTitle();
-    clearError();
-    hideSuggestions();
+  const syncInputWithDataset = () => {
+    const currentTitle = getCurrentTitle();
+    input.value = currentTitle;
+    setDocumentTitle(currentTitle);
   };
 
-  const toggleEditor = (show) => {
-    const shouldShow = show === undefined ? editorCard.classList.contains('d-none') : show;
-    if (shouldShow) {
-      editorCard.classList.remove('d-none');
-      resetEditorValue();
-      requestAnimationFrame(() => {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      });
-    } else {
-      editorCard.classList.add('d-none');
+  syncInputWithDataset();
+
+  input.addEventListener('input', () => {
+    if (input.classList.contains('is-invalid')) {
       clearError();
-      hideSuggestions();
     }
-  };
-
-  editToggle?.addEventListener('click', () => toggleEditor(true));
-  cancelBtn?.addEventListener('click', () => {
-    resetEditorValue();
-    toggleEditor(false);
   });
-
-  setDisplayTitle(getCurrentTitle());
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -108,22 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        let message = 'Unable to update the topic title.';
-        try {
-          const data = await response.json();
-          if (typeof data?.detail === 'string' && data.detail.trim()) {
-            message = data.detail.trim();
-          }
-        } catch (jsonError) {
-          try {
-            const text = await response.text();
-            if (text && text.trim()) {
-              message = text.trim();
-            }
-          } catch (textError) {
-            console.error(textError);
-          }
-        }
+        const message = await readResponseMessage(
+          response,
+          'Unable to update the topic title.'
+        );
         throw new Error(message);
       }
 
@@ -134,10 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
         topicEl.dataset.topicSlug = data.slug;
       }
 
-      setDisplayTitle(newTitle);
-      toggleEditor(false);
+      syncInputWithDataset();
 
-      if (typeof data.edit_url === 'string' && data.edit_url && data.edit_url !== window.location.pathname) {
+      if (
+        typeof data.edit_url === 'string' &&
+        data.edit_url &&
+        data.edit_url !== window.location.pathname
+      ) {
         window.location.href = data.edit_url;
       }
     } catch (error) {
@@ -150,89 +132,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  if (suggestionsList) {
-    suggestionsList.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      const suggestion = target.dataset?.suggestion;
-      if (!suggestion) {
-        return;
-      }
-      input.value = suggestion;
-      input.focus();
-      const length = suggestion.length;
-      if (typeof input.setSelectionRange === 'function') {
-        input.setSelectionRange(length, length);
-      }
-    });
-  }
-
-  const suggestLabel = suggestBtn ? suggestBtn.querySelector('[data-topic-title-suggest-label]') : null;
-
-  const setSuggestBtnLoading = (isLoading) => {
-    if (!suggestBtn) return;
-    const defaultLabel = suggestBtn.dataset.defaultLabel || (suggestLabel ? suggestLabel.textContent : '') || '';
-    const loadingLabel = suggestBtn.dataset.loadingLabel || defaultLabel;
-    suggestBtn.disabled = isLoading;
-    if (suggestLabel) {
-      suggestLabel.textContent = isLoading ? loadingLabel : defaultLabel;
-    }
-  };
-
   if (suggestBtn) {
     suggestBtn.addEventListener('click', async () => {
-      const about = input.value.trim();
       clearError();
-      hideSuggestions();
-      setSuggestBtnLoading(true);
+      suggestBtn.disabled = true;
 
       try {
-        const params = new URLSearchParams({ limit: '5' });
-        if (about) {
-          params.set('about', about);
-        }
+        const params = new URLSearchParams({ limit: '1' });
         if (topicUuid) {
           params.set('topic_uuid', topicUuid);
         }
         const response = await fetch(`/api/topics/suggest?${params.toString()}`);
         if (!response.ok) {
-          throw new Error('Unable to fetch suggestions.');
+          const message = await readResponseMessage(
+            response,
+            'Unable to suggest a title.'
+          );
+          throw new Error(message);
         }
         const data = await response.json();
         if (!Array.isArray(data) || data.length === 0) {
-          const message = suggestionsContainer?.dataset?.noResultsMessage;
-          if (message && suggestionsList) {
-            suggestionsList.innerHTML = '';
-            const item = document.createElement('div');
-            item.className = 'list-group-item text-body-secondary';
-            item.textContent = message;
-            suggestionsList.appendChild(item);
-            suggestionsContainer.classList.remove('d-none');
-          }
+          showError('No suggestions available yet.');
           return;
         }
-        if (suggestionsList) {
-          suggestionsList.innerHTML = '';
-          data.forEach((suggestion) => {
-            if (typeof suggestion !== 'string' || !suggestion.trim()) {
-              return;
-            }
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'list-group-item list-group-item-action';
-            button.dataset.suggestion = suggestion;
-            button.textContent = suggestion;
-            suggestionsList.appendChild(button);
-          });
-          suggestionsContainer?.classList.remove('d-none');
+        const suggestion = data.find((item) => typeof item === 'string' && item.trim());
+        if (!suggestion) {
+          showError('No suggestions available yet.');
+          return;
+        }
+        input.value = suggestion;
+        input.focus();
+        const length = suggestion.length;
+        if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(length, length);
         }
       } catch (error) {
         console.error(error);
-        showError('Unable to fetch title suggestions.');
+        showError(error?.message || 'Unable to suggest a title.');
       } finally {
-        setSuggestBtnLoading(false);
+        suggestBtn.disabled = false;
       }
     });
   }
