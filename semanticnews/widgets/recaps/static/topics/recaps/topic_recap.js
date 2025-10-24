@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusContainerId: 'recapSaveStatus',
       statusTextId: 'recapSaveStatusText',
       statusSpinnerId: 'recapSaveStatusSpinner',
+      savedAtFormatter: () => 'Saved',
     },
     buildSuggestionPayload: ({ topicUuid }) => {
       const payload = { topic_uuid: topicUuid };
