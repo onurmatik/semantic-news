@@ -15,7 +15,8 @@ window.setupTopicHistory = function (options) {
   } = options;
 
   const form = document.getElementById(`${key}Form`);
-  const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`);
+  const triggerButton = document.getElementById(`${key}Button`);
+  const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`) || triggerButton;
   const textarea = document.getElementById(`${key}Text`);
   const easyMDE = useMarkdown && textarea && window.EasyMDE ? new EasyMDE({ element: textarea }) : null;
   // expose MDE handle so other scripts can access it (status checker / fallbacks)
@@ -42,7 +43,7 @@ window.setupTopicHistory = function (options) {
     ? document.getElementById(statusMessageId)
     : document.getElementById(`${key}StatusMessage`);
 
-  const triggerButton = document.getElementById(`${key}Button`);
+  // triggerButton declared earlier for suggestion fallback
 
   const parseJsonIfPossible = async (res) => {
     try {
