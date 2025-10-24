@@ -157,6 +157,19 @@ window.setupTopicHistory = function (options) {
   const deleteBtn = document.getElementById(`${key}DeleteBtn`);
   const showWhenMultipleEls = pagerEl ? Array.from(pagerEl.querySelectorAll('[data-show-when-multiple]')) : [];
 
+  const getInitialIndex = typeof options.getInitialIndex === 'function'
+    ? options.getInitialIndex
+    : null;
+  const onInitialItemMissing = typeof options.onInitialItemMissing === 'function'
+    ? options.onInitialItemMissing
+    : null;
+  const onItemsChanged = typeof options.onItemsChanged === 'function'
+    ? options.onItemsChanged
+    : null;
+  const onItemApplied = typeof options.onItemApplied === 'function'
+    ? options.onItemApplied
+    : null;
+
   const confirmModalEl = document.getElementById(`confirmDelete${capitalize(key)}Modal`);
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
   const deleteSpinner = document.getElementById(`confirmDelete${capitalize(key)}Spinner`);
@@ -504,6 +517,32 @@ window.setupTopicHistory = function (options) {
       }
       markDirtyFromValue();
     }
+
+    if (typeof onItemApplied === 'function') {
+      try {
+        onItemApplied({
+          item,
+          items: recs.slice(),
+          index: currentIndex,
+        });
+      } catch (err) {
+        console.error('history onItemApplied failed:', err);
+      }
+    }
+  };
+
+  const handleInitialItemMissing = (items) => {
+    if (typeof onInitialItemMissing === 'function') {
+      try {
+        onInitialItemMissing({ items });
+      } catch (err) {
+        console.error('history onInitialItemMissing failed:', err);
+      }
+      return;
+    }
+    if (cardContent) {
+      cardContent.textContent = '';
+    }
   };
 
   const getItemText = (item) => {
@@ -533,10 +572,65 @@ window.setupTopicHistory = function (options) {
 
         recs.length = 0;
         items.forEach(r => recs.push(r));
+
+        if (typeof onItemsChanged === 'function') {
+          try {
+            onItemsChanged({ items: recs.slice() });
+          } catch (err) {
+            console.error('history onItemsChanged failed:', err);
+          }
+        }
         if (recs.length) {
-          applyIndex(recs.length - 1);
+          let initialIndex = recs.length - 1;
+          if (getInitialIndex) {
+            try {
+              const proposed = getInitialIndex({
+                items: recs.slice(),
+                previousIndex: currentIndex,
+              });
+              if (typeof proposed === 'number' && !Number.isNaN(proposed)) {
+                initialIndex = Math.max(0, Math.min(proposed, recs.length - 1));
+              } else if (proposed === null) {
+                initialIndex = null;
+              }
+            } catch (err) {
+              console.error('history getInitialIndex failed:', err);
+              initialIndex = recs.length - 1;
+            }
+          }
+
+          if (typeof initialIndex === 'number' && initialIndex >= 0) {
+            applyIndex(initialIndex);
+          } else if (initialIndex === null) {
+            currentIndex = -1;
+            pagerEl && (pagerEl.style.display = '');
+            pagerLabel && (pagerLabel.textContent = `0/${recs.length}`);
+            const hasMultiple = recs.length > 1;
+            showWhenMultipleEls.forEach((el) => {
+              if (hasMultiple) {
+                el.classList.remove('d-none');
+              } else {
+                el.classList.add('d-none');
+              }
+            });
+            prevBtn && (prevBtn.disabled = true);
+            nextBtn && (nextBtn.disabled = recs.length === 0);
+            createdAtEl && (createdAtEl.textContent = '');
+            handleInitialItemMissing(recs.slice());
+          } else {
+            applyIndex(recs.length - 1);
+          }
         } else {
-          pagerEl.style.display = 'none';
+          pagerEl && (pagerEl.style.display = 'none');
+          currentIndex = -1;
+          if (typeof onItemsChanged === 'function') {
+            try {
+              onItemsChanged({ items: [] });
+            } catch (err) {
+              console.error('history onItemsChanged failed:', err);
+            }
+          }
+          handleInitialItemMissing([]);
           if (autoSaveEnabled) {
             lastPersistedAt = null;
             markDirtyFromValue();
