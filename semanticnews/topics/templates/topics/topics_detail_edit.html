@@ -177,7 +177,7 @@
 
         <div class="d-flex flex-column gap-3" data-layout-list>
             {% for module in primary_modules %}
-                {% if module.base_module_key in ('text', 'data', 'embeds') %}
+                {% if module.base_module_key|is_reorderable_module %}
                     <section
                         class="topic-module-wrapper"
                         data-module="{{ module.module_key }}"
@@ -194,7 +194,7 @@
         </div>
 
         {% for module in primary_modules %}
-            {% if module.base_module_key not in ('images', 'recaps', 'content_toolbar', 'text', 'data', 'embeds', 'relations') %}
+            {% if not module.base_module_key|is_primary_fixed_module and not module.base_module_key|is_reorderable_module and module.base_module_key != 'relations' %}
                 <section
                     class="topic-module-wrapper"
                     data-module="{{ module.module_key }}"
@@ -279,7 +279,7 @@
         {% endfor %}
 
         {% for module in sidebar_modules %}
-            {% if module.base_module_key not in ('relations', 'timeline', 'related_topics') %}
+            {% if not module.base_module_key|is_sidebar_fixed_module %}
                 <section
                     class="topic-module-wrapper"
                     data-module="{{ module.module_key }}"

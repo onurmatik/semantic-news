@@ -17,6 +17,7 @@ from .publishing.service import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
     MODULE_REGISTRY,
+    REORDERABLE_BASE_MODULES,
     get_topic_layout,
     serialize_layout,
     _split_module_key,
@@ -363,6 +364,9 @@ def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
             raise HttpError(400, f"Unknown module key: {key}")
         if base_key in {"text", "data_visualizations"} and not identifier:
             raise HttpError(400, f"{base_key.replace('_', ' ').title()} modules must include an identifier")
+        if base_key not in REORDERABLE_BASE_MODULES:
+            readable_name = base_key.replace("_", " ")
+            raise HttpError(400, f"{readable_name.title()} modules cannot be reordered")
         if key in seen_keys:
             raise HttpError(400, f"Duplicate module key: {key}")
         seen_keys.add(key)
