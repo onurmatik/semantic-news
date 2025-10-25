@@ -43,6 +43,7 @@ class TopicModuleLayout(models.Model):
         choices=PLACEMENT_CHOICES,
         default=PLACEMENT_PRIMARY,
     )
+    version = models.PositiveIntegerField(default=1)
     display_order = models.PositiveIntegerField(default=0)
 
     class Meta:
