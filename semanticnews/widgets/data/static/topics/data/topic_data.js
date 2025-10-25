@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewDeleteConfirmBtn = document.getElementById('dataPreviewDeleteConfirm');
   const saveButton = document.getElementById('dataSaveButton');
   const dataModal = document.getElementById('dataModal');
+  const isInline = dataModal && dataModal.dataset.inline === 'true';
   const dataButtonController = typeof window.setupGenerationButton === 'function'
     ? window.setupGenerationButton({
         buttonId: 'dataButton',
@@ -1497,9 +1498,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (dataModal) {
-    dataModal.addEventListener('show.bs.modal', () => {
-      loadExistingRequest();
-    });
+    if (isInline) {
+      dataModal.addEventListener('content-toolbar:show', () => {
+        loadExistingRequest();
+      });
+    } else {
+      dataModal.addEventListener('show.bs.modal', () => {
+        loadExistingRequest();
+      });
+    }
   }
 
   updateSaveButtonState();

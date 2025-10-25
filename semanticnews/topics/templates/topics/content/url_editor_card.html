@@ -1,0 +1,51 @@
+{% load i18n %}
+<div
+    class="topic-widget card border-light my-3 d-none"
+    data-content-editor="url"
+    id="externalContentCard"
+>
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <h6 class="fs-5 mb-0">{% trans "Add external content" %}</h6>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="externalContentCancelBtn" data-toolbar-dismiss="url">
+                {% trans "Cancel" %}
+            </button>
+            <button type="submit" form="externalContentForm" class="btn btn-primary btn-sm" id="externalContentSaveBtn">
+                {% trans "Save" %}
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form
+            id="externalContentForm"
+            class="d-flex flex-column gap-3"
+            data-error-message="{% trans 'Please provide a valid URL.' %}"
+            data-saving-message="{% trans 'Saving…' %}"
+            data-failure-message="{% trans 'Unable to save the content. Please try again.' %}"
+        >
+            <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+            <div>
+                <label for="externalContentType" class="form-label">{% trans "Content type" %}</label>
+                <select class="form-select" id="externalContentType" name="content_type">
+                    <option value="document">{% trans "Document" %}</option>
+                    <option value="webpage">{% trans "Webpage" %}</option>
+                    <option value="video">{% trans "YouTube video" %}</option>
+                    <option value="tweet">{% trans "Tweet" %}</option>
+                </select>
+            </div>
+            <div>
+                <label for="externalContentUrl" class="form-label">{% trans "URL" %}</label>
+                <input type="url" class="form-control" id="externalContentUrl" name="url" required>
+            </div>
+            <div data-content-fields="metadata">
+                <label for="externalContentTitle" class="form-label">{% trans "Title" %} <span class="text-secondary">{% trans "(optional)" %}</span></label>
+                <input type="text" class="form-control" id="externalContentTitle" name="title" maxlength="255">
+            </div>
+            <div data-content-fields="metadata">
+                <label for="externalContentDescription" class="form-label">{% trans "Description" %} <span class="text-secondary">{% trans "(optional)" %}</span></label>
+                <textarea class="form-control" id="externalContentDescription" name="description" rows="3"></textarea>
+            </div>
+        </form>
+        <div class="alert alert-info small d-none mt-3" id="externalContentStatus" role="alert"></div>
+    </div>
+</div>

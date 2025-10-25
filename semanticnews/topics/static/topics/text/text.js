@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const modalEl = document.getElementById('textModal');
   if (!modalEl) return;
+  const isInline = modalEl.dataset.inline === 'true';
 
   const getCsrfToken = () => {
     const name = 'csrftoken=';
@@ -19,7 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   };
 
-  const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+  const modal = !isInline && window.bootstrap
+    ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+    : null;
   const form = document.getElementById('textForm');
   const textarea = document.getElementById('textContent');
   const textIdInput = document.getElementById('textId');
@@ -28,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const reviseBtn = document.getElementById('textReviseBtn');
   const shortenBtn = document.getElementById('textShortenBtn');
   const expandBtn = document.getElementById('textExpandBtn');
+  const cancelBtn = document.getElementById('textCancelBtn');
 
   const confirmModalEl = document.getElementById('confirmDeleteTextModal');
   const confirmModal = confirmModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(confirmModalEl) : null;
@@ -49,13 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     textarea._easyMDE = easyMDE;
   }
 
-  if (easyMDE && modalEl) {
-    modalEl.addEventListener('shown.bs.modal', () => {
-      easyMDE.codemirror.refresh();
-      easyMDE.codemirror.focus();
-    });
-  }
-
   const setEditorContent = (value) => {
     if (easyMDE) {
       easyMDE.value(value || '');
@@ -63,6 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
       textarea.value = value || '';
     }
   };
+
+  const focusEditor = () => {
+    if (!easyMDE) return;
+    easyMDE.codemirror.refresh();
+    easyMDE.codemirror.focus();
+  };
+
+  if (!isInline && easyMDE && modalEl) {
+    modalEl.addEventListener('shown.bs.modal', focusEditor);
+  }
 
   const getEditorContent = () => {
     if (easyMDE) {
@@ -146,23 +153,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  const openCreateModal = () => {
+  const showEditor = () => {
+    if (isInline) {
+      modalEl.classList.remove('d-none');
+      focusEditor();
+    } else if (modal) {
+      modal.show();
+    }
+  };
+
+  const hideEditor = () => {
+    if (isInline) {
+      modalEl.classList.add('d-none');
+    } else if (modal) {
+      modal.hide();
+    }
+  };
+
+  const resetEditorState = () => {
     if (textIdInput) textIdInput.value = '';
     setEditorContent('');
     setModalMode('create');
-    modal && modal.show();
+  };
+
+  if (isInline) {
+    modalEl.addEventListener('content-toolbar:hide', () => {
+      resetEditorState();
+      if (saveBtn) {
+        saveBtn.disabled = false;
+      }
+    });
+  }
+
+  const openCreateModal = () => {
+    if (isInline && !modalEl.classList.contains('d-none')) {
+      const currentId = textIdInput ? textIdInput.value : '';
+      if (!currentId) {
+        resetEditorState();
+        hideEditor();
+        return;
+      }
+    }
+    if (textIdInput) textIdInput.value = '';
+    setEditorContent('');
+    setModalMode('create');
+    showEditor();
   };
 
   const openEditModal = (id, content) => {
     if (textIdInput) textIdInput.value = id;
     setEditorContent(content || '');
     setModalMode('edit');
-    modal && modal.show();
+    showEditor();
   };
 
   document.querySelectorAll('[data-action="create-text"]').forEach((btn) => {
     btn.addEventListener('click', (event) => {
       event.preventDefault();
+      event.stopImmediatePropagation();
       openCreateModal();
     });
   });
@@ -209,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (!res.ok) throw new Error('Failed to save text');
       await res.json();
-      modal && modal.hide();
+      hideEditor();
       window.location.reload();
     } catch (error) {
       console.error(error);
@@ -218,6 +266,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   form && form.addEventListener('submit', submitForm);
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      resetEditorState();
+      hideEditor();
+    });
+  }
 
   handleTransformAction(reviseBtn, 'revise');
   handleTransformAction(shortenBtn, 'shorten');

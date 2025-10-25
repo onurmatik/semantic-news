@@ -170,13 +170,10 @@
 
 
 {% include "topics/mcps/modal.html" %}
-{% include "topics/documents/modal.html" %}
-{% include "topics/data/modal.html" %}
+{% comment %} Inline editors render in the content area {% endcomment %}
 {% include "topics/data/analyze_modal.html" %}
 {% include "topics/data/visualize_modal.html" %}
-{% include "topics/text/modal.html" %}
 {% include "topics/images/modal.html" %}
-{% include "topics/embeds/modal.html" %}
 {% include "topics/relations/modal.html" %}
 {% include "topics/timeline/modal.html" %}
 {% endblock %}
@@ -191,11 +188,11 @@
     <script src="{% static 'topics/related_topics.js' %}"></script>
     <script src="{% static 'topics/layout.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
+    <script src="{% static 'topics/content/toolbar.js' %}"></script>
+    <script src="{% static 'topics/content/external_content.js' %}"></script>
     {% include "topics/data/scripts.html" %}
-    {% include "topics/documents/scripts.html" %}
     {% include "topics/text/scripts.html" %}
     {% include "topics/images/scripts.html" %}
-    {% include "topics/embeds/scripts.html" %}
     {% include "topics/relations/scripts.html" %}
     {% include "topics/timeline/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}
