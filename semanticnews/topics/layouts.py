@@ -285,8 +285,6 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
 
-    related_topic_modules: List[Dict[str, object]] = []
-
     text_manager = getattr(topic, "texts", None)
     if text_manager is not None:
         text_values = list(text_manager.all())
@@ -451,25 +449,7 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
             descriptor["visualization"] = viz
             explicit_visualization_ids.add(identifier)
 
-        if base_key == "related_topics":
-            descriptor["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
-            related_topic_modules.append(descriptor)
-            continue
-
         placements.setdefault(placement, []).append(descriptor)
-
-    if related_topic_modules:
-        sidebar_modules = placements.setdefault(
-            TopicModuleLayout.PLACEMENT_SIDEBAR, []
-        )
-        base_order = max(
-            (module.get("display_order", 0) for module in sidebar_modules),
-            default=0,
-        )
-        for offset, module in enumerate(related_topic_modules, start=1):
-            module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
-            module["display_order"] = base_order + offset
-            sidebar_modules.append(module)
 
     for modules in placements.values():
         modules.sort(key=lambda module: module["display_order"])

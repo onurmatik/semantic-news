@@ -90,115 +90,8 @@
     let draggedModule = null;
     let saveTimeout = null;
     let lastKnownLayoutSignature = null;
-    let layoutChangedDuringInit = false;
-
-    const PINNED_MODULE_KEYS = new Set(['images', 'recaps']);
-    const PRIMARY_ONLY_MODULE_KEYS = new Set([
-      'text',
-      'data',
-      'data_visualizations',
-      'embeds',
-      'documents',
-    ]);
-
-    const primaryColumn = columns.find(
-      (column) => column.dataset.layoutColumn === 'primary',
-    );
-
-    function getModuleKey(moduleEl) {
-      return moduleEl?.dataset.module || '';
-    }
-
-    function getModuleBaseKey(moduleEl) {
-      const key = getModuleKey(moduleEl);
-      if (!key) {
-        return '';
-      }
-      const [base] = key.split(':');
-      return base;
-    }
-
-    function isPinnedModule(moduleEl) {
-      return PINNED_MODULE_KEYS.has(getModuleBaseKey(moduleEl));
-    }
-
-    function isPrimaryOnlyModule(moduleEl) {
-      return PRIMARY_ONLY_MODULE_KEYS.has(getModuleBaseKey(moduleEl));
-    }
-
     function isPlacementAllowed(moduleEl, placement) {
-      if (!moduleEl) {
-        return true;
-      }
-      if (isPrimaryOnlyModule(moduleEl)) {
-        return placement === 'primary';
-      }
       return true;
-    }
-
-    function ensureModuleAfterPinned(moduleEl) {
-      if (!moduleEl || isPinnedModule(moduleEl)) {
-        return;
-      }
-      const column = moduleEl.closest('[data-layout-column]');
-      if (!column) {
-        return;
-      }
-      const pinnedModules = Array.from(
-        column.querySelectorAll('[data-module]'),
-      ).filter((module) => isPinnedModule(module));
-      if (!pinnedModules.length) {
-        return;
-      }
-      const lastPinned = pinnedModules[pinnedModules.length - 1];
-      if (lastPinned === moduleEl) {
-        return;
-      }
-      const position = lastPinned.compareDocumentPosition(moduleEl);
-      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
-        return;
-      }
-      column.insertBefore(moduleEl, lastPinned.nextSibling);
-    }
-
-    function moveModuleToPrimary(moduleEl) {
-      if (!moduleEl || !primaryColumn) {
-        return;
-      }
-      const currentPlacement =
-        moduleEl.dataset.placement ||
-        moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn;
-      if (currentPlacement === 'primary') {
-        ensureModuleAfterPinned(moduleEl);
-        return;
-      }
-
-      const displayOrder = Number.parseInt(moduleEl.dataset.displayOrder || '', 10);
-      const siblings = Array.from(
-        primaryColumn.querySelectorAll('[data-module]'),
-      ).filter((sibling) => sibling !== moduleEl);
-
-      let insertBefore = null;
-      if (!Number.isNaN(displayOrder)) {
-        insertBefore = siblings.find((sibling) => {
-          const siblingOrder = Number.parseInt(
-            sibling.dataset.displayOrder || '',
-            10,
-          );
-          if (Number.isNaN(siblingOrder)) {
-            return false;
-          }
-          if (isPinnedModule(sibling)) {
-            return false;
-          }
-          return siblingOrder > displayOrder;
-        });
-      }
-
-      primaryColumn.insertBefore(moduleEl, insertBefore || null);
-      moduleEl.dataset.placement = 'primary';
-      ensureModuleAfterPinned(moduleEl);
-      layoutChangedDuringInit = true;
     }
 
     function scheduleSave() {
@@ -327,7 +220,6 @@
       }
 
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
-      ensureModuleAfterPinned(draggedModule);
       updatePlacementButtons(draggedModule);
     }
 
@@ -342,7 +234,6 @@
       }
       column.appendChild(draggedModule);
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
-      ensureModuleAfterPinned(draggedModule);
       updatePlacementButtons(draggedModule);
       return true;
     }
@@ -359,16 +250,11 @@
       }
       if (direction === 'up' && index > 0) {
         const previousModule = modules[index - 1];
-        if (isPinnedModule(previousModule)) {
-          return;
-        }
         column.insertBefore(moduleEl, previousModule);
-        ensureModuleAfterPinned(moduleEl);
         scheduleSave();
       } else if (direction === 'down' && index < modules.length - 1) {
         const next = modules[index + 1].nextSibling;
         column.insertBefore(moduleEl, next);
-        ensureModuleAfterPinned(moduleEl);
         scheduleSave();
       }
     }
@@ -385,15 +271,9 @@
         return;
       }
 
-      const primaryOnly = isPrimaryOnlyModule(moduleEl);
-
       if (placement === 'primary') {
         moveLeftButton.classList.add('d-none');
-        if (primaryOnly) {
-          moveRightButton.classList.add('d-none');
-        } else {
-          moveRightButton.classList.remove('d-none');
-        }
+        moveRightButton.classList.remove('d-none');
       } else {
         moveLeftButton.classList.remove('d-none');
         moveRightButton.classList.add('d-none');
@@ -415,7 +295,6 @@
       targetColumn.appendChild(moduleEl);
       moduleEl.dataset.placement = targetPlacement;
       updatePlacementButtons(moduleEl);
-      ensureModuleAfterPinned(moduleEl);
       scheduleSave();
     }
 
@@ -424,15 +303,6 @@
         return;
       }
       if (moduleEl.dataset.hasContent !== 'true') {
-        return;
-      }
-
-      const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
-      if (moduleKey.startsWith('recap')) {
-        return;
-      }
-
-      if (moduleKey === 'images') {
         return;
       }
 
@@ -523,11 +393,6 @@
         const column = moduleEl.closest('[data-layout-column]');
         moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
       }
-      if (isPrimaryOnlyModule(moduleEl)) {
-        moveModuleToPrimary(moduleEl);
-      } else {
-        ensureModuleAfterPinned(moduleEl);
-      }
       addControls(moduleEl);
       updatePlacementButtons(moduleEl);
     }
@@ -546,9 +411,6 @@
 
     Array.from(layoutRoot.querySelectorAll('[data-module]')).forEach(initModule);
     lastKnownLayoutSignature = JSON.stringify(collectLayout());
-    if (layoutChangedDuringInit) {
-      scheduleSave();
-    }
 
     layoutRoot.addEventListener('topicLayout:save', () => {
       scheduleSave();
