@@ -104,10 +104,7 @@ def list_texts(request, topic_uuid: str):
 @router.post("/create", response=TopicTextResponse)
 def create_text(request, payload: TopicTextCreateRequest):
     topic = _get_owned_topic(request, payload.topic_uuid)
-    valid_placements = {choice[0] for choice in TopicModuleLayout.PLACEMENT_CHOICES}
-    placement = payload.placement or TopicModuleLayout.PLACEMENT_PRIMARY
-    if placement not in valid_placements:
-        placement = TopicModuleLayout.PLACEMENT_PRIMARY
+    placement = TopicModuleLayout.PLACEMENT_PRIMARY
     with transaction.atomic():
         text = TopicText.objects.create(
             topic=topic,
