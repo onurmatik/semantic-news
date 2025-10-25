@@ -82,16 +82,19 @@
     }
 
     const apiUrl = layoutRoot.dataset.layoutApiUrl || `/api/topics/${topicUuid}/layout`;
-    const columns = Array.from(layoutRoot.querySelectorAll('[data-layout-column]'));
-    if (!columns.length) {
+    const moduleList = layoutRoot.querySelector('[data-layout-list]');
+    if (!moduleList) {
       return;
     }
 
     let draggedModule = null;
     let saveTimeout = null;
     let lastKnownLayoutSignature = null;
-    function isPlacementAllowed(moduleEl, placement) {
-      return true;
+
+    const reorderableSelector = '[data-layout-reorderable="true"]';
+
+    function getReorderableModules() {
+      return Array.from(moduleList.querySelectorAll(reorderableSelector));
     }
 
     function scheduleSave() {
@@ -103,15 +106,12 @@
 
     function collectLayout() {
       const payload = [];
-      columns.forEach((column) => {
-        const placement = column.dataset.layoutColumn;
-        Array.from(column.querySelectorAll('[data-module]')).forEach((moduleEl, index) => {
-          moduleEl.dataset.displayOrder = String(index);
-          payload.push({
-            module_key: moduleEl.dataset.module,
-            placement,
-            display_order: index,
-          });
+      getReorderableModules().forEach((moduleEl, index) => {
+        moduleEl.dataset.displayOrder = String(index);
+        payload.push({
+          module_key: moduleEl.dataset.module || '',
+          placement: moduleEl.dataset.placement || 'primary',
+          display_order: index,
         });
       });
       return payload;
@@ -169,44 +169,21 @@
       if (draggedModule) {
         draggedModule.classList.remove('topic-module--dragging');
       }
-      columns.forEach((column) => column.classList.remove('topic-layout-column--active'));
       draggedModule = null;
-      scheduleSave();
     }
 
     function handleDragOver(event) {
       event.preventDefault();
-      const column = event.currentTarget.closest('[data-layout-column]');
-      if (column) {
-        if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
-          column.classList.remove('topic-layout-column--active');
-          event.dataTransfer.dropEffect = 'none';
-          return;
-        }
-        column.classList.add('topic-layout-column--active');
-      }
       event.dataTransfer.dropEffect = 'move';
-    }
-
-    function handleDragLeave(event) {
-      const column = event.currentTarget.closest('[data-layout-column]');
-      if (column && !column.contains(event.relatedTarget)) {
-        column.classList.remove('topic-layout-column--active');
-      }
     }
 
     function handleDrop(event) {
       event.preventDefault();
-      const column = event.currentTarget.closest('[data-layout-column]');
-      if (!column || !draggedModule) {
+      if (!draggedModule) {
         return;
       }
 
-      if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
-        return;
-      }
-
-      const dropTarget = event.currentTarget.closest('[data-module]');
+      const dropTarget = event.currentTarget.closest(reorderableSelector);
       if (dropTarget && dropTarget !== draggedModule) {
         const rect = dropTarget.getBoundingClientRect();
         const offset = event.clientY - rect.top;
@@ -215,87 +192,25 @@
         } else {
           dropTarget.before(draggedModule);
         }
-      } else if (!dropTarget) {
-        column.appendChild(draggedModule);
+        scheduleSave();
       }
-
-      draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
-      updatePlacementButtons(draggedModule);
-    }
-
-    function handleColumnDrop(event) {
-      event.preventDefault();
-      if (!draggedModule) {
-        return false;
-      }
-      const column = event.currentTarget;
-      if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
-        return false;
-      }
-      column.appendChild(draggedModule);
-      draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
-      updatePlacementButtons(draggedModule);
-      return true;
     }
 
     function moveModule(moduleEl, direction) {
-      const column = moduleEl.closest('[data-layout-column]');
-      if (!column) {
-        return;
-      }
-      const modules = Array.from(column.querySelectorAll('[data-module]'));
+      const modules = getReorderableModules();
       const index = modules.indexOf(moduleEl);
       if (index === -1) {
         return;
       }
       if (direction === 'up' && index > 0) {
         const previousModule = modules[index - 1];
-        column.insertBefore(moduleEl, previousModule);
+        moduleEl.parentNode.insertBefore(moduleEl, previousModule);
         scheduleSave();
       } else if (direction === 'down' && index < modules.length - 1) {
         const next = modules[index + 1].nextSibling;
-        column.insertBefore(moduleEl, next);
+        moduleEl.parentNode.insertBefore(moduleEl, next);
         scheduleSave();
       }
-    }
-
-    function updatePlacementButtons(moduleEl) {
-      const placement = moduleEl.dataset.placement || moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn || 'primary';
-      const controls = moduleEl.querySelector('.topic-module-controls');
-      if (!controls) {
-        return;
-      }
-      const moveLeftButton = controls.querySelector('.topic-module-move-left');
-      const moveRightButton = controls.querySelector('.topic-module-move-right');
-      if (!moveLeftButton || !moveRightButton) {
-        return;
-      }
-
-      if (placement === 'primary') {
-        moveLeftButton.classList.add('d-none');
-        moveRightButton.classList.remove('d-none');
-      } else {
-        moveLeftButton.classList.remove('d-none');
-        moveRightButton.classList.add('d-none');
-      }
-    }
-
-    function moveModuleToPlacement(moduleEl, targetPlacement) {
-      if (!isPlacementAllowed(moduleEl, targetPlacement)) {
-        return;
-      }
-      const targetColumn = columns.find((column) => column.dataset.layoutColumn === targetPlacement);
-      if (!targetColumn) {
-        return;
-      }
-      const currentPlacement = moduleEl.dataset.placement || moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn;
-      if (currentPlacement === targetPlacement) {
-        return;
-      }
-      targetColumn.appendChild(moduleEl);
-      moduleEl.dataset.placement = targetPlacement;
-      updatePlacementButtons(moduleEl);
-      scheduleSave();
     }
 
     function addControls(moduleEl) {
@@ -341,28 +256,6 @@
       });
       controls.appendChild(moveDownButton);
 
-      const moveLeftButton = document.createElement('button');
-      moveLeftButton.type = 'button';
-      moveLeftButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-left';
-      moveLeftButton.innerHTML = '<span class="bi bi-arrow-left"></span>';
-      moveLeftButton.title = 'Move to primary column';
-      moveLeftButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        moveModuleToPlacement(moduleEl, 'primary');
-      });
-      controls.appendChild(moveLeftButton);
-
-      const moveRightButton = document.createElement('button');
-      moveRightButton.type = 'button';
-      moveRightButton.className = 'btn btn-outline-secondary btn-sm topic-module-move-right';
-      moveRightButton.innerHTML = '<span class="bi bi-arrow-right"></span>';
-      moveRightButton.title = 'Move to sidebar';
-      moveRightButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        moveModuleToPlacement(moduleEl, 'sidebar');
-      });
-      controls.appendChild(moveRightButton);
-
       const headerActionsContainer =
         moduleEl.querySelector('[data-topic-module-header-actions]') ||
         (() => {
@@ -382,34 +275,25 @@
       } else {
         moduleEl.insertBefore(controls, moduleEl.firstChild);
       }
-      updatePlacementButtons(moduleEl);
     }
 
     function initModule(moduleEl) {
       moduleEl.addEventListener('dragover', handleDragOver);
-      moduleEl.addEventListener('dragleave', handleDragLeave);
       moduleEl.addEventListener('drop', handleDrop);
-      if (!moduleEl.dataset.placement) {
-        const column = moduleEl.closest('[data-layout-column]');
-        moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
-      }
       addControls(moduleEl);
-      updatePlacementButtons(moduleEl);
     }
 
-    columns.forEach((column) => {
-      column.classList.add('topic-layout-column');
-      column.addEventListener('dragover', handleDragOver);
-      column.addEventListener('drop', (event) => {
-        const moved = handleColumnDrop(event);
-        if (moved) {
-          scheduleSave();
-        }
-      });
-      column.addEventListener('dragleave', handleDragLeave);
+    moduleList.addEventListener('dragover', handleDragOver);
+    moduleList.addEventListener('drop', (event) => {
+      event.preventDefault();
+      if (!draggedModule) {
+        return;
+      }
+      moduleList.appendChild(draggedModule);
+      scheduleSave();
     });
 
-    Array.from(layoutRoot.querySelectorAll('[data-module]')).forEach(initModule);
+    getReorderableModules().forEach(initModule);
     lastKnownLayoutSignature = JSON.stringify(collectLayout());
 
     layoutRoot.addEventListener('topicLayout:save', () => {
