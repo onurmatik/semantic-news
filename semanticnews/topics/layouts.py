@@ -11,6 +11,9 @@ REORDERABLE_BASE_MODULES = {"text", "data", "embeds"}
 PRIMARY_FIXED_BASE_MODULES = {"images", "recaps", "content_toolbar"}
 SIDEBAR_FIXED_BASE_MODULES = {"relations", "timeline", "related_topics"}
 
+PRIMARY_FIXED_MODULE_ORDER = ("images", "recaps", "content_toolbar")
+SIDEBAR_FIXED_MODULE_ORDER = ("relations", "timeline", "related_topics")
+
 LayoutMode = Literal["detail", "edit"]
 
 
@@ -534,6 +537,7 @@ def serialize_layout(layout: Sequence[Dict[str, object]]) -> List[Dict[str, obje
             "display_order": entry["display_order"],
         }
         for entry in layout
+        if _split_module_key(entry["module_key"])[0] in REORDERABLE_BASE_MODULES
     ]
 
 

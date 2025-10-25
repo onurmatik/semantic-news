@@ -17,7 +17,15 @@ from semanticnews.agenda.localities import (
 )
 
 from .models import Topic, TopicModuleLayout, RelatedTopic
-from .layouts import annotate_module_content, get_layout_for_mode
+from .layouts import (
+    PRIMARY_FIXED_BASE_MODULES,
+    PRIMARY_FIXED_MODULE_ORDER,
+    REORDERABLE_BASE_MODULES,
+    SIDEBAR_FIXED_BASE_MODULES,
+    SIDEBAR_FIXED_MODULE_ORDER,
+    annotate_module_content,
+    get_layout_for_mode,
+)
 from .publishing.service import build_publication_context, build_publication_modules
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.data.models import TopicDataVisualization
@@ -63,19 +71,28 @@ def _render_topic_detail(request, topic):
         annotate_module_content(sidebar_modules, context)
         primary_modules = _filter_empty_related_topic_modules(primary_modules)
         sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-        context["primary_modules"] = primary_modules
-        context["sidebar_modules"] = sidebar_modules
+        _add_layout_context(
+            context,
+            primary_modules,
+            sidebar_modules,
+            include_empty_related_topics=False,
+        )
         context.update(_build_topic_metadata(request, topic, context))
         return render(request, "topics/topics_detail.html", context)
 
     context = {
         "topic": topic,
-        "primary_modules": [],
-        "sidebar_modules": [],
         "is_unpublished": True,
     }
 
     context.update(_build_topic_module_context(topic, request.user))
+
+    _add_layout_context(
+        context,
+        [],
+        [],
+        include_empty_related_topics=False,
+    )
 
     context.update(_build_topic_metadata(request, topic, context))
 
@@ -92,6 +109,92 @@ def _filter_empty_related_topic_modules(modules):
             continue
         filtered.append(module)
     return filtered
+
+
+def _module_base_key(module):
+    return module.get("base_module_key") or module.get("module_key")
+
+
+def _bucket_layout_modules(
+    primary_modules,
+    sidebar_modules,
+    *,
+    include_empty_related_topics: bool,
+):
+    primary_fixed_map = {}
+    primary_reorderable = []
+    primary_additional = []
+    sidebar_fixed_map = {}
+    sidebar_additional = []
+    sidebar_overflow = []
+
+    def should_include_related(module):
+        if include_empty_related_topics:
+            return True
+        return module.get("has_content") or _module_base_key(module) != "related_topics"
+
+    for module in primary_modules:
+        base_key = _module_base_key(module)
+        if base_key in PRIMARY_FIXED_BASE_MODULES:
+            primary_fixed_map.setdefault(base_key, module)
+            continue
+        if base_key in REORDERABLE_BASE_MODULES:
+            primary_reorderable.append(module)
+            continue
+        if base_key in SIDEBAR_FIXED_BASE_MODULES:
+            sidebar_module = dict(module)
+            sidebar_module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            sidebar_overflow.append(sidebar_module)
+            continue
+        if should_include_related(module):
+            primary_additional.append(module)
+
+    sidebar_sequence = list(sidebar_overflow) + list(sidebar_modules)
+    for module in sidebar_sequence:
+        base_key = _module_base_key(module)
+        if base_key in SIDEBAR_FIXED_BASE_MODULES:
+            if not should_include_related(module):
+                continue
+            sidebar_fixed_map.setdefault(base_key, module)
+            continue
+        if should_include_related(module):
+            sidebar_additional.append(module)
+
+    primary_fixed_modules = [
+        primary_fixed_map[key]
+        for key in PRIMARY_FIXED_MODULE_ORDER
+        if key in primary_fixed_map
+    ]
+    sidebar_fixed_modules = [
+        sidebar_fixed_map[key]
+        for key in SIDEBAR_FIXED_MODULE_ORDER
+        if key in sidebar_fixed_map
+    ]
+
+    return {
+        "primary_fixed_modules": primary_fixed_modules,
+        "primary_reorderable_modules": primary_reorderable,
+        "primary_additional_modules": primary_additional,
+        "sidebar_fixed_modules": sidebar_fixed_modules,
+        "sidebar_additional_modules": sidebar_additional,
+    }
+
+
+def _add_layout_context(
+    context,
+    primary_modules,
+    sidebar_modules,
+    *,
+    include_empty_related_topics: bool,
+):
+    buckets = _bucket_layout_modules(
+        primary_modules,
+        sidebar_modules,
+        include_empty_related_topics=include_empty_related_topics,
+    )
+    context.update(buckets)
+    context["primary_modules"] = primary_modules
+    context["sidebar_modules"] = sidebar_modules
 
 
 def topics_detail_redirect(request, topic_uuid, username):
@@ -405,8 +508,12 @@ def topics_detail_edit(request, topic_uuid, username):
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
-    context["primary_modules"] = primary_modules
-    context["sidebar_modules"] = sidebar_modules
+    _add_layout_context(
+        context,
+        primary_modules,
+        sidebar_modules,
+        include_empty_related_topics=True,
+    )
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
@@ -455,8 +562,12 @@ def topics_detail_preview(request, topic_uuid, username):
     annotate_module_content(sidebar_modules, context)
     primary_modules = _filter_empty_related_topic_modules(primary_modules)
     sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-    context["primary_modules"] = primary_modules
-    context["sidebar_modules"] = sidebar_modules
+    _add_layout_context(
+        context,
+        primary_modules,
+        sidebar_modules,
+        include_empty_related_topics=False,
+    )
     context["is_preview"] = True
 
     context.update(_build_topic_metadata(request, topic, context))
