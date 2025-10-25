@@ -57,7 +57,7 @@ class TopicDocument(models.Model):
     )
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
         verbose_name = 'Document'
         verbose_name_plural = 'Documents'
         ordering = ['-created_at']
@@ -130,7 +130,7 @@ class TopicWebpage(models.Model):
     )
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
         verbose_name = 'Webpage'
         verbose_name_plural = 'Webpages'
         ordering = ['-created_at']
@@ -163,7 +163,7 @@ class TopicTweet(models.Model):
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
         ordering = ('-created_at',)
         constraints = [
             models.UniqueConstraint(
@@ -205,7 +205,7 @@ class TopicYoutubeVideo(models.Model):
     error_code = models.CharField(blank=True, null=True, max_length=20)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):  # pragma: no cover - simple representation
         return f"{self.title} for {self.topic.title}"
