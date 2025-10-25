@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
     data: 'dataButton',
   };
 
+  const apiKeyMapping = {
+    relation: 'entities',
+    image: 'cover',
+  };
+
   const updateButtonDataset = (buttonId, info) => {
     if (!buttonId) return;
     const btn = document.getElementById(buttonId);
@@ -78,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Fallback applier for relation (graph)
+  // Fallback applier for entity relations (graph)
   const applyRelationFallback = (relations, createdAtIso) => {
     const graph = document.getElementById('topicRelationGraph');
     const container = document.getElementById('topicRelationContainer');
@@ -106,9 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pull latest list for a given key and apply via hook or fallback
   const updateFromServer = async (key) => {
     const listUrl =
-      key === 'recap'      ? `/api/topics/recap/${topicUuid}/list` :
-      key === 'relation'   ? `/api/topics/relation/${topicUuid}/list` :
-                             `/api/topics/image/${topicUuid}/list`;
+      key === 'recap'    ? `/api/topics/recap/${topicUuid}/list` :
+      key === 'relation' ? `/api/topics/entity/${topicUuid}/list` :
+                           `/api/topics/cover/${topicUuid}/list`;
 
     try {
       const res = await fetch(listUrl);
@@ -122,6 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window[hookName] === 'function') {
         if (key === 'relation') {
           window[hookName](latest.relations, latest.created_at);
+        } else if (key === 'image') {
+          window[hookName](latest, latest.created_at);
         } else {
           window[hookName](latest[key], latest.created_at);
         }
@@ -154,7 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const now = payload.current ? new Date(payload.current) : new Date();
 
       for (const key of KEYS_TO_CHECK) {
-        const info = payload[key];
+        const payloadKey = apiKeyMapping[key] || key;
+        const info = payload[payloadKey];
         const buttonId = mapping[key];
         if (buttonId) {
           updateButtonDataset(buttonId, info || null);

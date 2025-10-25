@@ -4,7 +4,7 @@ from django.test import TestCase
 from unittest.mock import patch
 
 from semanticnews.topics.models import Topic
-from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.covers.models import TopicImage
 
 
 class TopicImageAPITests(TestCase):
@@ -41,7 +41,7 @@ class TopicImageAPITests(TestCase):
         second_image = self._create_image()
 
         response = self.client.post(
-            f'/api/topics/image/{self.topic.uuid}/select/{second_image.id}'
+            f'/api/topics/cover/{self.topic.uuid}/select/{second_image.id}'
         )
 
         self.assertEqual(response.status_code, 200)
@@ -59,7 +59,7 @@ class TopicImageAPITests(TestCase):
         self.client.logout()
 
         response = self.client.post(
-            f'/api/topics/image/{self.topic.uuid}/select/{image.id}'
+            f'/api/topics/cover/{self.topic.uuid}/select/{image.id}'
         )
 
         self.assertEqual(response.status_code, 401)
@@ -72,7 +72,7 @@ class TopicImageAPITests(TestCase):
         self.client.force_login(other_user)
 
         response = self.client.post(
-            f'/api/topics/image/{self.topic.uuid}/select/{image.id}'
+            f'/api/topics/cover/{self.topic.uuid}/select/{image.id}'
         )
 
         self.assertEqual(response.status_code, 403)

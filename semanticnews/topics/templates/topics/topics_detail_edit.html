@@ -194,7 +194,7 @@
         </div>
 
         {% for module in primary_modules %}
-            {% if not module.base_module_key|is_primary_fixed_module and not module.base_module_key|is_reorderable_module and module.base_module_key != 'relations' %}
+            {% if not module.base_module_key|is_primary_fixed_module and not module.base_module_key|is_reorderable_module and module.base_module_key != 'entities' %}
                 <section
                     class="topic-module-wrapper"
                     data-module="{{ module.module_key }}"
@@ -208,9 +208,9 @@
             {% endif %}
         {% endfor %}
 
-        {% include "topics/images/confirm_delete.html" %}
+        {% include "topics/covers/confirm_delete.html" %}
         {% include "topics/text/confirm_delete.html" %}
-        {% include "topics/relations/confirm_delete.html" %}
+        {% include "topics/entities/confirm_delete.html" %}
         {% include "topics/timeline/confirm_delete.html" %}
 
     </div>
@@ -219,7 +219,7 @@
     <div class="col-12 col-lg-4 d-flex flex-column gap-3" data-layout-column="sidebar">
 
         {% for module in primary_modules %}
-            {% if module.base_module_key == 'relations' %}
+            {% if module.base_module_key == 'entities' %}
                 <section
                     class="topic-module-wrapper"
                     data-module="{{ module.module_key }}"
@@ -234,7 +234,7 @@
         {% endfor %}
 
         {% for module in sidebar_modules %}
-            {% if module.base_module_key == 'relations' %}
+            {% if module.base_module_key == 'entities' %}
                 <section
                     class="topic-module-wrapper"
                     data-module="{{ module.module_key }}"
@@ -302,8 +302,8 @@
 {% comment %} Inline editors render in the content area {% endcomment %}
 {% include "topics/data/analyze_modal.html" %}
 {% include "topics/data/visualize_modal.html" %}
-{% include "topics/images/modal.html" %}
-{% include "topics/relations/modal.html" %}
+{% include "topics/covers/modal.html" %}
+{% include "topics/entities/modal.html" %}
 {% include "topics/timeline/modal.html" %}
 {% endblock %}
 
@@ -321,8 +321,8 @@
     <script src="{% static 'topics/content/external_content.js' %}"></script>
     {% include "topics/data/scripts.html" %}
     {% include "topics/text/scripts.html" %}
-    {% include "topics/images/scripts.html" %}
-    {% include "topics/relations/scripts.html" %}
+    {% include "topics/covers/scripts.html" %}
+    {% include "topics/entities/scripts.html" %}
     {% include "topics/timeline/scripts.html" %}
     {% include "topics/mcps/scripts.html" %}
     <script src="{% static 'topics/status_checker.js' %}"></script>
