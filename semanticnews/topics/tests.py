@@ -567,7 +567,7 @@ class CreateRecapAPITests(TestCase):
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
     )
-    def test_returns_ai_suggestion_without_saving(
+    def test_returns_ai_suggestion_and_updates_recap(
         self, mock_topic_embedding, mock_openai
     ):
         mock_client = MagicMock()
@@ -589,7 +589,11 @@ class CreateRecapAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"recap": "Recap"})
-        self.assertEqual(TopicRecap.objects.count(), 0)
+        self.assertEqual(TopicRecap.objects.count(), 1)
+        recap = TopicRecap.objects.first()
+        self.assertEqual(recap.recap, "Recap")
+        self.assertEqual(recap.status, "finished")
+        self.assertIsNone(recap.published_at)
 
     def test_creates_recap_with_provided_text(self):
         User = get_user_model()
@@ -607,6 +611,30 @@ class CreateRecapAPITests(TestCase):
         self.assertEqual(response.json(), {"recap": "My recap"})
         self.assertEqual(TopicRecap.objects.count(), 1)
         self.assertEqual(TopicRecap.objects.first().recap, "My recap")
+
+    def test_subsequent_manual_updates_reuse_existing_recap(self):
+        User = get_user_model()
+        user = User.objects.create_user("user", "user@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="My Topic", created_by=user)
+
+        payload = {"topic_uuid": str(topic.uuid), "recap": "Initial recap"}
+        self.client.post(
+            "/api/topics/recap/create", payload, content_type="application/json"
+        )
+
+        payload["recap"] = "Updated recap"
+        response = self.client.post(
+            "/api/topics/recap/create", payload, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"recap": "Updated recap"})
+        self.assertEqual(TopicRecap.objects.count(), 1)
+        recap = TopicRecap.objects.first()
+        self.assertEqual(recap.recap, "Updated recap")
+        self.assertIsNone(recap.published_at)
 
 
 class AnalyzeDataAPITests(TestCase):
@@ -1486,6 +1514,68 @@ class RelatedTopicPublishTests(TestCase):
         self.assertEqual(link.source, RelatedTopic.Source.MANUAL)
         self.assertIsNotNone(link.published_at)
 
+
+class TopicRecapPublishFlowTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "recapper", "recapper@example.com", "password"
+        )
+
+    def _topic_with_recap(self) -> Topic:
+        topic = Topic.objects.create(title="Story", created_by=self.owner)
+        TopicRecap.objects.create(topic=topic, recap="Initial", status="finished")
+        return topic
+
+    def test_publish_marks_current_recap_and_creates_new_draft(self):
+        topic = self._topic_with_recap()
+
+        publish_topic(topic, self.owner)
+
+        recaps = list(topic.recaps.order_by("created_at"))
+        self.assertEqual(len(recaps), 2)
+
+        published = recaps[0]
+        draft = recaps[1]
+
+        self.assertIsNotNone(published.published_at)
+        self.assertEqual(published.status, "finished")
+        self.assertEqual(published.recap, "Initial")
+
+        self.assertIsNone(draft.published_at)
+        self.assertEqual(draft.status, "finished")
+        self.assertEqual(draft.recap, "Initial")
+
+    def test_publish_does_not_create_duplicate_draft_when_one_exists(self):
+        topic = Topic.objects.create(title="Story", created_by=self.owner)
+        published_recap = TopicRecap.objects.create(
+            topic=topic,
+            recap="Old",
+            status="finished",
+            published_at=timezone.now(),
+        )
+        current = TopicRecap.objects.create(topic=topic, recap="Working", status="finished")
+        existing_draft = TopicRecap.objects.create(
+            topic=topic,
+            recap="Future",
+            status="finished",
+        )
+
+        publish_topic(topic, self.owner)
+
+        recaps = topic.recaps.order_by("created_at")
+        self.assertEqual(recaps.count(), 3)
+
+        current.refresh_from_db()
+        self.assertIsNotNone(current.published_at)
+        self.assertEqual(current.recap, "Working")
+
+        existing_draft.refresh_from_db()
+        self.assertIsNone(existing_draft.published_at)
+        self.assertEqual(existing_draft.recap, "Future")
+
+        published_recap.refresh_from_db()
+        self.assertIsNotNone(published_recap.published_at)
 
 class TopicPublishSnapshotImageTests(TestCase):
     def setUp(self):

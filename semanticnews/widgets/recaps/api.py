@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Iterable
 
 from django.conf import settings
 from django.utils.timezone import make_naive
@@ -38,6 +38,41 @@ class _TopicRecapResponse(Schema):
     recap: str
 
 
+def _get_current_recap(topic: Topic) -> Optional[TopicRecap]:
+    """Return the recap instance currently being edited for ``topic``.
+
+    The working recap is the most recent non-deleted recap that has not been
+    published yet. If no such recap exists (for example, in legacy data), fall
+    back to the most recent active recap overall.
+    """
+
+    current = (
+        TopicRecap.objects
+        .filter(topic=topic, is_deleted=False, published_at__isnull=True)
+        .order_by("-created_at")
+        .first()
+    )
+    if current:
+        return current
+    return (
+        TopicRecap.objects
+        .filter(topic=topic, is_deleted=False)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def _save_recap(instance: TopicRecap, *, update_fields: Iterable[str]) -> TopicRecap:
+    """Persist ``instance`` handling new vs existing records safely."""
+
+    is_new = instance.pk is None
+    if is_new:
+        instance.save()
+    else:
+        instance.save(update_fields=list(update_fields))
+    return instance
+
+
 @router.post("/create", response=TopicRecapCreateResponse)
 def create_recap(request, payload: TopicRecapCreateRequest):
     """Create a recap or return an AI-generated suggestion."""
@@ -52,16 +87,44 @@ def create_recap(request, payload: TopicRecapCreateRequest):
         raise HttpError(404, "Topic not found")
 
     if payload.recap is not None:
-        recap_obj = TopicRecap.objects.create(
-            topic=topic,
-            recap=payload.recap,
-            status="finished",
-        )
-        status: StatusLiteral = "finished"
+        recap_text = payload.recap
+        recap_obj = _get_current_recap(topic)
+        if recap_obj is None:
+            recap_obj = TopicRecap(topic=topic)
+
+        recap_obj.topic = topic
+        recap_obj.recap = recap_text
+        recap_obj.status = "finished"
+        recap_obj.error_message = None
+        recap_obj.error_code = None
+        update_fields: Iterable[str]
+        if recap_obj.pk is None:
+            update_fields = ("topic", "recap", "status", "error_message", "error_code")
+        else:
+            update_fields = ("recap", "status", "error_message", "error_code")
+        recap_obj = _save_recap(recap_obj, update_fields=update_fields)
+        status: StatusLiteral = recap_obj.status  # always "finished" for manual updates
         return TopicRecapCreateResponse(recap=recap_obj.recap, status=status)
 
-    # Create immediately; default status is "in_progress"
-    recap_obj = TopicRecap.objects.create(topic=topic, recap="")
+    recap_obj = _get_current_recap(topic)
+    if recap_obj is None:
+        recap_obj = TopicRecap(topic=topic)
+
+    recap_obj.topic = topic
+    recap_obj.recap = ""
+    recap_obj.status = "in_progress"
+    recap_obj.error_message = None
+    recap_obj.error_code = None
+    if recap_obj.pk is None:
+        _save_recap(
+            recap_obj,
+            update_fields=("topic", "recap", "status", "error_message", "error_code"),
+        )
+    else:
+        _save_recap(
+            recap_obj,
+            update_fields=("recap", "status", "error_message", "error_code"),
+        )
 
     context_override = (payload.context or "").strip()
     content_md = context_override or topic.build_context()

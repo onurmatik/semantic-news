@@ -868,7 +868,41 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
 
     # Update publish metadata on utility models
     topic.texts.filter(is_deleted=False).update(published_at=now)
-    topic.recaps.filter(is_deleted=False).update(published_at=now)
+
+    current_recap = (
+        topic.recaps.filter(is_deleted=False)
+        .order_by("-created_at")
+        .first()
+    )
+    if current_recap is not None:
+        recap_update_fields: List[str] = []
+        if current_recap.status != "finished":
+            current_recap.status = "finished"
+            recap_update_fields.append("status")
+        if current_recap.published_at != now:
+            current_recap.published_at = now
+            recap_update_fields.append("published_at")
+        if current_recap.error_message:
+            current_recap.error_message = None
+            recap_update_fields.append("error_message")
+        if current_recap.error_code:
+            current_recap.error_code = None
+            recap_update_fields.append("error_code")
+        if recap_update_fields:
+            current_recap.save(update_fields=recap_update_fields)
+
+        has_unpublished = (
+            topic.recaps.filter(is_deleted=False, published_at__isnull=True)
+            .exclude(pk=current_recap.pk)
+            .exists()
+        )
+        if not has_unpublished:
+            TopicRecap.objects.create(
+                topic=topic,
+                recap=current_recap.recap,
+                status="finished",
+            )
+
     topic.documents.filter(is_deleted=False).update(published_at=now)
     topic.webpages.filter(is_deleted=False).update(published_at=now)
     topic.datas.filter(is_deleted=False).update(published_at=now)
