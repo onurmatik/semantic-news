@@ -7,6 +7,10 @@ from typing import Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple
 
 from .models import TopicModuleLayout
 
+REORDERABLE_BASE_MODULES = {"text", "data", "embeds"}
+PRIMARY_FIXED_BASE_MODULES = {"images", "recaps", "content_toolbar"}
+SIDEBAR_FIXED_BASE_MODULES = {"relations", "timeline", "related_topics"}
+
 LayoutMode = Literal["detail", "edit"]
 
 
