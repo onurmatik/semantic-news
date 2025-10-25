@@ -90,6 +90,116 @@
     let draggedModule = null;
     let saveTimeout = null;
     let lastKnownLayoutSignature = null;
+    let layoutChangedDuringInit = false;
+
+    const PINNED_MODULE_KEYS = new Set(['images', 'recaps']);
+    const PRIMARY_ONLY_MODULE_KEYS = new Set([
+      'text',
+      'data',
+      'data_visualizations',
+      'embeds',
+      'documents',
+    ]);
+
+    const primaryColumn = columns.find(
+      (column) => column.dataset.layoutColumn === 'primary',
+    );
+
+    function getModuleKey(moduleEl) {
+      return moduleEl?.dataset.module || '';
+    }
+
+    function getModuleBaseKey(moduleEl) {
+      const key = getModuleKey(moduleEl);
+      if (!key) {
+        return '';
+      }
+      const [base] = key.split(':');
+      return base;
+    }
+
+    function isPinnedModule(moduleEl) {
+      return PINNED_MODULE_KEYS.has(getModuleBaseKey(moduleEl));
+    }
+
+    function isPrimaryOnlyModule(moduleEl) {
+      return PRIMARY_ONLY_MODULE_KEYS.has(getModuleBaseKey(moduleEl));
+    }
+
+    function isPlacementAllowed(moduleEl, placement) {
+      if (!moduleEl) {
+        return true;
+      }
+      if (isPrimaryOnlyModule(moduleEl)) {
+        return placement === 'primary';
+      }
+      return true;
+    }
+
+    function ensureModuleAfterPinned(moduleEl) {
+      if (!moduleEl || isPinnedModule(moduleEl)) {
+        return;
+      }
+      const column = moduleEl.closest('[data-layout-column]');
+      if (!column) {
+        return;
+      }
+      const pinnedModules = Array.from(
+        column.querySelectorAll('[data-module]'),
+      ).filter((module) => isPinnedModule(module));
+      if (!pinnedModules.length) {
+        return;
+      }
+      const lastPinned = pinnedModules[pinnedModules.length - 1];
+      if (lastPinned === moduleEl) {
+        return;
+      }
+      const position = lastPinned.compareDocumentPosition(moduleEl);
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return;
+      }
+      column.insertBefore(moduleEl, lastPinned.nextSibling);
+    }
+
+    function moveModuleToPrimary(moduleEl) {
+      if (!moduleEl || !primaryColumn) {
+        return;
+      }
+      const currentPlacement =
+        moduleEl.dataset.placement ||
+        moduleEl.closest('[data-layout-column]')?.dataset.layoutColumn;
+      if (currentPlacement === 'primary') {
+        ensureModuleAfterPinned(moduleEl);
+        return;
+      }
+
+      const displayOrder = Number.parseInt(moduleEl.dataset.displayOrder || '', 10);
+      const siblings = Array.from(
+        primaryColumn.querySelectorAll('[data-module]'),
+      ).filter((sibling) => sibling !== moduleEl);
+
+      let insertBefore = null;
+      if (!Number.isNaN(displayOrder)) {
+        insertBefore = siblings.find((sibling) => {
+          const siblingOrder = Number.parseInt(
+            sibling.dataset.displayOrder || '',
+            10,
+          );
+          if (Number.isNaN(siblingOrder)) {
+            return false;
+          }
+          if (isPinnedModule(sibling)) {
+            return false;
+          }
+          return siblingOrder > displayOrder;
+        });
+      }
+
+      primaryColumn.insertBefore(moduleEl, insertBefore || null);
+      moduleEl.dataset.placement = 'primary';
+      ensureModuleAfterPinned(moduleEl);
+      layoutChangedDuringInit = true;
+    }
 
     function scheduleSave() {
       if (saveTimeout) {
@@ -175,6 +285,11 @@
       event.preventDefault();
       const column = event.currentTarget.closest('[data-layout-column]');
       if (column) {
+        if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
+          column.classList.remove('topic-layout-column--active');
+          event.dataTransfer.dropEffect = 'none';
+          return;
+        }
         column.classList.add('topic-layout-column--active');
       }
       event.dataTransfer.dropEffect = 'move';
@@ -194,6 +309,10 @@
         return;
       }
 
+      if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
+        return;
+      }
+
       const dropTarget = event.currentTarget.closest('[data-module]');
       if (dropTarget && dropTarget !== draggedModule) {
         const rect = dropTarget.getBoundingClientRect();
@@ -208,18 +327,24 @@
       }
 
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
+      ensureModuleAfterPinned(draggedModule);
       updatePlacementButtons(draggedModule);
     }
 
     function handleColumnDrop(event) {
       event.preventDefault();
       if (!draggedModule) {
-        return;
+        return false;
       }
       const column = event.currentTarget;
+      if (!isPlacementAllowed(draggedModule, column.dataset.layoutColumn)) {
+        return false;
+      }
       column.appendChild(draggedModule);
       draggedModule.dataset.placement = column.dataset.layoutColumn || 'primary';
+      ensureModuleAfterPinned(draggedModule);
       updatePlacementButtons(draggedModule);
+      return true;
     }
 
     function moveModule(moduleEl, direction) {
@@ -233,11 +358,17 @@
         return;
       }
       if (direction === 'up' && index > 0) {
-        column.insertBefore(moduleEl, modules[index - 1]);
+        const previousModule = modules[index - 1];
+        if (isPinnedModule(previousModule)) {
+          return;
+        }
+        column.insertBefore(moduleEl, previousModule);
+        ensureModuleAfterPinned(moduleEl);
         scheduleSave();
       } else if (direction === 'down' && index < modules.length - 1) {
         const next = modules[index + 1].nextSibling;
         column.insertBefore(moduleEl, next);
+        ensureModuleAfterPinned(moduleEl);
         scheduleSave();
       }
     }
@@ -254,9 +385,15 @@
         return;
       }
 
+      const primaryOnly = isPrimaryOnlyModule(moduleEl);
+
       if (placement === 'primary') {
         moveLeftButton.classList.add('d-none');
-        moveRightButton.classList.remove('d-none');
+        if (primaryOnly) {
+          moveRightButton.classList.add('d-none');
+        } else {
+          moveRightButton.classList.remove('d-none');
+        }
       } else {
         moveLeftButton.classList.remove('d-none');
         moveRightButton.classList.add('d-none');
@@ -264,6 +401,9 @@
     }
 
     function moveModuleToPlacement(moduleEl, targetPlacement) {
+      if (!isPlacementAllowed(moduleEl, targetPlacement)) {
+        return;
+      }
       const targetColumn = columns.find((column) => column.dataset.layoutColumn === targetPlacement);
       if (!targetColumn) {
         return;
@@ -275,6 +415,7 @@
       targetColumn.appendChild(moduleEl);
       moduleEl.dataset.placement = targetPlacement;
       updatePlacementButtons(moduleEl);
+      ensureModuleAfterPinned(moduleEl);
       scheduleSave();
     }
 
@@ -382,21 +523,32 @@
         const column = moduleEl.closest('[data-layout-column]');
         moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
       }
+      if (isPrimaryOnlyModule(moduleEl)) {
+        moveModuleToPrimary(moduleEl);
+      } else {
+        ensureModuleAfterPinned(moduleEl);
+      }
       addControls(moduleEl);
+      updatePlacementButtons(moduleEl);
     }
 
     columns.forEach((column) => {
       column.classList.add('topic-layout-column');
       column.addEventListener('dragover', handleDragOver);
       column.addEventListener('drop', (event) => {
-        handleColumnDrop(event);
-        scheduleSave();
+        const moved = handleColumnDrop(event);
+        if (moved) {
+          scheduleSave();
+        }
       });
       column.addEventListener('dragleave', handleDragLeave);
     });
 
     Array.from(layoutRoot.querySelectorAll('[data-module]')).forEach(initModule);
     lastKnownLayoutSignature = JSON.stringify(collectLayout());
+    if (layoutChangedDuringInit) {
+      scheduleSave();
+    }
 
     layoutRoot.addEventListener('topicLayout:save', () => {
       scheduleSave();
