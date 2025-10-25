@@ -16,9 +16,12 @@ from ..utils import get_relevance
 from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
-from ..widgets.embeds.models import TopicYoutubeVideo
 from ..widgets.relations.models import TopicEntityRelation
-from ..widgets.documents.models import TopicDocument, TopicWebpage
+from ..widgets.webcontent.models import (
+    TopicDocument,
+    TopicWebpage,
+    TopicYoutubeVideo,
+)
 from ..widgets.timeline.models import TopicEvent
 
 
