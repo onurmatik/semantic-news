@@ -15,8 +15,8 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 from ..utils import get_relevance
 from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
-from ..widgets.images.models import TopicImage
-from ..widgets.relations.models import TopicEntityRelation
+from ..widgets.covers.models import TopicImage
+from ..widgets.entities.models import TopicEntityRelation
 from ..widgets.webcontent.models import (
     TopicDocument,
     TopicWebpage,

@@ -2,15 +2,15 @@
 <div class="my-3{% if edit_mode %} card{% endif %}" id="topicRelationContainer"{% if not latest_relation %} style="display: none;"{% endif %}>
     {% if edit_mode %}
         <div class="card-header d-flex align-items-center">
-            <h6 class="fs-5 mb-0">{% trans "Relations" %}</h6>
+            <h6 class="fs-5 mb-0">{% trans "Entity relations" %}</h6>
 
             <div class="d-flex align-items-center gap-2 ms-auto">
                 <div class="d-flex align-items-center gap-2" id="relationPager" style="display:none;">
                     <span class="small text-secondary me-2" id="relationCreatedAt"></span>
-                    <button class="btn btn-sm btn-outline-secondary" id="relationPrev" aria-label="{% trans 'Previous relations' %}">&lt;</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="relationPrev" aria-label="{% trans 'Previous entity relations' %}">&lt;</button>
                     <span class="small text-secondary" id="relationPagerLabel">0/0</span>
-                    <button class="btn btn-sm btn-outline-secondary" id="relationNext" aria-label="{% trans 'Next relations' %}">&gt;</button>
-                    <button class="btn btn-sm btn-outline-danger" id="relationDeleteBtn" aria-label="{% trans 'Delete relations' %}"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary" id="relationNext" aria-label="{% trans 'Next entity relations' %}">&gt;</button>
+                    <button class="btn btn-sm btn-outline-danger" id="relationDeleteBtn" aria-label="{% trans 'Delete entity relations' %}"><i class="bi bi-trash"></i></button>
                 </div>
                 <div class="d-flex align-items-center gap-2" data-topic-module-header-actions></div>
             </div>

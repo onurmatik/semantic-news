@@ -27,9 +27,9 @@ from semanticnews.widgets.webcontent.models import (
     TopicWebpage,
     TopicYoutubeVideo,
 )
-from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.covers.models import TopicImage
 from semanticnews.widgets.recaps.models import TopicRecap
-from semanticnews.widgets.relations.models import TopicEntityRelation
+from semanticnews.widgets.entities.models import TopicEntityRelation
 from semanticnews.widgets.text.models import TopicText
 from semanticnews.widgets.timeline.models import TopicEvent
 from .models import TopicPublication, TopicPublicationModule, TopicPublicationSnapshot

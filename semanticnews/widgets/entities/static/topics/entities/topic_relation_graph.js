@@ -1,7 +1,7 @@
 function renderRelationGraph(container, relations) {
   if (!container) return;
   if (!relations || relations.length === 0) {
-    container.innerHTML = '<p class="text-secondary small mb-0">No relations</p>';
+    container.innerHTML = '<p class="text-secondary small mb-0">No entity relations</p>';
     return;
   }
   const nodes = new vis.DataSet();

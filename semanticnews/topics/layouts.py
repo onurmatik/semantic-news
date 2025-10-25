@@ -8,8 +8,8 @@ from typing import Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple
 from .models import TopicModuleLayout
 
 REORDERABLE_BASE_MODULES = {"text", "data", "embeds"}
-PRIMARY_FIXED_BASE_MODULES = {"images", "recaps", "content_toolbar"}
-SIDEBAR_FIXED_BASE_MODULES = {"relations", "timeline", "related_topics"}
+PRIMARY_FIXED_BASE_MODULES = {"covers", "recaps", "content_toolbar"}
+SIDEBAR_FIXED_BASE_MODULES = {"entities", "timeline", "related_topics"}
 
 LayoutMode = Literal["detail", "edit"]
 
@@ -26,14 +26,14 @@ def _topic_has_hero_image(context):
 
 
 MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
-    "images": {
+    "covers": {
         "templates": {
             "detail": {
-                "template": "topics/images/hero.html",
+                "template": "topics/covers/hero.html",
                 "context": {},
             },
             "edit": {
-                "template": "topics/images/card.html",
+                "template": "topics/covers/card.html",
                 "context": {"edit_mode": True},
             },
         },
@@ -118,14 +118,14 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["youtube_video", "tweets", "topic"],
     },
-    "relations": {
+    "entities": {
         "templates": {
             "detail": {
-                "template": "topics/relations/card.html",
+                "template": "topics/entities/card.html",
                 "context": {"edit_mode": False},
             },
             "edit": {
-                "template": "topics/relations/card.html",
+                "template": "topics/entities/card.html",
                 "context": {"edit_mode": True},
             },
         },
@@ -188,7 +188,7 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
 
 DEFAULT_LAYOUT: List[Dict[str, object]] = [
     {
-        "module_key": "images",
+        "module_key": "covers",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 1,
     },
@@ -218,7 +218,7 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 6,
     },
     {
-        "module_key": "relations",
+        "module_key": "entities",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 7,
     },

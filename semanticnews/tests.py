@@ -10,7 +10,7 @@ from django.urls import reverse
 from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
 from semanticnews.agenda.models import Event
-from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.covers.models import TopicImage
 from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.data.models import TopicDataVisualization
 

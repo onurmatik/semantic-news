@@ -21,7 +21,7 @@ from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout, Relate
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from semanticnews.widgets.recaps.models import TopicRecap
-from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.covers.models import TopicImage
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .publishing.service import publish_topic

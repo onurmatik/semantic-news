@@ -7,8 +7,8 @@ from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicD
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.text.models import TopicText
-from semanticnews.widgets.images.models import TopicImage
-from semanticnews.widgets.relations.models import TopicEntityRelation
+from semanticnews.widgets.covers.models import TopicImage
+from semanticnews.widgets.entities.models import TopicEntityRelation
 
 
 def touch_topic(topic_id):

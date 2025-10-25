@@ -26,8 +26,8 @@ from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.timeline.api import router as timeline_router
 from semanticnews.widgets.recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
-from semanticnews.widgets.images.api import router as images_router
-from semanticnews.widgets.relations.api import router as relations_router
+from semanticnews.widgets.covers.api import router as covers_router
+from semanticnews.widgets.entities.api import router as entities_router
 from semanticnews.widgets.data.api import router as data_router
 from semanticnews.widgets.webcontent.api import (
     documents_router as webcontent_documents_router,
@@ -44,9 +44,9 @@ api = NinjaAPI(title="Topics API", urls_namespace="topics")
 api.add_router("/recap", recaps_router)
 api.add_router("/text", text_router)
 api.add_router("/mcp", mcps_router)
-api.add_router("/image", images_router)
+api.add_router("/cover", covers_router)
 api.add_router("/embed", webcontent_embeds_router)
-api.add_router("/relation", relations_router)
+api.add_router("/entity", entities_router)
 api.add_router("/data", data_router)
 api.add_router("/document", webcontent_documents_router)
 api.add_router("/timeline", timeline_router)
@@ -70,8 +70,8 @@ class GenerationStatusResponse(Schema):
     current: datetime
     recap: Optional[GenerationStatus] = None
     text: Optional[GenerationStatus] = None
-    relation: Optional[GenerationStatus] = None
-    image: Optional[GenerationStatus] = None
+    entities: Optional[GenerationStatus] = None
+    cover: Optional[GenerationStatus] = None
     data: Optional[DataGenerationStatuses] = None
 
 
@@ -147,8 +147,8 @@ def generation_status(request, topic_uuid: str):
         current=timezone.now(),
         recap=latest(topic.recaps.filter(is_deleted=False)),
         text=latest(topic.texts.filter(is_deleted=False)),
-        relation=latest(topic.entity_relations.filter(is_deleted=False)),
-        image=latest(topic.images.filter(is_deleted=False)),
+        entities=latest(topic.entity_relations.filter(is_deleted=False)),
+        cover=latest(topic.images.filter(is_deleted=False)),
         data=data_payload,
     )
 

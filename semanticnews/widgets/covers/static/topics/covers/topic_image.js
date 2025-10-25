@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         payload.style = styleSel.value;
       }
 
-      const res = await fetch('/api/topics/image/create', {
+      const res = await fetch('/api/topics/cover/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearStatusMessage();
 
     try {
-      const res = await fetch(`/api/topics/image/${topicUuid}/clear`, { method: 'POST' });
+      const res = await fetch(`/api/topics/cover/${topicUuid}/clear`, { method: 'POST' });
       const data = await res.json().catch(() => null);
       const status = data && typeof data.status === 'string' ? data.status.toLowerCase() : '';
       if (!res.ok || status === 'error') {
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (controller) {
         requestOptions.signal = controller.signal;
       }
-      const res = await fetch(`/api/topics/image/${topicUuid}/select/${imageId}`, requestOptions);
+      const res = await fetch(`/api/topics/cover/${topicUuid}/select/${imageId}`, requestOptions);
       const data = await res.json().catch(() => null);
       const status = data && typeof data.status === 'string' ? data.status.toLowerCase() : '';
       if (!res.ok || status === 'error') {
@@ -226,9 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.setupTopicHistory({
     key: 'image',
     field: 'image_url',
-    listUrl: (uuid) => `/api/topics/image/${uuid}/list`,
-    createUrl: '/api/topics/image/create',
-    deleteUrl: (id) => `/api/topics/image/${id}`,
+    listUrl: (uuid) => `/api/topics/cover/${uuid}/list`,
+    createUrl: '/api/topics/cover/create',
+    deleteUrl: (id) => `/api/topics/cover/${id}`,
     cardSuffix: 'Container',
     renderItem: (item) => {
       const img = document.getElementById('topicImageLatest');
@@ -308,8 +308,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Override/extend the exposed hooks for image so status_checker can paint without reload
-  window.__imageExternalApply = (imageUrl, thumbUrl, _createdAtIso) => {
+  window.__imageExternalApply = (imageOrItem, thumbOrCreatedAt, _createdAtIso) => {
     const img = document.getElementById('topicImageLatest');
+    let imageUrl = '';
+    let thumbUrl = '';
+
+    if (imageOrItem && typeof imageOrItem === 'object') {
+      imageUrl = imageOrItem.image_url || '';
+      thumbUrl = imageOrItem.thumbnail_url || '';
+    } else {
+      imageUrl = imageOrItem || '';
+      thumbUrl = typeof thumbOrCreatedAt === 'string' ? thumbOrCreatedAt : '';
+    }
+
     const resolvedUrl = imageUrl || thumbUrl || '';
     if (img && resolvedUrl) {
       img.src = resolvedUrl;

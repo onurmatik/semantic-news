@@ -8,7 +8,7 @@ from .publishing.models import (
 )
 from ..widgets.recaps import admin as recaps_admin  # noqa: F401
 from ..widgets.text import admin as text_admin  # noqa: F401
-from ..widgets.relations import admin as relations_admin  # noqa: F401
+from ..widgets.entities import admin as relations_admin  # noqa: F401
 from ..widgets.webcontent import admin as webcontent_admin  # noqa: F401
 from ..widgets.timeline import admin as timeline_admin  # noqa: F401
 

@@ -12,4 +12,4 @@ class TopicEntityRelationAdmin(admin.ModelAdmin):
     def short_relations(self, obj):
         data = str(obj.relations)
         return data[:50] + ("..." if len(data) > 50 else "")
-    short_relations.short_description = "relations"
+    short_relations.short_description = "entity relations"
