@@ -10,9 +10,57 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="topicmodulelayout",
-            name="version",
-            field=models.PositiveIntegerField(default=1),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ADD COLUMN IF NOT EXISTS version integer
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+                migrations.RunSQL(
+                    sql="""
+                        UPDATE topics_topicmodulelayout
+                        SET version = 1
+                        WHERE version IS NULL
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ALTER COLUMN version TYPE integer USING version::integer
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ALTER COLUMN version SET DEFAULT 1
+                    """,
+                    reverse_sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ALTER COLUMN version DROP DEFAULT
+                    """,
+                ),
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ALTER COLUMN version SET NOT NULL
+                    """,
+                    reverse_sql="""
+                        ALTER TABLE topics_topicmodulelayout
+                        ALTER COLUMN version DROP NOT NULL
+                    """,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name="topicmodulelayout",
+                    name="version",
+                    field=models.PositiveIntegerField(default=1),
+                ),
+            ],
         ),
     ]
