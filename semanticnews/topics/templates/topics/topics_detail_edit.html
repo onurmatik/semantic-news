@@ -128,12 +128,42 @@
     data-layout-editable="true"
 >
 
-    <div class="col-12 col-lg-8" data-layout-column="primary">
+    <div class="col-12 col-lg-8 d-flex flex-column gap-3" data-layout-column="primary">
 
-        {% for module in primary_modules %}
+        {% for module in primary_fixed_modules %}
             <section
                 class="topic-module-wrapper"
                 data-module="{{ module.module_key }}"
+                data-base-module="{{ module.base_module_key|default:module.module_key }}"
+                data-placement="{{ module.placement|default:'primary' }}"
+                data-display-order="{{ module.display_order }}"
+                data-has-content="{{ module.has_content|yesno:'true,false' }}"
+            >
+                {% render_topic_module module %}
+            </section>
+        {% endfor %}
+
+        <div class="d-flex flex-column gap-3" data-layout-list>
+            {% for module in primary_reorderable_modules %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key|default:module.module_key }}"
+                    data-placement="primary"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                    data-layout-reorderable="true"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endfor %}
+        </div>
+
+        {% for module in primary_additional_modules %}
+            <section
+                class="topic-module-wrapper"
+                data-module="{{ module.module_key }}"
+                data-base-module="{{ module.base_module_key|default:module.module_key }}"
                 data-placement="{{ module.placement }}"
                 data-display-order="{{ module.display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
@@ -150,12 +180,26 @@
     </div>
 
 
-    <div class="col-12 col-lg-4" data-layout-column="sidebar">
+    <div class="col-12 col-lg-4 d-flex flex-column gap-3" data-layout-column="sidebar">
 
-        {% for module in sidebar_modules %}
+        {% for module in sidebar_fixed_modules %}
             <section
                 class="topic-module-wrapper"
                 data-module="{{ module.module_key }}"
+                data-base-module="{{ module.base_module_key|default:module.module_key }}"
+                data-placement="sidebar"
+                data-display-order="{{ module.display_order }}"
+                data-has-content="{{ module.has_content|yesno:'true,false' }}"
+            >
+                {% render_topic_module module %}
+            </section>
+        {% endfor %}
+
+        {% for module in sidebar_additional_modules %}
+            <section
+                class="topic-module-wrapper"
+                data-module="{{ module.module_key }}"
+                data-base-module="{{ module.base_module_key|default:module.module_key }}"
                 data-placement="{{ module.placement }}"
                 data-display-order="{{ module.display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
