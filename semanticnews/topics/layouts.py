@@ -49,6 +49,19 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["latest_recap", "topic"],
     },
+    "content_toolbar": {
+        "templates": {
+            "detail": {
+                "template": "topics/content/toolbar.html",
+                "context": {"edit_mode": False},
+            },
+            "edit": {
+                "template": "topics/content/toolbar.html",
+                "context": {"edit_mode": True},
+            },
+        },
+        "context_keys": ["topic"],
+    },
     "data": {
         "templates": {
             "detail": {
@@ -181,24 +194,29 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 2,
     },
     {
-        "module_key": "data",
+        "module_key": "content_toolbar",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 3,
     },
     {
-        "module_key": "data_visualizations",
+        "module_key": "data",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 4,
     },
     {
-        "module_key": "embeds",
+        "module_key": "data_visualizations",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 5,
     },
     {
-        "module_key": "relations",
+        "module_key": "embeds",
         "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
         "display_order": 6,
+    },
+    {
+        "module_key": "relations",
+        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
+        "display_order": 7,
     },
     {
         "module_key": "related_topics",

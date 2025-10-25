@@ -1,0 +1,53 @@
+{% load i18n %}
+<div
+    id="textModal"
+    class="topic-widget card border-light my-3 d-none"
+    data-inline="true"
+    data-content-editor="text"
+>
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <h6 class="fs-5 mb-0" data-text-modal-title data-edit-label="{% trans 'Edit text' %}">
+            {% trans "Add text" %}
+        </h6>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="textCancelBtn" data-toolbar-dismiss="text">
+                {% trans "Cancel" %}
+            </button>
+            <button type="submit" form="textForm" class="btn btn-primary btn-sm" id="textSaveBtn">
+                {% trans "Save" %}
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form id="textForm" class="d-flex flex-column gap-3" novalidate>
+            <input type="hidden" id="textId" name="text_id" value="">
+            <textarea class="form-control" id="textContent" name="content" rows="8"></textarea>
+            <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    id="textReviseBtn"
+                    data-loading-label="{% trans 'Revising…' %}"
+                >
+                    {% trans "Revise" %}
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    id="textShortenBtn"
+                    data-loading-label="{% trans 'Shortening…' %}"
+                >
+                    {% trans "Shorten" %}
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    id="textExpandBtn"
+                    data-loading-label="{% trans 'Expanding…' %}"
+                >
+                    {% trans "Expand" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
