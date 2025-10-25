@@ -128,18 +128,84 @@
     data-layout-editable="true"
 >
 
-    <div class="col-12 col-lg-8" data-layout-column="primary">
+    <div class="col-12 col-lg-8 d-flex flex-column gap-3" data-layout-column="primary">
 
         {% for module in primary_modules %}
-            <section
-                class="topic-module-wrapper"
-                data-module="{{ module.module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
-                data-has-content="{{ module.has_content|yesno:'true,false' }}"
-            >
-                {% render_topic_module module %}
-            </section>
+            {% if module.base_module_key == 'images' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="primary"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        {% for module in primary_modules %}
+            {% if module.base_module_key == 'recaps' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="primary"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        {% for module in primary_modules %}
+            {% if module.base_module_key == 'content_toolbar' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="primary"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        <div class="d-flex flex-column gap-3" data-layout-list>
+            {% for module in primary_modules %}
+                {% if module.base_module_key in ('text', 'data', 'embeds') %}
+                    <section
+                        class="topic-module-wrapper"
+                        data-module="{{ module.module_key }}"
+                        data-base-module="{{ module.base_module_key }}"
+                        data-placement="primary"
+                        data-display-order="{{ module.display_order }}"
+                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                        data-layout-reorderable="true"
+                    >
+                        {% render_topic_module module %}
+                    </section>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% for module in primary_modules %}
+            {% if module.base_module_key not in ('images', 'recaps', 'content_toolbar', 'text', 'data', 'embeds', 'relations') %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="{{ module.placement }}"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
         {% endfor %}
 
         {% include "topics/images/confirm_delete.html" %}
@@ -150,18 +216,81 @@
     </div>
 
 
-    <div class="col-12 col-lg-4" data-layout-column="sidebar">
+    <div class="col-12 col-lg-4 d-flex flex-column gap-3" data-layout-column="sidebar">
+
+        {% for module in primary_modules %}
+            {% if module.base_module_key == 'relations' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="sidebar"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
 
         {% for module in sidebar_modules %}
-            <section
-                class="topic-module-wrapper"
-                data-module="{{ module.module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
-                data-has-content="{{ module.has_content|yesno:'true,false' }}"
-            >
-                {% render_topic_module module %}
-            </section>
+            {% if module.base_module_key == 'relations' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="sidebar"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        {% for module in sidebar_modules %}
+            {% if module.base_module_key == 'timeline' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="sidebar"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        {% for module in sidebar_modules %}
+            {% if module.base_module_key == 'related_topics' %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="sidebar"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
+        {% endfor %}
+
+        {% for module in sidebar_modules %}
+            {% if module.base_module_key not in ('relations', 'timeline', 'related_topics') %}
+                <section
+                    class="topic-module-wrapper"
+                    data-module="{{ module.module_key }}"
+                    data-base-module="{{ module.base_module_key }}"
+                    data-placement="{{ module.placement }}"
+                    data-display-order="{{ module.display_order }}"
+                    data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                >
+                    {% render_topic_module module %}
+                </section>
+            {% endif %}
         {% endfor %}
 
     </div>
