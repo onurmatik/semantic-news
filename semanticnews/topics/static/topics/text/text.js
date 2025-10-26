@@ -280,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       textarea.focus();
     }
-  };
 
   const createModuleFromTemplate = (data) => {
     if (!cardTemplate) return null;
