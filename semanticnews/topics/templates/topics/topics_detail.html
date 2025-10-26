@@ -153,15 +153,51 @@
     <div class="col-12 col-lg-8" data-layout-column="primary">
 
         {% for module in primary_modules %}
-            <section
-                class="topic-module-wrapper"
-                data-module="{{ module.module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
-                data-has-content="{{ module.has_content|yesno:'true,false' }}"
-            >
-                {% render_topic_module module %}
-            </section>
+            {% with base_key=module.base_module_key|default:module.module_key %}
+                {% if base_key == 'images' %}
+                    <section
+                        class="topic-module-wrapper"
+                        data-module="{{ module.module_key }}"
+                        data-placement="{{ module.placement }}"
+                        data-display-order="{{ module.display_order }}"
+                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                    >
+                        {% render_topic_module module %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+
+        {% for module in primary_modules %}
+            {% with base_key=module.base_module_key|default:module.module_key %}
+                {% if base_key == 'recaps' %}
+                    <section
+                        class="topic-module-wrapper"
+                        data-module="{{ module.module_key }}"
+                        data-placement="{{ module.placement }}"
+                        data-display-order="{{ module.display_order }}"
+                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                    >
+                        {% render_topic_module module %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+
+        {% for module in primary_modules %}
+            {% with base_key=module.base_module_key|default:module.module_key %}
+                {% if base_key != 'images' and base_key != 'recaps' %}
+                    <section
+                        class="topic-module-wrapper"
+                        data-module="{{ module.module_key }}"
+                        data-placement="{{ module.placement }}"
+                        data-display-order="{{ module.display_order }}"
+                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
+                    >
+                        {% render_topic_module module %}
+                    </section>
+                {% endif %}
+            {% endwith %}
         {% endfor %}
 
     </div>
