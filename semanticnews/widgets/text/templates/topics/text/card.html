@@ -1,7 +1,7 @@
 {% load i18n markdown_extras %}
 {% with text=module.text %}
 <div
-    class="my-3{% if edit_mode %} card{% endif %}"
+    class="my-3{% if edit_mode %} topic-widget card border-light{% endif %}"
     data-text-card
     data-text-id="{{ text.id|default:'' }}"
     data-module-key="{{ module.module_key }}"
@@ -9,32 +9,72 @@
 >
     {% if edit_mode %}
         <div class="card-header d-flex align-items-center">
-            <h6 class="fs-6 mb-0">{% trans "Text" %}</h6>
-            <div class="d-flex align-items-center gap-2 ms-auto">
+            <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
+            <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions>
                 {% if text %}
                     <button
                         type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        data-action="edit-text"
-                        data-text-id="{{ text.id }}"
-                    >
-                        <i class="bi bi-pencil"></i>
-                        <span class="visually-hidden">{% trans "Edit text" %}</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-danger"
+                        class="btn btn-sm btn-outline-danger order-2"
                         data-action="delete-text"
                         data-text-id="{{ text.id }}"
                     >
                         <i class="bi bi-trash"></i>
-                        <span class="visually-hidden">{% trans "Delete text" %}</span>
+                        <span class="ms-1">{% trans "Remove" %}</span>
+                        <span class="visually-hidden">{% trans "Text" %}</span>
                     </button>
                 {% endif %}
             </div>
         </div>
-    {% endif %}
-    <div{% if edit_mode %} class="card-body"{% endif %}>
+        <div class="card-body">
+            <div class="alert alert-danger d-none" role="alert" data-text-error></div>
+            <div class="d-flex align-items-center gap-2 small text-secondary mb-3" data-text-status>
+                <span class="spinner-border spinner-border-sm d-none" data-text-status-spinner aria-hidden="true"></span>
+                <span
+                    data-text-status-text
+                    data-saved-label="{% trans "Saved" %}"
+                    data-saving-label="{% trans "Saving…" %}"
+                    data-error-label="{% trans "Unable to save" %}"
+                    data-dirty-label="{% trans "Unsaved changes" %}"
+                    data-error-message="{% trans "Unable to save changes. Please try again." %}"
+                >
+                    {% trans "Saved" %}
+                </span>
+            </div>
+            <div class="mb-3">
+                <textarea
+                    class="form-control"
+                    data-text-editor
+                    rows="8"
+                >{% if text %}{{ text.content|default_if_none:'' }}{% endif %}</textarea>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    data-text-transform="revise"
+                    data-loading-label="{% trans 'Revising…' %}"
+                >
+                    {% trans "Revise" %}
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    data-text-transform="shorten"
+                    data-loading-label="{% trans 'Shortening…' %}"
+                >
+                    {% trans "Shorten" %}
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    data-text-transform="expand"
+                    data-loading-label="{% trans 'Expanding…' %}"
+                >
+                    {% trans "Expand" %}
+                </button>
+            </div>
+        </div>
+    {% else %}
         {% if text and text.content %}
             <div class="text-body" data-text-content>
                 {{ text.content|markdownify }}
@@ -44,6 +84,6 @@
         {% else %}
             <p class="text-secondary fst-italic mb-0">{% trans "This text block could not be found." %}</p>
         {% endif %}
-    </div>
+    {% endif %}
 </div>
 {% endwith %}
