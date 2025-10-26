@@ -14,7 +14,7 @@ class MCPServer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):
         return self.name

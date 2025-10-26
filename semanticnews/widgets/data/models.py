@@ -37,7 +37,7 @@ class TopicDataRequest(models.Model):
     result = models.JSONField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
     saved_data = models.ForeignKey(
-        "topics.TopicData",
+        "widgets.TopicData",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -48,7 +48,7 @@ class TopicDataRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "topics"
+        app_label = "widgets"
         ordering = ("-created_at",)
 
     def __str__(self):
@@ -90,7 +90,7 @@ class TopicDataAnalysisRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "topics"
+        app_label = "widgets"
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
@@ -126,7 +126,7 @@ class TopicDataVisualizationRequest(models.Model):
     result = models.JSONField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
     saved_visualization = models.ForeignKey(
-        "topics.TopicDataVisualization",
+        "widgets.TopicDataVisualization",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -137,7 +137,7 @@ class TopicDataVisualizationRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = "topics"
+        app_label = "widgets"
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
@@ -157,7 +157,7 @@ class TopicData(models.Model):
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):
         return f"{self.name or 'Data'} for {self.topic}"
@@ -174,7 +174,7 @@ class TopicDataInsight(models.Model):
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):
         return f"Insight for {self.topic}"
@@ -194,7 +194,7 @@ class TopicDataVisualization(models.Model):
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):
         return f"Visualization for {self.topic}"

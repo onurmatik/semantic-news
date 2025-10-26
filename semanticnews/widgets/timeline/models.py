@@ -41,7 +41,7 @@ class TopicEvent(models.Model):
     )
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
         constraints = [
             models.UniqueConstraint(fields=['topic', 'event'], name='unique_topic_event')
         ]

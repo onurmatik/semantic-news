@@ -25,7 +25,7 @@ class TopicText(models.Model):
     error_code = models.CharField(blank=True, null=True, max_length=20)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
         ordering = ['created_at']
 
     def __str__(self):
