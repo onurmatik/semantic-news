@@ -5,6 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!topicUuid) return;
 
   const apiBase = '/api/topics/text';
+  const layoutRoot = document.querySelector('[data-topic-layout]');
+  const moduleList = layoutRoot
+    ? layoutRoot.querySelector('[data-layout-list]')
+    : null;
+  const cardTemplate = document.querySelector('template[data-text-card-template]');
 
   const getCsrfToken = () => {
     const name = 'csrftoken=';
@@ -258,6 +263,90 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCard(card);
   });
 
+  const renumberModules = () => {
+    if (!moduleList) return;
+    const modules = moduleList.querySelectorAll('[data-layout-reorderable="true"]');
+    modules.forEach((moduleEl, index) => {
+      moduleEl.dataset.displayOrder = String(index);
+    });
+  };
+
+  const focusEditor = (card) => {
+    if (!card) return;
+    const textarea = card.querySelector('[data-text-editor]');
+    if (!textarea) return;
+    if (textarea._easyMDE && textarea._easyMDE.codemirror) {
+      textarea._easyMDE.codemirror.focus();
+    } else {
+      textarea.focus();
+    }
+
+  const createModuleFromTemplate = (data) => {
+    if (!cardTemplate) return null;
+    const fragment = cardTemplate.content
+      ? cardTemplate.content.cloneNode(true)
+      : null;
+    if (!fragment) return null;
+    const moduleEl = fragment.querySelector('.topic-module-wrapper');
+    const card = fragment.querySelector('[data-text-card]');
+    if (!moduleEl || !card) return null;
+
+    const moduleKey = data.module_key || `text:${data.id}`;
+    const placement = data.placement || 'primary';
+    const displayOrder = typeof data.display_order === 'number'
+      ? data.display_order
+      : Number.MAX_SAFE_INTEGER;
+    const content = data.content || '';
+
+    moduleEl.dataset.module = moduleKey;
+    moduleEl.dataset.baseModule = 'text';
+    moduleEl.dataset.placement = placement;
+    moduleEl.dataset.displayOrder = String(displayOrder);
+    moduleEl.dataset.hasContent = content.trim() ? 'true' : 'false';
+
+    const deleteBtn = moduleEl.querySelector('[data-action="delete-text"]');
+    if (deleteBtn) {
+      deleteBtn.setAttribute('data-text-id', data.id);
+    }
+
+    card.setAttribute('data-text-id', data.id);
+    card.dataset.textId = String(data.id);
+    card.setAttribute('data-module-key', moduleKey);
+    card.dataset.moduleKey = moduleKey;
+    card.setAttribute('data-text-raw', content);
+    card.dataset.textRaw = content;
+
+    const textarea = card.querySelector('[data-text-editor]');
+    if (textarea) {
+      textarea.value = content;
+    }
+
+    return moduleEl;
+  };
+
+  const insertModule = (moduleEl, data) => {
+    if (!moduleList) return;
+    const displayOrder = typeof data.display_order === 'number'
+      ? data.display_order
+      : Number.MAX_SAFE_INTEGER;
+    const reorderable = Array.from(moduleList.querySelectorAll('[data-layout-reorderable="true"]'));
+    const insertBeforeTarget = reorderable.find((el) => {
+      const currentOrder = Number.parseInt(el.dataset.displayOrder || '0', 10);
+      return Number.isFinite(currentOrder) && currentOrder > displayOrder;
+    });
+    if (insertBeforeTarget) {
+      moduleList.insertBefore(moduleEl, insertBeforeTarget);
+    } else {
+      moduleList.appendChild(moduleEl);
+    }
+    renumberModules();
+    if (layoutRoot) {
+      layoutRoot.dispatchEvent(new CustomEvent('topicLayout:addModule', { detail: moduleEl }));
+      layoutRoot.dispatchEvent(new CustomEvent('topicLayout:save'));
+    }
+    document.dispatchEvent(new CustomEvent('topic:changed'));
+  };
+
   document.querySelectorAll('[data-action="create-text"]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();
@@ -279,11 +368,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) {
           throw new Error('Failed to create text block');
         }
-        await res.json();
-        window.location.reload();
+        const data = await res.json();
+        if (!moduleList || !cardTemplate) {
+          window.location.reload();
+          return;
+        }
+        const moduleEl = createModuleFromTemplate(data);
+        if (!moduleEl) {
+          window.location.reload();
+          return;
+        }
+        insertModule(moduleEl, data);
+        const card = moduleEl.querySelector('[data-text-card]');
+        if (card) {
+          setupCard(card);
+          window.setTimeout(() => {
+            focusEditor(card);
+          }, 0);
+        }
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(error);
+      } finally {
         button.disabled = false;
         button.removeAttribute('aria-busy');
       }
