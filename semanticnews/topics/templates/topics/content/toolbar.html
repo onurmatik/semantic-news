@@ -1,6 +1,11 @@
 {% load i18n %}
 {% if edit_mode %}
 <div class="my-3" data-content-toolbar>
+    <div class="mb-3" data-toolbar-panels>
+        {% include "topics/content/text_editor_card.html" %}
+        {% include "topics/content/data_editor_card.html" %}
+        {% include "topics/content/url_editor_card.html" %}
+    </div>
     <div class="card border-light">
         <div class="card-body py-2">
             <div class="d-flex flex-wrap gap-2">
@@ -38,11 +43,6 @@
                 </button>
             </div>
         </div>
-    </div>
-    <div class="mt-3" data-toolbar-panels>
-        {% include "topics/content/text_editor_card.html" %}
-        {% include "topics/content/data_editor_card.html" %}
-        {% include "topics/content/url_editor_card.html" %}
     </div>
 </div>
 {% endif %}
