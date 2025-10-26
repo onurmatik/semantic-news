@@ -89,7 +89,7 @@ class Topic(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     events = models.ManyToManyField(
-        'agenda.Event', through='TopicEvent',
+        'agenda.Event', through='widgets.TopicEvent',
         related_name='topics', blank=True
     )
     contents = models.ManyToManyField(

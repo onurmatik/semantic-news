@@ -20,7 +20,7 @@ class TopicRecap(models.Model):
     error_code = models.CharField(blank=True, null=True, max_length=20)
 
     class Meta:
-        app_label = 'topics'
+        app_label = 'widgets'
 
     def __str__(self):
         return f"Recap for {self.topic}"
