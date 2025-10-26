@@ -422,35 +422,43 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   if (confirmBtn) {
-    confirmBtn.addEventListener('click', async () => {
+    confirmBtn.addEventListener('click', (event) => {
+      event.preventDefault();
       const textId = confirmBtn.getAttribute('data-text-id');
       if (!textId) return;
+
       confirmBtn.disabled = true;
       if (confirmSpinner) {
         confirmSpinner.classList.remove('d-none');
       }
-      try {
-        const res = await fetch(apiBase + '/' + textId, {
-          method: 'DELETE',
-          headers: {
-            'X-CSRFToken': getCsrfToken(),
-          },
-        });
-        if (!res.ok && res.status !== 204) {
-          throw new Error('Failed to delete text');
-        }
-        window.location.reload();
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(error);
+
+      const finishFailureState = () => {
         confirmBtn.disabled = false;
         if (confirmSpinner) {
           confirmSpinner.classList.add('d-none');
         }
-        if (confirmModal) {
-          confirmModal.hide();
+      };
+
+      fetch(apiBase + '/' + textId, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRFToken': getCsrfToken()
         }
-      }
+      })
+        .then((res) => {
+          if (!res.ok && res.status !== 204) {
+            throw new Error('Failed to delete text');
+          }
+          window.location.reload();
+        })
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error(error);
+          finishFailureState();
+          if (confirmModal) {
+            confirmModal.hide();
+          }
+        });
     });
   }
 });
