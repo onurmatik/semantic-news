@@ -299,5 +299,17 @@
     layoutRoot.addEventListener('topicLayout:save', () => {
       scheduleSave();
     });
+
+    layoutRoot.addEventListener('topicLayout:addModule', (event) => {
+      const moduleEl = event && event.detail;
+      if (!(moduleEl instanceof Element)) {
+        return;
+      }
+      if (!moduleList.contains(moduleEl)) {
+        return;
+      }
+      initModule(moduleEl);
+      lastKnownLayoutSignature = JSON.stringify(collectLayout());
+    });
   });
 })();
