@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
       clearError(errorEl);
 
       try {
-        const res = await fetch(`${apiBase}/${textId}`, {
+        const res = await fetch(apiBase + '/' + textId, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-busy', 'true');
 
         try {
-          const res = await fetch(`${apiBase}/${mode}`, {
+          const res = await fetch(apiBase + '/' + mode, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = fragment.querySelector('[data-text-card]');
     if (!moduleEl || !card) return null;
 
-    const moduleKey = data.module_key || `text:${data.id}`;
+    const moduleKey = data.module_key || 'text:' + data.id;
     const placement = data.placement || 'primary';
     const displayOrder = typeof data.display_order === 'number'
       ? data.display_order
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.setAttribute('aria-busy', 'true');
 
       try {
-        const res = await fetch(`${apiBase}/create`, {
+        const res = await fetch(apiBase + '/create', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmSpinner.classList.remove('d-none');
       }
       try {
-        const res = await fetch(`${apiBase}/${textId}`, {
+        const res = await fetch(apiBase + '/' + textId, {
           method: 'DELETE',
           headers: {
             'X-CSRFToken': getCsrfToken(),
