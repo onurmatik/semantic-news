@@ -23,8 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   };
 
-  const normalize = (value) => (value || '')
-    .replace(/\r\n/g, '\n');
+  const normalize = (value) => {
+    const base = typeof value === 'string' ? value : '';
+    return base.replace(/\r\n/g, '\n');
+  };
 
   const setStatus = (containerEl, textEl, spinnerEl, state) => {
     if (!containerEl || !textEl) return;
@@ -404,6 +406,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmSpinner = document.getElementById('confirmDeleteTextSpinner');
 
   document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
     const deleteBtn = event.target.closest('[data-action="delete-text"]');
     if (!deleteBtn) return;
     event.preventDefault();
