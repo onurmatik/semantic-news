@@ -1,7 +1,6 @@
 import json
 import uuid
 
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
@@ -12,11 +11,9 @@ from slugify import slugify
 from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
-from ..utils import get_relevance
 from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
-from ..widgets.embeds.models import TopicYoutubeVideo
 from ..widgets.relations.models import TopicEntityRelation
 from ..widgets.documents.models import TopicDocument, TopicWebpage
 from ..widgets.timeline.models import TopicEvent
