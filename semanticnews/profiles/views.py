@@ -11,7 +11,7 @@ from django.utils.translation import gettext as _
 
 from .forms import DisplayNameForm
 from .models import Profile
-from ..topics.models import Topic, TopicContent
+from ..topics.models import Topic
 from ..widgets.data.models import TopicDataVisualization
 
 
@@ -98,25 +98,12 @@ def user_profile(request, username):
     else:
         topics = topics.exclude(status="draft")
 
-    topic_content = TopicContent.objects.filter(created_by=user).select_related(
-        'topicarticle__article',
-        'topicvideo__video_chunk',
-    )
-
-    if request.user.is_authenticated:
-        topic_content = topic_content.exclude(
-            Q(topic__status="draft") & ~Q(topic__created_by=request.user)
-        )
-    else:
-        topic_content = topic_content.exclude(topic__status="draft")
-
     profile, c = Profile.objects.get_or_create(user=user)
 
     return render(request, 'profiles/user_profile.html', {
         'profile_user': user,
         'profile': profile,
         'topics': topics,
-        'topic_content': topic_content,
     })
 
 

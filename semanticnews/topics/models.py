@@ -86,15 +86,11 @@ class Topic(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     events = models.ManyToManyField(
-        'agenda.Event', through='TopicEvent',
-        related_name='topics', blank=True
-    )
-    contents = models.ManyToManyField(
-        'contents.Content', through='TopicContent',
+        'agenda.Event', through='RelatedEvent',
         related_name='topics', blank=True
     )
     entities = models.ManyToManyField(
-        'entities.Entity', through='TopicEntity',
+        'entities.Entity', through='RelatedEntity',
         related_name='topics', blank=True
     )
 
@@ -612,37 +608,55 @@ class Topic(models.Model):
         return cloned
 
 
-class RelatedTopic(models.Model):
-    class Source(models.TextChoices):
-        MANUAL = "manual", "Manual"
-        AUTO = "auto", "Automatic"
+#
+# Linked content models
+#
 
-    topic = models.ForeignKey(
-        "Topic",
-        on_delete=models.CASCADE,
-        related_name="topic_related_topics",
+class Source(models.TextChoices):
+    USER = "user", "User"
+    AGENT = "agent", "Agent"
+
+
+class RelatedEvent(models.Model):
+    event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
+
+    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.USER,
     )
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["topic", "event"],
+                name="unique_topic_related_event",
+            )
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f'{self.topic} - {self.event}'
+
+
+class RelatedTopic(models.Model):
     related_topic = models.ForeignKey(
         "Topic",
         on_delete=models.CASCADE,
         related_name="incoming_related_topic_links",
     )
+
+    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
     source = models.CharField(
         max_length=20,
         choices=Source.choices,
-        default=Source.MANUAL,
+        default=Source.USER,
     )
     is_deleted = models.BooleanField(default=False)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="created_topic_related_topics",
-    )
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    published_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         constraints = [
@@ -651,59 +665,32 @@ class RelatedTopic(models.Model):
                 name="unique_topic_related_topic",
             )
         ]
-        ordering = ["-created_at", "-id"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.topic} → {self.related_topic}"
 
 
-class TopicContent(models.Model):
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    content = models.ForeignKey('contents.Content', on_delete=models.CASCADE)
+class RelatedEntity(models.Model):
+    entity = models.ForeignKey('entities.Entity', on_delete=models.CASCADE)
 
-    role = models.CharField(
-        max_length=20,
-        choices=[('evidence', 'Evidence'), ('summary', 'Summary'), ('quote', 'Quote')],
-        default='evidence'
-    )
+    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
     source = models.CharField(
-        max_length=10,
-        choices=[('user', 'User'), ('ml', 'ML'), ('rule', 'Rule')],
-        default='user'
+        max_length=20,
+        choices=Source.choices,
+        default=Source.USER,
     )
-
-    relevance = models.FloatField(
-        null=True, blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-    )
-
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['topic', 'content'], name='unique_topic_content')
+            models.UniqueConstraint(
+                fields=["topic", "entity"],
+                name="unique_topic_related_entity",
+            )
         ]
-        indexes = [models.Index(fields=['topic']), models.Index(fields=['content'])]
-
-    def __str__(self):
-        return f'Topic: {self.topic}'
-
-    def save(self, *args, **kwargs):
-        if self.relevance is None and getattr(self.topic, 'embedding', None) is not None and getattr(self.content, 'embedding', None) is not None:
-            self.relevance = get_relevance(self.topic.embedding, self.content.embedding)
-        super().save(*args, **kwargs)
-
-
-class TopicEntity(models.Model):
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    entity = models.ForeignKey('entities.Entity', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.SET_NULL)
-    relevance = models.FloatField(
-        null=True, blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-    )
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f'{self.topic} - {self.entity}'

@@ -2,7 +2,7 @@ from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Topic, TopicContent
+from .models import Topic
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.recaps.models import TopicRecap
@@ -32,11 +32,6 @@ def touch_topic(topic_id):
 
 @receiver([post_save, post_delete], sender=TopicEvent)
 def update_topic_timestamp_from_event(sender, instance, **kwargs):
-    touch_topic(instance.topic_id)
-
-
-@receiver([post_save, post_delete], sender=TopicContent)
-def update_topic_timestamp_from_content(sender, instance, **kwargs):
     touch_topic(instance.topic_id)
 
 
@@ -78,16 +73,6 @@ def update_topic_timestamp_from_data_visualization(sender, instance, **kwargs):
 
 @receiver(m2m_changed, sender=Topic.events.through)
 def topic_events_m2m_changed(sender, instance, action, reverse, model, pk_set, **kwargs):
-    if action in {"post_add", "post_remove", "post_clear"}:
-        if reverse:
-            for pk in pk_set:
-                touch_topic(pk)
-        else:
-            touch_topic(instance.pk)
-
-
-@receiver(m2m_changed, sender=Topic.contents.through)
-def topic_contents_m2m_changed(sender, instance, action, reverse, model, pk_set, **kwargs):
     if action in {"post_add", "post_remove", "post_clear"}:
         if reverse:
             for pk in pk_set:

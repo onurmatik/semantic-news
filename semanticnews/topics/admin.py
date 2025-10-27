@@ -1,6 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, TopicContent, TopicEntity
+from .models import Topic, RelatedTopic, RelatedEntity, RelatedEvent
 from .publishing.models import (
     TopicPublication,
     TopicPublicationModule,
@@ -36,22 +36,6 @@ class TopicAdmin(admin.ModelAdmin):
             async_to_sync(topic.extract_entity_graph)()
             # Display the result to the admin user
             self.message_user(request, f"Extracted entity graph for '{topic}'")
-
-
-@admin.register(TopicContent)
-class TopicContentAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'created_by', 'created_at', 'relevance')
-    list_filter = ('created_by',)
-    search_fields = ('topic__title', 'created_by__username')
-
-
-@admin.register(TopicEntity)
-class TopicEntityAdmin(admin.ModelAdmin):
-    list_display = ("topic", "entity", "relevance", "created_by", "created_at")
-    search_fields = ("topic__title", "entity__name")
-    list_filter = ("created_at",)
-    raw_id_fields = ("topic", "entity", "created_by")
-    readonly_fields = ("created_at",)
 
 
 @admin.register(TopicPublication)
