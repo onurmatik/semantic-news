@@ -26,7 +26,7 @@
 
         {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
 
-        {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; updated {{ modified_ago }} ago.{% endblocktrans %}
+        {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile activity_ago=topic.activity_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; last activity {{ activity_ago }} ago.{% endblocktrans %}
         {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
             <nobr>
                 {% if item_count > 0 %}

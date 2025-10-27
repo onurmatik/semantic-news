@@ -38,7 +38,7 @@
             <div class="alert alert-light d-flex align-items-center justify-content-between gap-2 flex-wrap" data-topic-toolbar>
                 <div class="d-flex align-items-center flex-wrap gap-2 small text-secondary">
                     <span>
-                        {% blocktrans with created_date=topic.created_at|date modified_ago=topic.updated_at|timesince %}Created on {{ created_date }} · Updated {{ modified_ago }} ago{% endblocktrans %}
+                        {% blocktrans with created_date=topic.created_at|date activity_ago=topic.activity_at|timesince %}Created on {{ created_date }} · Last activity {{ activity_ago }} ago{% endblocktrans %}
                     </span>
                     {% if topic.based_on %}
                         {% url 'topics_detail' username=topic.based_on.created_by.username slug=topic.based_on.slug as based_on_url %}

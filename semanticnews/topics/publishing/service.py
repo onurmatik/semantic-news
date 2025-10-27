@@ -759,7 +759,7 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
                 )
                 if not created and link.is_deleted:
                     link.is_deleted = False
-                    update_fields = ["is_deleted", "updated_at"]
+                    update_fields = ["is_deleted"]
                     if link.source != RelatedTopic.Source.AUTO:
                         link.source = RelatedTopic.Source.AUTO
                         update_fields.append("source")
