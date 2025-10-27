@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Q
+from django.db.models.functions import Coalesce
 
 from semanticnews.agenda.models import Event
 from semanticnews.openai import OpenAI
@@ -420,10 +421,6 @@ def update_topic_layout_configuration(
             ]
         )
 
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
-
     layout = get_topic_layout(topic)
     return TopicLayoutResponse(modules=serialize_layout(layout))
 
@@ -500,10 +497,6 @@ def add_event_to_topic(request, payload: TopicEventAddRequest):
             else:
                 raise HttpError(400, "Event already linked to topic")
 
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
-
     return TopicEventAddResponse(
         topic_uuid=str(topic.uuid),
         event_uuid=str(event.uuid),
@@ -568,10 +561,6 @@ def remove_event_from_topic(request, payload: TopicEventRemoveRequest):
     ).update(is_deleted=True)
     if updated == 0:
         raise HttpError(404, "Event not linked to topic")
-
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
 
     return TopicEventRemoveResponse(
         topic_uuid=str(topic.uuid),
@@ -678,7 +667,10 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
             | Q(created_by__username__icontains=query)
         )
 
-    qs = qs.order_by("-updated_at", "-created_at")[:10]
+    qs = (
+        qs.annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
+        .order_by("-ordering_activity", "-created_at")[:10]
+    )
 
     results: List[RelatedTopicSearchResult] = []
     for result in qs:
@@ -726,7 +718,7 @@ def add_related_topic(
         if not link.is_deleted:
             raise HttpError(400, "Related topic already linked")
 
-        update_fields = ["is_deleted", "updated_at"]
+        update_fields = ["is_deleted"]
         link.is_deleted = False
         if link.source != RelatedTopic.Source.MANUAL:
             link.source = RelatedTopic.Source.MANUAL
@@ -735,10 +727,6 @@ def add_related_topic(
             link.created_by = request.user
             update_fields.append("created_by")
         link.save(update_fields=update_fields)
-
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
 
     return _serialize_related_topic_link(link)
 
@@ -760,11 +748,7 @@ def remove_related_topic(request, topic_uuid: str, link_id: int):
 
     if not link.is_deleted:
         link.is_deleted = True
-        link.save(update_fields=["is_deleted", "updated_at"])
-
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
+        link.save(update_fields=["is_deleted"])
 
     return _serialize_related_topic_link(link)
 
@@ -786,11 +770,7 @@ def restore_related_topic(request, topic_uuid: str, link_id: int):
 
     if link.is_deleted:
         link.is_deleted = False
-        link.save(update_fields=["is_deleted", "updated_at"])
-
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
+        link.save(update_fields=["is_deleted"])
 
     return _serialize_related_topic_link(link)
 

@@ -9,6 +9,7 @@ from pgvector.django import L2Distance
 import json
 
 from django.db.models import Prefetch
+from django.db.models.functions import Coalesce
 
 from semanticnews.agenda.models import Event
 from semanticnews.agenda.localities import (
@@ -122,9 +123,10 @@ def topics_list(request):
 
     topics = (
         Topic.objects.filter(status="published")
+        .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
-        .order_by("-updated_at", "-created_at")
+        .order_by("-ordering_activity", "-created_at")
     )
 
     recent_events = (
@@ -501,9 +503,6 @@ def topic_remove_event(request, slug, username, event_uuid):
         event=event,
         is_deleted=False,
     ).update(is_deleted=True)
-    from .signals import touch_topic
-
-    touch_topic(topic.pk)
 
     return redirect("topics_detail", slug=topic.slug, username=username)
 

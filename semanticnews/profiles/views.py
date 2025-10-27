@@ -31,7 +31,9 @@ def user_list(request):
                 distinct=True,
             ),
             events_count=Count("entries", distinct=True),
-            latest_topic_activity=Max("topics__updated_at"),
+            latest_topic_activity=Max(
+                Coalesce("topics__last_published_at", "topics__created_at")
+            ),
             latest_event_activity=Max("entries__updated_at"),
         )
         .annotate(
@@ -64,9 +66,10 @@ def user_list(request):
 
     recent_topics = (
         Topic.objects.filter(status="published")
+        .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
-        .order_by("-updated_at", "-created_at")[:5]
+        .order_by("-ordering_activity", "-created_at")[:5]
     )
 
     context = {
@@ -89,8 +92,9 @@ def user_profile(request, username):
         .filter(Q(created_by=user) | Q(contents__created_by=user))
         .select_related("created_by", "latest_publication")
         .prefetch_related("recaps", "images", visualizations_prefetch)
+        .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .distinct()
-        .order_by('-updated_at')
+        .order_by('-ordering_activity', '-created_at')
     )
 
     if request.user.is_authenticated:

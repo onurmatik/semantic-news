@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Prefetch
+from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
 
 from ..topics.models import Topic, TopicContent
@@ -18,10 +19,11 @@ def user_profile(request, username):
         Topic.objects
         .filter(Q(created_by=user) | Q(contents__created_by=user))
         .filter(status='published')
+        .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related('created_by')
         .prefetch_related('recaps', 'images', visualizations_prefetch)
         .distinct()
-        .order_by('-updated_at')
+        .order_by('-ordering_activity', '-created_at')
     )
 
     if request.user.is_authenticated:

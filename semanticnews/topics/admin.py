@@ -15,7 +15,7 @@ from ..widgets.timeline import admin as timeline_admin  # noqa: F401
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ('title', 'status', 'created_at', 'updated_at')
+    list_display = ('title', 'status', 'created_at', 'last_published_at')
     list_editable = ('status',)
     list_filter = ('status',)
     search_fields = ('title',)
@@ -23,7 +23,7 @@ class TopicAdmin(admin.ModelAdmin):
         'update_recap',
         'extract_entity_graph',
     ]
-    readonly_fields = ('uuid', 'created_at', 'updated_at')
+    readonly_fields = ('uuid', 'created_at', 'last_published_at')
 
     def update_recap(self, request, queryset):
         for topic in queryset:
