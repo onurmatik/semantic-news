@@ -687,7 +687,11 @@ class RelatedTopic(models.Model):
         related_name="incoming_related_topic_links",
     )
 
-    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="topic_related_topics",
+    )
     source = models.CharField(
         max_length=20,
         choices=Source.choices,
