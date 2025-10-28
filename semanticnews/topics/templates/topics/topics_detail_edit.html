@@ -17,7 +17,6 @@
         data-topic-uuid="{{ topic.uuid }}"
         data-topic-slug="{{ topic.slug|default:'' }}"
         data-topic-title="{{ topic.title|default_if_none:'' }}"
-        data-topic-has-unpublished-changes="{{ topic.has_unpublished_changes|yesno:'true,false' }}"
     >
 
         <h3 class="fs-5 d-flex align-items-center">
@@ -38,7 +37,11 @@
             <div class="alert alert-light d-flex align-items-center justify-content-between gap-2 flex-wrap" data-topic-toolbar>
                 <div class="d-flex align-items-center flex-wrap gap-2 small text-secondary">
                     <span>
-                        {% blocktrans with created_date=topic.created_at|date activity_ago=topic.activity_at|timesince %}Created on {{ created_date }} · Last activity {{ activity_ago }} ago{% endblocktrans %}
+                        {% if topic.last_published_at %}
+                            {% blocktrans with created_date=topic.created_at|date last_published_ago=topic.last_published_at|timesince %}Created on {{ created_date }} · Last published {{ last_published_ago }} ago{% endblocktrans %}
+                        {% else %}
+                            {% blocktrans with created_date=topic.created_at|date %}Created on {{ created_date }} · Draft{% endblocktrans %}
+                        {% endif %}
                     </span>
                     {% if topic.based_on %}
                         {% url 'topics_detail' username=topic.based_on.created_by.username slug=topic.based_on.slug as based_on_url %}

@@ -57,7 +57,11 @@
                                         <a class="text-decoration-none" href="{{ topic.get_absolute_url }}">{{ topic.title }}</a>
                                     </h3>
                                     <p class="text-secondary mb-0">
-                                        {% blocktrans with activity=topic.activity_at|timesince %}Last activity {{ activity }} ago{% endblocktrans %}
+                                        {% if topic.last_published_at %}
+                                            {% blocktrans with last_published=topic.last_published_at|timesince %}Last published {{ last_published }} ago{% endblocktrans %}
+                                        {% else %}
+                                            {% trans "Draft" %}
+                                        {% endif %}
                                     </p>
                                 </li>
                             {% endfor %}

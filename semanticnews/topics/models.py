@@ -3,7 +3,6 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Max
 from django.utils.functional import cached_property
 from django.utils.translation import gettext
 from django.urls import reverse
@@ -270,58 +269,9 @@ class Topic(models.Model):
 
     @property
     def has_unpublished_changes(self) -> bool:
-        """Return whether the topic has edits not reflected in a publication."""
+        """Return whether the topic can be published again."""
 
-        if not self.last_published_at:
-            return True
-
-        latest_activity = self.latest_activity_at
-        if latest_activity is None:
-            return False
-
-        return latest_activity > self.last_published_at
-
-    def _collect_activity_timestamps(self):
-        timestamps = [self.created_at]
-
-        def add_latest(queryset, field_name):
-            latest = queryset.aggregate(value=Max(field_name)).get("value")
-            if latest:
-                timestamps.append(latest)
-
-        add_latest(self.recaps.filter(is_deleted=False), "created_at")
-        add_latest(self.texts.filter(is_deleted=False), "updated_at")
-        add_latest(self.images.filter(is_deleted=False), "created_at")
-        add_latest(self.entity_relations.filter(is_deleted=False), "created_at")
-        add_latest(self.datas.filter(is_deleted=False), "created_at")
-        add_latest(self.data_insights.filter(is_deleted=False), "created_at")
-        add_latest(self.data_visualizations.filter(is_deleted=False), "created_at")
-        add_latest(self.topic_related_topics.filter(is_deleted=False), "created_at")
-        add_latest(
-            TopicEvent.objects.filter(topic=self, is_deleted=False),
-            "created_at",
-        )
-
-        return [ts for ts in timestamps if ts]
-
-    @property
-    def latest_activity_at(self):
-        if hasattr(self, "_latest_activity_cache"):
-            return self._latest_activity_cache
-
-        timestamps = self._collect_activity_timestamps()
-        latest = max(timestamps) if timestamps else None
-        self._latest_activity_cache = latest
-        return latest
-
-    @property
-    def activity_at(self):
-        annotated = getattr(self, "ordering_activity", None)
-        candidates = [annotated, self.latest_activity_at, self.last_published_at, self.created_at]
-        candidates = [ts for ts in candidates if ts]
-        if not candidates:
-            return None
-        return max(candidates)
+        return self.status in {"draft", "published"}
 
     @cached_property
     def hero_image(self):
