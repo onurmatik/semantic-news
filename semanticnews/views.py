@@ -18,7 +18,7 @@ def home(request):
         'events': recent_events,
         'topics': (
             Topic.objects.filter(status='published')
-            .select_related('created_by', 'latest_publication')
+            .select_related('created_by')
             .prefetch_related('recaps', 'images', visualizations_prefetch)
         ),
     }
@@ -53,7 +53,7 @@ def search_results(request):
         topics = (
             Topic.objects.filter(status="published")
             .exclude(embedding__isnull=True)
-            .select_related("created_by", "latest_publication")
+        .select_related("created_by")
             .prefetch_related("recaps", "images", visualizations_prefetch)
             .annotate(distance=L2Distance("embedding", embedding))
             .order_by("distance")[:5]

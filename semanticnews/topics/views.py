@@ -19,7 +19,6 @@ from semanticnews.agenda.localities import (
 
 from .models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
 from .layouts import annotate_module_content, get_layout_for_mode
-from .publishing.service import build_publication_context, build_publication_modules
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.data.models import TopicDataVisualization
 from semanticnews.widgets.mcps.models import MCPServer
@@ -62,13 +61,11 @@ def _render_topic_detail(request, topic):
     if not _topic_is_visible_to_user(topic, request.user):
         raise Http404("Topic not found")
 
-    publication = topic.latest_publication
-
-    if publication:
-        context = build_publication_context(topic, publication)
-        modules = build_publication_modules(publication, context)
-        primary_modules = modules.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-        sidebar_modules = modules.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+    if topic.status == "published":
+        context = _build_topic_module_context(topic, request.user)
+        layout = get_layout_for_mode(topic, mode="detail")
+        primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
+        sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
         annotate_module_content(primary_modules, context)
         annotate_module_content(sidebar_modules, context)
         primary_modules = _filter_empty_related_topic_modules(primary_modules)
@@ -133,7 +130,7 @@ def topics_list(request):
     topics = (
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
-        .select_related("created_by", "latest_publication")
+        .select_related("created_by")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-ordering_activity", "-created_at")
     )

@@ -6,46 +6,37 @@
     </h3>
     <a href="{{ topic.get_absolute_url }}" class="stretched-link" aria-hidden="true"></a>
 
-    {% with publication=topic.latest_publication %}
-        {% if publication %}
-            {% with snapshot=publication.context_snapshot %}
-                {% with image=snapshot.image %}
-                    {% if image.thumbnail_url %}
-                        <img src="{{ image.thumbnail_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
-                    {% elif image.image_url %}
-                        <img src="{{ image.image_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
-                    {% elif topic.thumbnail %}
-                        <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
-                    {% endif %}
-                {% endwith %}
-
-                {% if snapshot.latest_recap %}
-                    <div class="small text-body">{{ snapshot.latest_recap.recap|markdownify }}</div>
-                {% elif snapshot.recaps %}
-                    {% with fallback=snapshot.recaps|first %}
-                        {% if fallback %}
-                            <div class="small text-body">{{ fallback.recap|markdownify }}</div>
-                        {% endif %}
-                    {% endwith %}
-                {% elif topic.prefetched_recaps %}
-                    {% with fallback=topic.prefetched_recaps|first %}
-                        {% if fallback %}
-                            <div class="small text-body">{{ fallback.recap|markdownify }}</div>
-                        {% endif %}
-                    {% endwith %}
+    {% with hero=topic.thumbnail %}
+        {% if hero %}
+            <img src="{{ hero.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
+        {% else %}
+            {% with first_visualization=topic.active_data_visualizations.all|first %}
+                {% if first_visualization %}
+                    <div
+                        class="chart-container rounded border mb-2 bg-body"
+                        data-visualization-preview="{{ first_visualization.id }}"
+                    >
+                        <canvas
+                            id="dataVisualizationChartSidebar{{ first_visualization.id }}"
+                            class="data-visualization-chart w-100"
+                            data-chart-type="{{ first_visualization.chart_type }}"
+                            data-chart="{{ first_visualization.chart_data|jsonify }}"
+                        ></canvas>
+                    </div>
                 {% endif %}
             {% endwith %}
-        {% else %}
-            {% if topic.thumbnail %}
-                <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2">
-            {% endif %}
-            {% if topic.prefetched_recaps %}
-                {% with fallback=topic.prefetched_recaps|first %}
-                    {% if fallback %}
-                        <div class="small text-body">{{ fallback.recap|markdownify }}</div>
-                    {% endif %}
-                {% endwith %}
-            {% endif %}
+        {% endif %}
+    {% endwith %}
+
+    {% with latest_recap=topic.active_recaps.last %}
+        {% if latest_recap %}
+            <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
+        {% elif topic.prefetched_recaps %}
+            {% with fallback=topic.prefetched_recaps|first %}
+                {% if fallback %}
+                    <div class="small text-body">{{ fallback.recap|markdownify }}</div>
+                {% endif %}
+            {% endwith %}
         {% endif %}
     {% endwith %}
 </div>

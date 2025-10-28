@@ -4,6 +4,7 @@ import json
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 
 from semanticnews.prompting import get_default_language_instruction
 from .api import EventValidationResponse, AgendaEventList, AgendaEventResponse
@@ -570,7 +571,6 @@ class EventListRelatedTopicsTests(TestCase):
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
         from semanticnews.topics.models import Topic
-        from semanticnews.topics.publishing.models import TopicPublication
         from semanticnews.widgets.recaps.models import TopicRecap
         from semanticnews.widgets.timeline.models import TopicEvent
 
@@ -588,22 +588,10 @@ class EventListRelatedTopicsTests(TestCase):
         TopicRecap.objects.create(topic=topic, recap="A useful recap", status="finished")
 
         topic.status = "published"
-        topic.save(update_fields=["status"])
+        topic.last_published_at = timezone.now()
+        topic.save(update_fields=["status", "last_published_at"])
 
         TopicEvent.objects.create(topic=topic, event=event)
-
-        publication = TopicPublication.objects.create(
-            topic=topic,
-            context_snapshot={
-                "latest_recap": {"recap": "A useful recap"},
-                "image": {"thumbnail_url": "http://example.com/cover.jpg"},
-            },
-        )
-
-        Topic.objects.filter(pk=topic.pk).update(
-            latest_publication=publication,
-            last_published_at=publication.published_at,
-        )
 
         response = self.client.get(
             reverse(
@@ -622,7 +610,6 @@ class EventDetailRelatedTopicsTests(TestCase):
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
         from semanticnews.topics.models import Topic
-        from semanticnews.topics.publishing.models import TopicPublication
         from semanticnews.widgets.recaps.models import TopicRecap
         from semanticnews.widgets.timeline.models import TopicEvent
 
@@ -641,22 +628,10 @@ class EventDetailRelatedTopicsTests(TestCase):
         TopicRecap.objects.create(topic=topic, recap="A useful recap", status="finished")
 
         topic.status = "published"
-        topic.save(update_fields=["status"])
+        topic.last_published_at = timezone.now()
+        topic.save(update_fields=["status", "last_published_at"])
 
         TopicEvent.objects.create(topic=topic, event=event)
-
-        publication = TopicPublication.objects.create(
-            topic=topic,
-            context_snapshot={
-                "latest_recap": {"recap": "A useful recap"},
-                "image": {"thumbnail_url": "http://example.com/cover.jpg"},
-            },
-        )
-
-        Topic.objects.filter(pk=topic.pk).update(
-            latest_publication=publication,
-            last_published_at=publication.published_at,
-        )
 
         response = self.client.get(
             reverse(

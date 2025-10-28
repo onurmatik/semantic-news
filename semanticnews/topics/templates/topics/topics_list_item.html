@@ -51,117 +51,31 @@
 
         <a href="{{ topic.get_absolute_url }}" class="stretched-link"></a>
 
-        {% with publication=topic.latest_publication %}
-            {% if publication %}
-                {% with snapshot=publication.context_snapshot %}
-                    {% if snapshot %}
-                        {% with image=snapshot.image %}
-                            {% if image %}
-                                {% if image.thumbnail_url %}
-                                    <img src="{{ image.thumbnail_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
-                                {% elif image.image_url %}
-                                    <img src="{{ image.image_url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
-                                {% else %}
-                                    {% with first_visualization=snapshot.data_visualizations|first %}
-                                        {% if first_visualization %}
-                                            <div
-                                                class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
-                                                data-visualization-preview="{{ first_visualization.id }}"
-                                            >
-                                                <canvas
-                                                    id="dataVisualizationChart{{ first_visualization.id }}"
-                                                    class="data-visualization-chart w-100"
-                                                    data-chart-type="{{ first_visualization.chart_type }}"
-                                                    data-chart="{{ first_visualization.chart_data|jsonify }}"
-                                                ></canvas>
-                                            </div>
-                                        {% endif %}
-                                    {% endwith %}
-                                {% endif %}
-                            {% else %}
-                                {% with first_visualization=snapshot.data_visualizations|first %}
-                                    {% if first_visualization %}
-                                        <div
-                                            class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
-                                            data-visualization-preview="{{ first_visualization.id }}"
-                                        >
-                                            <canvas
-                                                id="dataVisualizationChart{{ first_visualization.id }}"
-                                                class="data-visualization-chart w-100"
-                                                data-chart-type="{{ first_visualization.chart_type }}"
-                                                data-chart="{{ first_visualization.chart_data|jsonify }}"
-                                            ></canvas>
-                                        </div>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                        {% endwith %}
-
-                        {% with latest_recap=snapshot.latest_recap %}
-                            {% if latest_recap %}
-                                <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
-                            {% elif snapshot.recaps %}
-                                {% with fallback_recap=snapshot.recaps|first %}
-                                    {% if fallback_recap %}
-                                        <div class="small text-body">{{ fallback_recap.recap|markdownify }}</div>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                        {% endwith %}
-                    {% else %}
-                        {% if topic.thumbnail %}
-                            <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
-                        {% else %}
-                            {% with topic.active_data_visualizations.all|first as first_visualization %}
-                                {% if first_visualization %}
-                                    <div
-                                        class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
-                                        data-visualization-preview="{{ first_visualization.id }}"
-                                    >
-                                        <canvas
-                                            id="dataVisualizationChart{{ first_visualization.id }}"
-                                            class="data-visualization-chart w-100"
-                                            data-chart-type="{{ first_visualization.chart_type }}"
-                                            data-chart="{{ first_visualization.chart_data|jsonify }}"
-                                        ></canvas>
-                                    </div>
-                                {% endif %}
-                            {% endwith %}
-                        {% endif %}
-
-                        {% with topic.active_recaps.last as latest_recap %}
-                            {% if latest_recap %}
-                                <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
-                            {% endif %}
-                        {% endwith %}
-                    {% endif %}
-                {% endwith %}
+        {% with hero=topic.thumbnail %}
+            {% if hero %}
+                <img src="{{ hero.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
             {% else %}
-                {% if topic.thumbnail %}
-                    <img src="{{ topic.thumbnail.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
-                {% else %}
-                    {% with topic.active_data_visualizations.all|first as first_visualization %}
-                        {% if first_visualization %}
-                            <div
-                                class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
-                                data-visualization-preview="{{ first_visualization.id }}"
-                            >
-                                <canvas
-                                    id="dataVisualizationChart{{ first_visualization.id }}"
-                                    class="data-visualization-chart w-100"
-                                    data-chart-type="{{ first_visualization.chart_type }}"
-                                    data-chart="{{ first_visualization.chart_data|jsonify }}"
-                                ></canvas>
-                            </div>
-                        {% endif %}
-                    {% endwith %}
-                {% endif %}
-
-                {% with topic.active_recaps.last as latest_recap %}
-                    {% if latest_recap %}
-                        <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
+                {% with first_visualization=topic.active_data_visualizations.all|first %}
+                    {% if first_visualization %}
+                        <div
+                            class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
+                            data-visualization-preview="{{ first_visualization.id }}"
+                        >
+                            <canvas
+                                id="dataVisualizationChart{{ first_visualization.id }}"
+                                class="data-visualization-chart w-100"
+                                data-chart-type="{{ first_visualization.chart_type }}"
+                                data-chart="{{ first_visualization.chart_data|jsonify }}"
+                            ></canvas>
+                        </div>
                     {% endif %}
                 {% endwith %}
+            {% endif %}
+        {% endwith %}
+
+        {% with latest_recap=topic.active_recaps.last %}
+            {% if latest_recap %}
+                <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
             {% endif %}
         {% endwith %}
 

@@ -63,13 +63,6 @@ class Topic(models.Model):
         ('published', 'Published'),
         ('archived', 'Archived'),
     ), default='draft')
-    latest_publication = models.ForeignKey(
-        'topics.TopicPublication',
-        on_delete=models.SET_NULL,
-        related_name='+',
-        blank=True,
-        null=True,
-    )
     last_published_at = models.DateTimeField(blank=True, null=True)
 
     based_on = models.ForeignKey(

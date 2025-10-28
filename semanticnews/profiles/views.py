@@ -67,7 +67,7 @@ def user_list(request):
     recent_topics = (
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
-        .select_related("created_by", "latest_publication")
+        .select_related("created_by")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-ordering_activity", "-created_at")[:5]
     )
@@ -90,7 +90,7 @@ def user_profile(request, username):
     topics = (
         Topic.objects
         .filter(Q(created_by=user) | Q(contents__created_by=user))
-        .select_related("created_by", "latest_publication")
+        .select_related("created_by")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .distinct()

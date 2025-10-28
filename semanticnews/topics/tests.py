@@ -32,7 +32,7 @@ from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.images.models import TopicImage
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
-from .publishing.service import publish_topic
+from .publishing import publish_topic
 from .api import RelatedEntityInput
 
 
@@ -1388,7 +1388,7 @@ class RelatedTopicPublishTests(TestCase):
         TopicRecap.objects.create(topic=topic, recap="Summary", status="finished")
         return topic
 
-    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics")
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics")
     def test_publish_seeds_auto_links_when_missing_manual(self, mock_similar):
         topic = self._create_topic()
         similar_a = Topic.objects.create(
@@ -1408,7 +1408,7 @@ class RelatedTopicPublishTests(TestCase):
             self.assertEqual(link.created_by, self.owner)
             self.assertIsNotNone(link.published_at)
 
-    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics")
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics")
     def test_publish_does_not_seed_when_manual_exists(self, mock_similar):
         topic = self._create_topic()
         manual_target = Topic.objects.create(
@@ -1516,7 +1516,7 @@ class TopicPublishSnapshotImageTests(TestCase):
         defaults.update(overrides)
         return TopicImage.objects.create(topic=topic, **defaults)
 
-    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics", return_value=[])
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_publish_excludes_cleared_hero_image(
         self, _mock_embedding, _mock_similar
@@ -1530,7 +1530,7 @@ class TopicPublishSnapshotImageTests(TestCase):
         self.assertEqual(len(publication.context_snapshot.get("images", [])), 1)
         self.assertFalse(publication.context_snapshot["images"][0].get("is_hero"))
 
-    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics", return_value=[])
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_publish_marks_active_hero_image(
         self, _mock_embedding, _mock_similar
@@ -1688,7 +1688,7 @@ class RelatedTopicsTemplateTests(TestCase):
         self.assertContains(response, "Related topics")
         self.assertContains(response, related.title)
 
-    @patch("semanticnews.topics.publishing.service.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics", return_value=[])
     def test_detail_view_hides_related_topics_without_links(self, _mock_similar):
         topic = Topic.objects.create(title="Primary", created_by=self.owner)
         TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
