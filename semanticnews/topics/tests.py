@@ -24,9 +24,10 @@ from .models import (
     TopicModuleLayout,
     RelatedTopic,
     RelatedEntity,
+    RelatedEvent,
+    Source,
 )
 from semanticnews.entities.models import Entity
-from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.images.models import TopicImage
@@ -414,7 +415,7 @@ class RemoveEventFromTopicAPITests(TestCase):
         user = User.objects.create_user("user", "user@example.com", "password")
         topic = Topic.objects.create(title="My Topic", created_by=user)
         event = Event.objects.create(title="An Event", date="2024-01-01")
-        topic.events.add(event, through_defaults={"created_by": user})
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
         response = self.client.post(
@@ -433,7 +434,7 @@ class RemoveEventFromTopicAPITests(TestCase):
 
         topic = Topic.objects.create(title="My Topic", created_by=user)
         event = Event.objects.create(title="An Event", date="2024-01-01")
-        topic.events.add(event, through_defaults={"created_by": user})
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         payload = {"topic_uuid": str(topic.uuid), "event_uuid": str(event.uuid)}
         response = self.client.post(
@@ -945,7 +946,7 @@ class TopicDetailViewTests(TestCase):
         topic = Topic.objects.create(title="My Topic", created_by=user)
 
         related = Event.objects.create(title="Related", date="2024-01-01")
-        topic.events.add(related, through_defaults={"relevance": 0.5})
+        RelatedEvent.objects.create(topic=topic, event=related, source=Source.USER)
 
         suggested = Event.objects.create(title="Suggested", date="2024-01-02")
 
@@ -969,7 +970,7 @@ class TopicDetailViewTests(TestCase):
         other_topic = Topic.objects.create(title="Other Topic", created_by=other)
 
         related = Event.objects.create(title="Rel Event", date="2024-01-01", created_by=other)
-        topic.events.add(related, through_defaults={"relevance": 0.5})
+        RelatedEvent.objects.create(topic=topic, event=related, source=Source.USER)
 
         suggested = Event.objects.create(title="Sug Event", date="2024-02-01", created_by=other)
 
@@ -1144,7 +1145,7 @@ class TopicRemoveEventViewTests(TestCase):
 
         topic = Topic.objects.create(title="My Topic", created_by=user)
         event = Event.objects.create(title="Related", date="2024-01-01")
-        topic.events.add(event, through_defaults={"relevance": 0.5})
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         url = reverse(
             "topics_remove_event",
@@ -1173,7 +1174,11 @@ class TopicCloneTests(TestCase):
         self.topic = Topic.objects.create(title="Original", created_by=self.owner, embedding=[0.0] * 1536)
 
         self.event = Event.objects.create(title="Event", date="2024-01-01", embedding=[0.0] * 1536)
-        TopicEvent.objects.create(topic=self.topic, event=self.event, created_by=self.owner)
+        RelatedEvent.objects.create(
+            topic=self.topic,
+            event=self.event,
+            source=Source.USER,
+        )
 
         self.content = Content.objects.create(content_type="text", embedding=[0.0] * 1536)
         TopicContent.objects.create(topic=self.topic, content=self.content, created_by=self.owner)
@@ -1264,7 +1269,7 @@ class TopicEmbeddingUpdateTests(TestCase):
         event = Event.objects.create(title="An Event", date="2024-01-01")
 
         # Adding an event should trigger a recomputation of the embedding
-        topic.events.add(event, through_defaults={"created_by": user})
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         topic.refresh_from_db()
         self.assertEqual(topic.embedding, [1.0] * 1536)

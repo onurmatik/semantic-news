@@ -63,7 +63,6 @@ INSTALLED_APPS = [
     'semanticnews.widgets.images',
     'semanticnews.widgets.data',
     'semanticnews.widgets.webcontent',
-    'semanticnews.widgets.timeline',
 ]
 
 MIDDLEWARE = [

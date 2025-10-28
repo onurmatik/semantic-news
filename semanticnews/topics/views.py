@@ -17,9 +17,15 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
+from .models import (
+    Topic,
+    TopicModuleLayout,
+    RelatedTopic,
+    RelatedEntity,
+    RelatedEvent,
+    Source,
+)
 from .layouts import annotate_module_content, get_layout_for_mode
-from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.data.models import TopicDataVisualization
 from semanticnews.widgets.mcps.models import MCPServer
 
@@ -489,10 +495,10 @@ def topic_add_event(request, slug, username, event_uuid):
         return HttpResponseForbidden()
 
     event = get_object_or_404(Event, uuid=event_uuid)
-    TopicEvent.objects.get_or_create(
+    RelatedEvent.objects.get_or_create(
         topic=topic,
         event=event,
-        defaults={"created_by": request.user},
+        defaults={"source": Source.USER},
     )
 
     return redirect("topics_detail", slug=topic.slug, username=username)
@@ -505,7 +511,7 @@ def topic_remove_event(request, slug, username, event_uuid):
         return HttpResponseForbidden()
 
     event = get_object_or_404(Event, uuid=event_uuid)
-    TopicEvent.objects.filter(
+    RelatedEvent.objects.filter(
         topic=topic,
         event=event,
         is_deleted=False,

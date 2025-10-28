@@ -8,8 +8,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from semanticnews.widgets.recaps.models import TopicRecap
-from semanticnews.widgets.timeline.models import TopicEvent
-
 from ..models import RelatedTopic, Topic
 
 
@@ -118,9 +116,6 @@ def _mark_related_content_published(topic: Topic, timestamp) -> None:
     topic.tweets.filter(is_deleted=False).update(published_at=timestamp)
     topic.youtube_videos.filter(is_deleted=False).update(published_at=timestamp)
     RelatedTopic.objects.filter(topic=topic, is_deleted=False).update(
-        published_at=timestamp
-    )
-    TopicEvent.objects.filter(topic=topic, is_deleted=False).update(
         published_at=timestamp
     )
 

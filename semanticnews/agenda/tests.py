@@ -444,8 +444,7 @@ class SuggestViewAdminTests(TestCase):
 class EventDetailTopicTests(TestCase):
     def test_event_detail_shows_topics(self):
         from datetime import date
-        from semanticnews.topics.models import Topic
-        from semanticnews.widgets.timeline.models import TopicEvent
+        from semanticnews.topics.models import Topic, RelatedEvent, Source
 
         event = Event.objects.create(
             title="My Event",
@@ -454,8 +453,8 @@ class EventDetailTopicTests(TestCase):
         )
         topic1 = Topic.objects.create(title="Topic One", embedding=[0.0] * 1536)
         topic2 = Topic.objects.create(title="Topic Two", embedding=[0.0] * 1536)
-        TopicEvent.objects.create(topic=topic1, event=event)
-        TopicEvent.objects.create(topic=topic2, event=event)
+        RelatedEvent.objects.create(topic=topic1, event=event, source=Source.USER)
+        RelatedEvent.objects.create(topic=topic2, event=event, source=Source.USER)
 
         response = self.client.get(event.get_absolute_url())
 
@@ -570,9 +569,8 @@ class EventListRelatedTopicsTests(TestCase):
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
-        from semanticnews.topics.models import Topic
+        from semanticnews.topics.models import Topic, RelatedEvent, Source
         from semanticnews.widgets.recaps.models import TopicRecap
-        from semanticnews.widgets.timeline.models import TopicEvent
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")
@@ -591,7 +589,7 @@ class EventListRelatedTopicsTests(TestCase):
         topic.last_published_at = timezone.now()
         topic.save(update_fields=["status", "last_published_at"])
 
-        TopicEvent.objects.create(topic=topic, event=event)
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         response = self.client.get(
             reverse(
@@ -609,9 +607,8 @@ class EventDetailRelatedTopicsTests(TestCase):
     @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
-        from semanticnews.topics.models import Topic
+        from semanticnews.topics.models import Topic, RelatedEvent, Source
         from semanticnews.widgets.recaps.models import TopicRecap
-        from semanticnews.widgets.timeline.models import TopicEvent
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")
@@ -631,7 +628,7 @@ class EventDetailRelatedTopicsTests(TestCase):
         topic.last_published_at = timezone.now()
         topic.save(update_fields=["status", "last_published_at"])
 
-        TopicEvent.objects.create(topic=topic, event=event)
+        RelatedEvent.objects.create(topic=topic, event=event, source=Source.USER)
 
         response = self.client.get(
             reverse(
