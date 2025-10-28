@@ -26,7 +26,11 @@
 
         {% url 'user_profile' username=topic.created_by.username as user_topics_url %}
 
-        {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile activity_ago=topic.activity_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; last activity {{ activity_ago }} ago.{% endblocktrans %}
+        {% if topic.last_published_at %}
+            {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile last_published_ago=topic.last_published_at|timesince %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; last published {{ last_published_ago }} ago.{% endblocktrans %}
+        {% else %}
+            {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; not yet published.{% endblocktrans %}
+        {% endif %}
         {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
             <nobr>
                 {% if item_count > 0 %}
