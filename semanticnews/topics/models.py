@@ -17,7 +17,6 @@ from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
 from ..widgets.webcontent.models import TopicDocument, TopicWebpage
-from ..widgets.timeline.models import TopicEvent
 
 
 class TopicModuleLayout(models.Model):
@@ -204,7 +203,7 @@ class Topic(models.Model):
 
     @property
     def active_events(self):
-        return self.events.filter(topicevent__is_deleted=False)
+        return self.events.filter(relatedevent__is_deleted=False)
 
     @property
     def active_recaps(self):
@@ -309,7 +308,7 @@ class Topic(models.Model):
             parts.append(body_local)
             parts.append("\n")
 
-        events_qs = self.events.filter(topicevent__is_deleted=False).order_by("date")
+        events_qs = self.events.filter(relatedevent__is_deleted=False).order_by("date")
         if events_qs.exists():
             event_lines = [f"- {event.title} ({event.date})" for event in events_qs]
             append_section("Events", "\n".join(event_lines))
@@ -514,15 +513,11 @@ class Topic(models.Model):
             status="draft",
         )
 
-        for te in TopicEvent.objects.filter(topic=self, is_deleted=False):
-            TopicEvent.objects.create(
+        for relation in RelatedEvent.objects.filter(topic=self, is_deleted=False):
+            RelatedEvent.objects.create(
                 topic=cloned,
-                event=te.event,
-                role=te.role,
-                source=te.source,
-                relevance=te.relevance,
-                significance=te.significance,
-                created_by=user,
+                event=relation.event,
+                source=relation.source,
             )
 
         for tc in TopicContent.objects.filter(topic=self):

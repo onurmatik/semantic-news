@@ -96,8 +96,8 @@ def event_detail(request, year, month, day, slug):
 
     related_topics = (
         Topic.objects.filter(
-            topicevent__event=obj,
-            topicevent__is_deleted=False,
+            relatedevent__event=obj,
+            relatedevent__is_deleted=False,
             status="published",
         )
         .prefetch_related(
@@ -237,8 +237,8 @@ def event_list(request, year, month=None, day=None):
     if events.object_list:
         related_topics = (
             Topic.objects.filter(
-                topicevent__event__in=events.object_list,
-                topicevent__is_deleted=False,
+                relatedevent__event__in=events.object_list,
+                relatedevent__is_deleted=False,
                 status="published",
             )
             .prefetch_related(
