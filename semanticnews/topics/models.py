@@ -665,6 +665,7 @@ class RelatedTopic(models.Model):
 
 class RelatedEntity(models.Model):
     entity = models.ForeignKey('entities.Entity', on_delete=models.CASCADE)
+    role = models.CharField(max_length=100, blank=True, null=True)
 
     topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
     source = models.CharField(
