@@ -15,7 +15,7 @@ from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
 from ..widgets.relations.models import TopicEntityRelation
-from ..widgets.documents.models import TopicDocument, TopicWebpage
+from ..widgets.webcontent.models import TopicDocument, TopicWebpage
 from ..widgets.timeline.models import TopicEvent
 
 

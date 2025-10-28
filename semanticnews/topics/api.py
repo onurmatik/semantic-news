@@ -28,11 +28,10 @@ from semanticnews.widgets.timeline.api import router as timeline_router
 from semanticnews.widgets.recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
 from semanticnews.widgets.images.api import router as images_router
-from semanticnews.widgets.embeds.api import router as embeds_router
 from semanticnews.widgets.relations.api import router as relations_router
 from semanticnews.widgets.data.api import router as data_router
-from semanticnews.widgets.documents.api import router as documents_router
 from semanticnews.widgets.text.api import router as text_router
+from semanticnews.widgets.webcontent.api import router as webcontent_router
 from semanticnews.widgets.data.models import (
     TopicDataRequest,
     TopicDataAnalysisRequest,
@@ -44,10 +43,9 @@ api.add_router("/recap", recaps_router)
 api.add_router("/text", text_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
-api.add_router("/embed", embeds_router)
 api.add_router("/relation", relations_router)
 api.add_router("/data", data_router)
-api.add_router("/document", documents_router)
+api.add_router("/webcontent", webcontent_router)
 api.add_router("/timeline", timeline_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]

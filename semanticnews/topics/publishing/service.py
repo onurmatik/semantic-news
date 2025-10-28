@@ -21,8 +21,12 @@ from ..layouts import (
 )
 from ..models import Topic, TopicModuleLayout, RelatedTopic
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
-from semanticnews.widgets.documents.models import TopicDocument, TopicWebpage
-from semanticnews.widgets.embeds.models import TopicTweet, TopicYoutubeVideo
+from semanticnews.widgets.webcontent.models import (
+    TopicDocument,
+    TopicTweet,
+    TopicWebpage,
+    TopicYoutubeVideo,
+)
 from semanticnews.widgets.images.models import TopicImage
 from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.relations.models import TopicEntityRelation
