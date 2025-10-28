@@ -1,4 +1,4 @@
-"""Models for storing topic document and webpage links."""
+"""Models for storing links to external web content associated with topics."""
 
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urlparse
@@ -71,14 +71,10 @@ class TopicDocument(models.Model):
 
     @property
     def domain(self) -> str:
-        """Return the hostname for the stored URL."""
-
         return urlparse(self.url).netloc
 
     @property
     def file_name(self) -> str:
-        """Return the trailing file name component of the URL for display."""
-
         parsed = urlparse(self.url)
         file_name = unquote(PurePosixPath(parsed.path).name)
         if file_name:
@@ -87,19 +83,13 @@ class TopicDocument(models.Model):
 
     @property
     def display_title(self) -> str:
-        """Return a user-friendly name for the document."""
-
         return self.title or self.file_name
 
     def save(self, *args, **kwargs):
-        """Guess the document type from the URL before saving."""
-
         self.document_type = self._guess_document_type()
         super().save(*args, **kwargs)
 
     def _guess_document_type(self) -> str:
-        """Infer the document type from the URL extension."""
-
         path = urlparse(self.url).path.lower()
         for extension, doc_type in self.EXTENSION_TYPE_MAP.items():
             if path.endswith(extension):
@@ -144,6 +134,64 @@ class TopicWebpage(models.Model):
 
     @property
     def domain(self) -> str:
-        """Return the hostname for the stored URL."""
-
         return urlparse(self.url).netloc
+
+
+class TopicTweet(models.Model):
+    """Embedded tweet linked to a topic."""
+
+    topic = models.ForeignKey(
+        'topics.Topic', on_delete=models.CASCADE, related_name='tweets'
+    )
+    tweet_id = models.CharField(max_length=50, db_index=True)
+    url = models.URLField()
+    html = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        app_label = 'topics'
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("topic", "tweet_id"), name="unique_topic_tweet"
+            )
+        ]
+
+    def __str__(self):  # pragma: no cover - trivial string representation
+        return f"Tweet {self.tweet_id} for {self.topic.title}"
+
+
+class TopicYoutubeVideo(models.Model):
+    """Embedded YouTube video linked to a topic."""
+
+    topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE, related_name='youtube_videos')
+    url = models.URLField(blank=True, null=True)
+    video_id = models.CharField(max_length=50, unique=True, db_index=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    thumbnail = models.URLField(blank=True, null=True)
+    video_published_at = models.DateTimeField(db_index=True, blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("in_progress", "In progress"),
+            ("finished", "Finished"),
+            ("error", "Error"),
+        ],
+        default="in_progress",
+    )
+    error_message = models.TextField(blank=True, null=True)
+    error_code = models.CharField(blank=True, null=True, max_length=20)
+
+    class Meta:
+        app_label = 'topics'
+
+    def __str__(self):  # pragma: no cover - trivial string representation
+        return f"{self.title} for {self.topic.title}"

@@ -1,27 +1,33 @@
-"""API endpoints for managing topic documents and webpages."""
+"""API endpoints for managing topic web content."""
 
 from contextlib import closing
 from datetime import datetime
+from datetime import timezone as datetime_timezone
 from html.parser import HTMLParser
 import logging
+import re
 from typing import Dict, Iterable, List, Optional, Tuple
+from urllib.parse import parse_qs, urlparse
 
 import requests
+import yt_dlp
+from django.db import IntegrityError
+from django.utils import timezone as django_timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from semanticnews.topics.models import Topic
-from .models import TopicDocument, TopicWebpage
-
+from .models import TopicDocument, TopicTweet, TopicWebpage, TopicYoutubeVideo
 
 logger = logging.getLogger(__name__)
+
+router = Router()
 
 
 class _PageMetadataParser(HTMLParser):
     """Extract title and description values from HTML markup."""
 
-    #: Maximum number of characters to keep when parsing the ``<title>`` tag.
     _TITLE_META_KEYS = {"og:title", "twitter:title", "title"}
     _DESCRIPTION_META_KEYS = {"description", "og:description", "twitter:description"}
 
@@ -62,7 +68,6 @@ class _PageMetadataParser(HTMLParser):
                 self.description = content
 
     def handle_startendtag(self, tag: str, attrs: Iterable[Tuple[str, Optional[str]]]):
-        # HTMLParser does not automatically call handle_starttag for self-closing tags.
         self.handle_starttag(tag, attrs)
 
     def handle_endtag(self, tag: str):
@@ -95,11 +100,7 @@ class _UrlMetadataError(Exception):
 
 
 def _fetch_url_metadata(url: str) -> Dict[str, Optional[str]]:
-    """Fetch the URL and attempt to read its metadata.
-
-    Returns a dictionary with optional ``title`` and ``description`` keys. Any
-    network or HTTP errors result in :class:`_UrlMetadataError` being raised.
-    """
+    """Fetch the URL and attempt to read its metadata."""
 
     headers = {
         "User-Agent": (
@@ -132,7 +133,7 @@ def _fetch_url_metadata(url: str) -> Dict[str, Optional[str]]:
                     continue
                 content_chunks.append(chunk)
                 total_chars += len(chunk)
-                if total_chars >= 100_000:  # avoid downloading very large documents
+                if total_chars >= 100_000:
                     break
 
     except requests.RequestException as exc:
@@ -146,12 +147,7 @@ def _fetch_url_metadata(url: str) -> Dict[str, Optional[str]]:
     return {"title": parser.title, "description": parser.description}
 
 
-router = Router()
-
-
 class TopicDocumentCreateRequest(Schema):
-    """Payload for creating a new document link."""
-
     topic_uuid: str
     url: str
     title: Optional[str] = None
@@ -159,8 +155,6 @@ class TopicDocumentCreateRequest(Schema):
 
 
 class TopicDocumentResponse(Schema):
-    """Representation of a stored document link."""
-
     id: int
     title: Optional[str] = None
     url: str
@@ -171,16 +165,12 @@ class TopicDocumentResponse(Schema):
 
 
 class TopicDocumentListResponse(Schema):
-    """List response for topic documents."""
-
     total: int
     items: List[TopicDocumentResponse]
 
 
-@router.post("/create", response=TopicDocumentResponse)
+@router.post("/document/create", response=TopicDocumentResponse)
 def create_document(request, payload: TopicDocumentCreateRequest):
-    """Add a new document link to a topic owned by the current user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -217,10 +207,8 @@ def create_document(request, payload: TopicDocumentCreateRequest):
     )
 
 
-@router.get("/{topic_uuid}/list", response=TopicDocumentListResponse)
+@router.get("/document/{topic_uuid}/list", response=TopicDocumentListResponse)
 def list_documents(request, topic_uuid: str):
-    """Return the list of documents for a topic owned by the user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -251,10 +239,8 @@ def list_documents(request, topic_uuid: str):
     return TopicDocumentListResponse(total=len(items), items=items)
 
 
-@router.delete("/{document_id}", response={204: None})
+@router.delete("/document/{document_id}", response={204: None})
 def delete_document(request, document_id: int):
-    """Remove a document link from a topic owned by the user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -276,8 +262,6 @@ def delete_document(request, document_id: int):
 
 
 class TopicWebpageCreateRequest(Schema):
-    """Payload for creating a new webpage link."""
-
     topic_uuid: str
     url: str
     title: Optional[str] = None
@@ -285,8 +269,6 @@ class TopicWebpageCreateRequest(Schema):
 
 
 class TopicWebpageResponse(Schema):
-    """Representation of a stored webpage link."""
-
     id: int
     title: Optional[str] = None
     url: str
@@ -296,16 +278,12 @@ class TopicWebpageResponse(Schema):
 
 
 class TopicWebpageListResponse(Schema):
-    """List response for topic webpages."""
-
     total: int
     items: List[TopicWebpageResponse]
 
 
 @router.post("/webpage/create", response=TopicWebpageResponse)
 def create_webpage(request, payload: TopicWebpageCreateRequest):
-    """Add a new webpage link to a topic owned by the current user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -343,8 +321,6 @@ def create_webpage(request, payload: TopicWebpageCreateRequest):
 
 @router.get("/webpage/{topic_uuid}/list", response=TopicWebpageListResponse)
 def list_webpages(request, topic_uuid: str):
-    """Return the list of webpages for a topic owned by the user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -376,8 +352,6 @@ def list_webpages(request, topic_uuid: str):
 
 @router.delete("/webpage/{webpage_id}", response={204: None})
 def delete_webpage(request, webpage_id: int):
-    """Remove a webpage link from a topic owned by the user."""
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         raise HttpError(401, "Unauthorized")
@@ -396,3 +370,154 @@ def delete_webpage(request, webpage_id: int):
     webpage.is_deleted = True
     webpage.save(update_fields=["is_deleted"])
     return 204, None
+
+
+class TweetCreateRequest(Schema):
+    topic_uuid: str
+    url: str
+
+
+class TweetCreateResponse(Schema):
+    id: int
+    tweet_id: str
+    url: str
+    html: str
+
+
+class VideoEmbedCreateRequest(Schema):
+    topic_uuid: str
+    url: str
+
+
+class VideoEmbedCreateResponse(Schema):
+    id: int
+    url: str
+    video_id: str
+    title: str
+
+
+_TWEET_HOSTS = {'twitter.com', 'mobile.twitter.com', 'x.com'}
+_TWEET_PATH_RE = re.compile(r"/status(?:es)?/(?P<id>\d+)")
+
+
+def _fetch_twitter_embed(url: str) -> str:
+    res = requests.get('https://publish.twitter.com/oembed', params={'url': url, 'dnt': 'true'})
+    res.raise_for_status()
+    data = res.json()
+    return data.get('html', '')
+
+
+def _extract_tweet_id(url: str) -> Optional[str]:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or '').lower()
+    if hostname.startswith('www.'):
+        hostname = hostname[4:]
+    if hostname not in _TWEET_HOSTS:
+        return None
+    match = _TWEET_PATH_RE.search(parsed.path or '')
+    if not match:
+        return None
+    return match.group('id')
+
+
+def _extract_youtube_id(url: str) -> Optional[str]:
+    parsed = urlparse(url)
+    if parsed.hostname in {"youtu.be", "www.youtu.be"}:
+        return parsed.path.lstrip("/")
+    if parsed.hostname and "youtube" in parsed.hostname:
+        if parsed.path.startswith("/embed/"):
+            return parsed.path.split("/")[2]
+        qs = parse_qs(parsed.query)
+        if "v" in qs:
+            return qs["v"][0]
+    return None
+
+
+def _add_youtube_video(topic: Topic, url: str) -> TopicYoutubeVideo:
+    video_id = _extract_youtube_id(url)
+    if not video_id:
+        raise HttpError(400, "Invalid YouTube URL")
+
+    try:
+        ydl = yt_dlp.YoutubeDL({"quiet": True})
+        info = ydl.extract_info(url, download=False)
+    except Exception as exc:  # pragma: no cover - network errors
+        raise HttpError(400, "Failed to fetch video details") from exc
+
+    published_at = django_timezone.now()
+    timestamp = info.get("timestamp")
+    if timestamp:
+        published_at = datetime.fromtimestamp(timestamp, tz=datetime_timezone.utc)
+
+    return TopicYoutubeVideo.objects.create(
+        topic=topic,
+        url=url,
+        video_id=video_id,
+        title=info.get("title", video_id),
+        description=info.get("description", ""),
+        thumbnail=info.get("thumbnail"),
+        video_published_at=published_at,
+        status="finished",
+    )
+
+
+@router.post('/tweet/add', response=TweetCreateResponse)
+def add_tweet_embed(request, payload: TweetCreateRequest):
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, 'Unauthorized')
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, 'Topic not found')
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, 'Forbidden')
+
+    tweet_id = _extract_tweet_id(payload.url)
+    if not tweet_id:
+        raise HttpError(400, 'Invalid tweet URL')
+
+    if TopicTweet.objects.filter(topic=topic, tweet_id=tweet_id).exists():
+        raise HttpError(400, 'Tweet already added')
+
+    try:
+        html = _fetch_twitter_embed(payload.url)
+    except Exception as exc:  # pragma: no cover - network errors
+        raise HttpError(502, 'Embed fetch failed') from exc
+
+    try:
+        tweet = TopicTweet.objects.create(
+            topic=topic,
+            tweet_id=tweet_id,
+            url=payload.url,
+            html=html,
+            published_at=django_timezone.now(),
+        )
+    except IntegrityError:
+        raise HttpError(400, 'Tweet already added')
+    return TweetCreateResponse(id=tweet.id, tweet_id=tweet.tweet_id, url=tweet.url, html=tweet.html)
+
+
+@router.post('/video/add', response=VideoEmbedCreateResponse)
+def add_video_embed(request, payload: VideoEmbedCreateRequest):
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, 'Unauthorized')
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, 'Topic not found')
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, 'Forbidden')
+
+    video = _add_youtube_video(topic, payload.url)
+    return VideoEmbedCreateResponse(
+        id=video.id,
+        url=video.url or '',
+        video_id=video.video_id,
+        title=video.title,
+    )

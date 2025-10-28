@@ -10,5 +10,5 @@ class TopicsConfig(AppConfig):
         # from semanticnews.widgets.recaps import models  # noqa: F401
         from semanticnews.widgets.images import models  # noqa: F401
         from semanticnews.widgets.arguments import models  # noqa: F401
-        from semanticnews.widgets.documents import models  # noqa: F401
+        from semanticnews.widgets.webcontent import models  # noqa: F401
         from semanticnews.widgets.timeline import models  # noqa: F401

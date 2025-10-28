@@ -1,4 +1,4 @@
-function handleTopicLinkForm({ formId, modalId, endpoint }) {
+function handleModalForm({ formId, modalId, endpoint }) {
   const form = document.getElementById(formId);
   if (!form) return;
 
@@ -43,21 +43,31 @@ function handleTopicLinkForm({ formId, modalId, endpoint }) {
   });
 }
 
-function initTopicLinkForms() {
+function initWebContentForms() {
   const forms = [
     {
       formId: 'topicDocumentForm',
       modalId: 'topicDocumentModal',
-      endpoint: '/api/topics/document/create',
+      endpoint: '/api/topics/webcontent/document/create',
     },
     {
       formId: 'topicWebpageForm',
       modalId: 'topicWebpageModal',
-      endpoint: '/api/topics/document/webpage/create',
+      endpoint: '/api/topics/webcontent/webpage/create',
+    },
+    {
+      formId: 'youtubeVideoForm',
+      modalId: 'youtubeVideoModal',
+      endpoint: '/api/topics/webcontent/video/add',
+    },
+    {
+      formId: 'tweetEmbedForm',
+      modalId: 'tweetEmbedModal',
+      endpoint: '/api/topics/webcontent/tweet/add',
     },
   ];
 
-  forms.forEach(handleTopicLinkForm);
+  forms.forEach(handleModalForm);
 }
 
-document.addEventListener('DOMContentLoaded', initTopicLinkForms);
+document.addEventListener('DOMContentLoaded', initWebContentForms);

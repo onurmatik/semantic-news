@@ -81,14 +81,14 @@
     const getEndpointForType = (type) => {
       switch (type) {
         case 'webpage':
-          return '/api/topics/document/webpage/create';
+          return '/api/topics/webcontent/webpage/create';
         case 'video':
-          return '/api/topics/embed/video/add';
+          return '/api/topics/webcontent/video/add';
         case 'tweet':
-          return '/api/topics/embed/tweet/add';
+          return '/api/topics/webcontent/tweet/add';
         case 'document':
         default:
-          return '/api/topics/document/create';
+          return '/api/topics/webcontent/document/create';
       }
     };
 
