@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     'semanticnews.widgets.text',
     'semanticnews.widgets.mcps',
     'semanticnews.widgets.images',
-    'semanticnews.widgets.relations',
     'semanticnews.widgets.data',
     'semanticnews.widgets.webcontent',
     'semanticnews.widgets.timeline',
