@@ -20,7 +20,7 @@ from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
 from .models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
-from .publishing.service import publish_topic
+from .publishing import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
     MODULE_REGISTRY,
@@ -515,7 +515,7 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
 
     if payload.status == "published":
         is_republishing_archived_topic = (
-            topic.status == "archived" and topic.latest_publication_id is not None
+            topic.status == "archived" and topic.last_published_at is not None
         )
 
         if is_republishing_archived_topic:

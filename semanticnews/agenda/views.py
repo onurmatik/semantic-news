@@ -38,7 +38,7 @@ def recent_event_list(request):
 
     recent_topics = (
         Topic.objects.filter(status="published")
-        .select_related("created_by", "latest_publication")
+        .select_related("created_by")
         .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-updated_at", "-created_at")[:5]
     )
@@ -100,7 +100,6 @@ def event_detail(request, year, month, day, slug):
             topicevent__is_deleted=False,
             status="published",
         )
-        .select_related("latest_publication")
         .prefetch_related(
             Prefetch(
                 "recaps",
@@ -242,7 +241,6 @@ def event_list(request, year, month=None, day=None):
                 topicevent__is_deleted=False,
                 status="published",
             )
-            .select_related("latest_publication")
             .prefetch_related(
                 Prefetch(
                     "recaps",
