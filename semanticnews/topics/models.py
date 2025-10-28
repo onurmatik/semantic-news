@@ -4,6 +4,7 @@ from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils.functional import cached_property
 from django.utils.translation import gettext
 from django.urls import reverse
@@ -702,6 +703,7 @@ class RelatedEntity(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["topic", "entity"],
+                condition=Q(is_deleted=False),
                 name="unique_topic_related_entity",
             )
         ]

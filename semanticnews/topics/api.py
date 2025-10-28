@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Set
 from datetime import datetime
 
 from django.conf import settings
@@ -156,9 +156,14 @@ def _save_related_entities(
     entries: List[RelatedEntityInput],
     source: str,
 ) -> List[RelatedEntity]:
-    topic.related_entities.filter(is_deleted=False).update(is_deleted=True)
+    existing_relations: Dict[int, RelatedEntity] = {
+        relation.entity_id: relation
+        for relation in topic.related_entities.select_related("entity")
+    }
 
-    created: List[RelatedEntity] = []
+    retained_entity_ids: Set[int] = set()
+    results: List[RelatedEntity] = []
+
     for entry in entries:
         slug_base = entry.name if not entry.disambiguation else f"{entry.name} {entry.disambiguation}"
         entity_slug = slugify(slug_base)
@@ -178,15 +183,38 @@ def _save_related_entities(
         if update_fields:
             entity.save(update_fields=update_fields)
 
-        relation = RelatedEntity.objects.create(
-            topic=topic,
-            entity=entity,
-            role=entry.role,
-            source=source,
-        )
-        created.append(relation)
+        relation = existing_relations.get(entity.id)
+        if relation is None:
+            relation = RelatedEntity.objects.create(
+                topic=topic,
+                entity=entity,
+                role=entry.role,
+                source=source,
+            )
+        else:
+            relation_update_fields: List[str] = []
+            if relation.role != entry.role:
+                relation.role = entry.role
+                relation_update_fields.append("role")
+            if relation.source != source:
+                relation.source = source
+                relation_update_fields.append("source")
+            if relation.is_deleted:
+                relation.is_deleted = False
+                relation_update_fields.append("is_deleted")
+            if relation_update_fields:
+                relation.save(update_fields=relation_update_fields)
 
-    return created
+        if entity.id not in retained_entity_ids:
+            results.append(relation)
+            retained_entity_ids.add(entity.id)
+
+    for relation in existing_relations.values():
+        if relation.entity_id not in retained_entity_ids and not relation.is_deleted:
+            relation.is_deleted = True
+            relation.save(update_fields=["is_deleted"])
+
+    return results
 
 
 def _suggest_related_entities(topic: Topic) -> List[RelatedEntityInput]:

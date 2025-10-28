@@ -1809,3 +1809,44 @@ class RelatedEntityAPITests(TestCase):
         active_relations = RelatedEntity.objects.filter(topic=self.topic, is_deleted=False)
         self.assertEqual(active_relations.count(), 1)
         self.assertEqual(active_relations.first().entity.name, "Suggested")
+
+    def test_repeated_updates_reuse_existing_relations(self):
+        self.client.force_login(self.user)
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "entities": [
+                {"name": "Alice", "role": "Speaker"},
+            ],
+        }
+
+        first_response = self.client.post(
+            "/api/topics/relation/extract",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(first_response.status_code, 200)
+        first_entity = first_response.json()["entities"][0]
+        original_relation_id = first_entity["id"]
+
+        updated_payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "entities": [
+                {"name": "Alice", "role": "Moderator"},
+            ],
+        }
+
+        second_response = self.client.post(
+            "/api/topics/relation/extract",
+            data=json.dumps(updated_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(second_response.status_code, 200)
+        second_entity = second_response.json()["entities"][0]
+        self.assertEqual(second_entity["id"], original_relation_id)
+        self.assertEqual(second_entity["role"], "Moderator")
+
+        relations = RelatedEntity.objects.filter(topic=self.topic)
+        self.assertEqual(relations.count(), 1)
+        relation = relations.first()
+        self.assertFalse(relation.is_deleted)
+        self.assertEqual(relation.role, "Moderator")
