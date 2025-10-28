@@ -1,19 +1,25 @@
-from ninja import NinjaAPI, Schema
-from ninja.errors import HttpError
-from typing import Optional, List, Literal
+from typing import List, Literal, Optional
 from datetime import datetime
+
 from django.conf import settings
 from django.utils import timezone
+from django.utils.timezone import make_naive
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 
+from slugify import slugify
+
+from ninja import NinjaAPI, Router, Schema
+from ninja.errors import HttpError
+
 from semanticnews.agenda.models import Event
+from semanticnews.entities.models import Entity
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from .models import Topic, TopicModuleLayout, RelatedTopic
+from .models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
 from .publishing.service import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
@@ -28,7 +34,6 @@ from semanticnews.widgets.timeline.api import router as timeline_router
 from semanticnews.widgets.recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
 from semanticnews.widgets.images.api import router as images_router
-from semanticnews.widgets.relations.api import router as relations_router
 from semanticnews.widgets.data.api import router as data_router
 from semanticnews.widgets.text.api import router as text_router
 from semanticnews.widgets.webcontent.api import router as webcontent_router
@@ -39,11 +44,12 @@ from semanticnews.widgets.data.models import (
 )
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
+relation_router = Router()
 api.add_router("/recap", recaps_router)
 api.add_router("/text", text_router)
 api.add_router("/mcp", mcps_router)
 api.add_router("/image", images_router)
-api.add_router("/relation", relations_router)
+api.add_router("/relation", relation_router)
 api.add_router("/data", data_router)
 api.add_router("/webcontent", webcontent_router)
 api.add_router("/timeline", timeline_router)
@@ -70,6 +76,216 @@ class GenerationStatusResponse(Schema):
     relation: Optional[GenerationStatus] = None
     image: Optional[GenerationStatus] = None
     data: Optional[DataGenerationStatuses] = None
+
+
+class RelatedEntityInput(Schema):
+    name: str
+    role: Optional[str] = None
+    disambiguation: Optional[str] = None
+
+
+class TopicRelatedEntityCreateRequest(Schema):
+    topic_uuid: str
+    entities: Optional[List[RelatedEntityInput]] = None
+
+
+class TopicRelatedEntityItem(Schema):
+    id: int
+    entity_id: int
+    entity_name: str
+    entity_slug: str
+    entity_disambiguation: Optional[str] = None
+    role: Optional[str] = None
+    source: str
+    created_at: datetime
+
+
+class TopicRelatedEntityCreateResponse(Schema):
+    entities: List[TopicRelatedEntityItem]
+
+
+class TopicRelatedEntityListResponse(Schema):
+    total: int
+    items: List[TopicRelatedEntityItem]
+
+
+class _TopicRelatedEntitySuggestion(Schema):
+    name: str
+    role: Optional[str] = None
+    disambiguation: Optional[str] = None
+
+
+class _TopicRelatedEntitySuggestionResponse(Schema):
+    entities: List[_TopicRelatedEntitySuggestion]
+
+
+def _serialize_related_entity(relation: RelatedEntity) -> TopicRelatedEntityItem:
+    entity = relation.entity
+    created_at = relation.created_at
+    if created_at is not None:
+        created_at = make_naive(created_at)
+    return TopicRelatedEntityItem(
+        id=relation.id,
+        entity_id=entity.id,
+        entity_name=entity.name,
+        entity_slug=entity.slug,
+        entity_disambiguation=getattr(entity, "disambiguation", None),
+        role=relation.role,
+        source=relation.source,
+        created_at=created_at or timezone.now(),
+    )
+
+
+def _normalize_inputs(items: List[RelatedEntityInput]) -> List[RelatedEntityInput]:
+    normalized: List[RelatedEntityInput] = []
+    for item in items:
+        name = (item.name or "").strip()
+        if not name:
+            continue
+        role = (item.role or "").strip() or None
+        disambiguation = (item.disambiguation or "").strip() or None
+        normalized.append(
+            RelatedEntityInput(name=name, role=role, disambiguation=disambiguation)
+        )
+    return normalized
+
+
+def _save_related_entities(
+    *,
+    topic: Topic,
+    entries: List[RelatedEntityInput],
+    source: str,
+) -> List[RelatedEntity]:
+    topic.related_entities.filter(is_deleted=False).update(is_deleted=True)
+
+    created: List[RelatedEntity] = []
+    for entry in entries:
+        slug_base = entry.name if not entry.disambiguation else f"{entry.name} {entry.disambiguation}"
+        entity_slug = slugify(slug_base)
+        defaults = {"name": entry.name}
+        if entry.disambiguation:
+            defaults["disambiguation"] = entry.disambiguation
+
+        entity, _ = Entity.objects.get_or_create(slug=entity_slug, defaults=defaults)
+
+        update_fields: List[str] = []
+        if entity.name != entry.name:
+            entity.name = entry.name
+            update_fields.append("name")
+        if entry.disambiguation is not None and entity.disambiguation != entry.disambiguation:
+            entity.disambiguation = entry.disambiguation
+            update_fields.append("disambiguation")
+        if update_fields:
+            entity.save(update_fields=update_fields)
+
+        relation = RelatedEntity.objects.create(
+            topic=topic,
+            entity=entity,
+            role=entry.role,
+            source=source,
+        )
+        created.append(relation)
+
+    return created
+
+
+def _suggest_related_entities(topic: Topic) -> List[RelatedEntityInput]:
+    content_md = topic.build_context()
+    prompt = (
+        f"Below is a set of events and contents about {topic.title}. "
+        "Identify the key entities mentioned in connection with this topic. "
+        "Respond with a JSON object containing a list 'entities' where each item "
+        "has the fields 'name', optional 'role', and optional 'disambiguation'."
+    )
+    prompt = append_default_language_instruction(prompt)
+    prompt += f"\n\n{content_md}"
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model=settings.DEFAULT_AI_MODEL,
+            input=prompt,
+            text_format=_TopicRelatedEntitySuggestionResponse,
+        )
+
+    suggestions = [
+        RelatedEntityInput(**suggestion.dict())
+        for suggestion in response.output_parsed.entities
+    ]
+    return suggestions
+
+
+@relation_router.post("/extract", response=TopicRelatedEntityCreateResponse)
+def extract_related_entities(request, payload: TopicRelatedEntityCreateRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    entries: List[RelatedEntityInput]
+    source: str
+    if payload.entities is not None:
+        entries = _normalize_inputs(payload.entities)
+        source = RelatedEntity.Source.USER
+    else:
+        try:
+            entries = _normalize_inputs(_suggest_related_entities(topic))
+        except Exception as exc:  # pragma: no cover - surfaced to API consumer
+            raise HttpError(500, str(exc))
+        source = RelatedEntity.Source.AGENT
+
+    with transaction.atomic():
+        created = _save_related_entities(topic=topic, entries=entries, source=source)
+    serialized = [_serialize_related_entity(rel) for rel in created]
+    return TopicRelatedEntityCreateResponse(entities=serialized)
+
+
+@relation_router.get("/{topic_uuid}/list", response=TopicRelatedEntityListResponse)
+def list_related_entities(request, topic_uuid: str):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    relations = (
+        topic.related_entities.filter(is_deleted=False)
+        .select_related("entity")
+        .order_by("-created_at")
+    )
+    items = [_serialize_related_entity(rel) for rel in relations]
+    return TopicRelatedEntityListResponse(total=len(items), items=items)
+
+
+@relation_router.delete("/{relation_id}", response={204: None})
+def delete_related_entity(request, relation_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        relation = RelatedEntity.objects.select_related("topic").get(id=relation_id)
+    except RelatedEntity.DoesNotExist:
+        raise HttpError(404, "Relation not found")
+
+    if relation.topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    if relation.is_deleted:
+        return 204, None
+
+    relation.is_deleted = True
+    relation.save(update_fields=["is_deleted"])
+    return 204, None
 
 
 @api.get("/{topic_uuid}/generation-status", response=GenerationStatusResponse)
@@ -144,7 +360,7 @@ def generation_status(request, topic_uuid: str):
         current=timezone.now(),
         recap=latest(topic.recaps.filter(is_deleted=False)),
         text=latest(topic.texts.filter(is_deleted=False)),
-        relation=latest(topic.entity_relations.filter(is_deleted=False)),
+        relation=None,
         image=latest(topic.images.filter(is_deleted=False)),
         data=data_payload,
     )

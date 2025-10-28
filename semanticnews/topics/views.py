@@ -17,12 +17,21 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 
-from .models import Topic, TopicModuleLayout, RelatedTopic
+from .models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
 from .layouts import annotate_module_content, get_layout_for_mode
 from .publishing.service import build_publication_context, build_publication_modules
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.widgets.data.models import TopicDataVisualization
 from semanticnews.widgets.mcps.models import MCPServer
+
+
+RELATED_ENTITIES_PREFETCH = Prefetch(
+    "related_entities",
+    queryset=RelatedEntity.objects.filter(is_deleted=False)
+    .select_related("entity")
+    .order_by("-created_at"),
+    to_attr="prefetched_related_entities",
+)
 
 
 @login_required
@@ -155,7 +164,7 @@ def topics_detail(request, slug, username):
             "webpages",
             "youtube_videos",
             "tweets",
-            "entity_relations",
+            RELATED_ENTITIES_PREFETCH,
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
@@ -185,12 +194,21 @@ def _build_topic_module_context(topic, user=None):
         .order_by("-created_at")
         .first()
     )
-    current_relation = topic.active_entity_relations.order_by("-created_at").first()
-    latest_relation = (
-        topic.active_entity_relations.filter(status="finished")
-        .order_by("-created_at")
-        .first()
+    related_entities = list(
+        getattr(topic, "prefetched_related_entities", None)
+        or topic.active_related_entities.select_related("entity").order_by("-created_at")
     )
+    related_entities_payload = [
+        {
+            "name": relation.entity.name,
+            "role": relation.role,
+            "disambiguation": getattr(relation.entity, "disambiguation", None),
+        }
+        for relation in related_entities
+        if relation.entity is not None
+    ]
+    related_entities_json = json.dumps(related_entities_payload, separators=(",", ":"))
+    related_entities_json_pretty = json.dumps(related_entities_payload, indent=2)
     documents = list(topic.active_documents)
     webpages = list(topic.active_webpages)
     datas = list(topic.active_datas.order_by("-created_at"))
@@ -225,13 +243,6 @@ def _build_topic_module_context(topic, user=None):
         )
     related_topics = [link.related_topic for link in active_related_topic_links]
 
-    if latest_relation:
-        relations_json = json.dumps(latest_relation.relations, separators=(",", ":"))
-        relations_json_pretty = json.dumps(latest_relation.relations, indent=2)
-    else:
-        relations_json = ""
-        relations_json_pretty = ""
-
     if topic.embedding is not None:
         suggested_events = (
             Event.objects.exclude(topics=topic)
@@ -248,10 +259,9 @@ def _build_topic_module_context(topic, user=None):
         "suggested_events": suggested_events,
         "current_recap": current_recap,
         "latest_recap": latest_recap,
-        "current_relation": current_relation,
-        "latest_relation": latest_relation,
-        "relations_json": relations_json,
-        "relations_json_pretty": relations_json_pretty,
+        "related_entities": related_entities,
+        "related_entities_json": related_entities_json,
+        "related_entities_json_pretty": related_entities_json_pretty,
         "latest_data": latest_data,
         "datas": datas,
         "data_insights": data_insights,
@@ -371,7 +381,7 @@ def topics_detail_edit(request, topic_uuid, username):
             "webpages",
             "youtube_videos",
             "tweets",
-            "entity_relations",
+            RELATED_ENTITIES_PREFETCH,
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
@@ -434,7 +444,7 @@ def topics_detail_preview(request, topic_uuid, username):
             "webpages",
             "youtube_videos",
             "tweets",
-            "entity_relations",
+            RELATED_ENTITIES_PREFETCH,
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",

@@ -1,19 +1,19 @@
 {% load i18n %}
 <div class="modal fade" id="confirmDeleteRelationModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h6 class="modal-title">{% trans "Delete relations" %}</h6>
+                <h5 class="modal-title">{% trans "Remove entity" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-0">{% trans "Are you sure you want to delete these relations?" %}</p>
+                <p class="mb-0">{% trans "Are you sure you want to remove this entity from the topic?" %}</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
                 <button type="button" class="btn btn-danger" id="confirmDeleteRelationBtn">
-                    <span class="spinner-border spinner-border-sm align-text-top d-none" id="confirmDeleteRelationSpinner" role="status" aria-hidden="true"></span>
-                    <span class="btn-label">{% trans "Delete" %}</span>
+                    <span class="spinner-border spinner-border-sm me-2 d-none" id="confirmDeleteRelationSpinner" role="status" aria-hidden="true"></span>
+                    {% trans "Remove" %}
                 </button>
             </div>
         </div>

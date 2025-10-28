@@ -19,7 +19,7 @@ from ..layouts import (
     get_layout_for_mode,
     _split_module_key,
 )
-from ..models import Topic, TopicModuleLayout, RelatedTopic
+from ..models import Topic, TopicModuleLayout, RelatedTopic, RelatedEntity
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from semanticnews.widgets.webcontent.models import (
     TopicDocument,
@@ -29,7 +29,6 @@ from semanticnews.widgets.webcontent.models import (
 )
 from semanticnews.widgets.images.models import TopicImage
 from semanticnews.widgets.recaps.models import TopicRecap
-from semanticnews.widgets.relations.models import TopicEntityRelation
 from semanticnews.widgets.text.models import TopicText
 from semanticnews.widgets.timeline.models import TopicEvent
 from .models import TopicPublication, TopicPublicationModule, TopicPublicationSnapshot
@@ -60,10 +59,14 @@ class SerializableRecap:
 
 
 @dataclass
-class SerializableRelation:
+class SerializableRelatedEntity:
     id: int
-    relations: List[dict]
-    status: str
+    entity_id: int
+    entity_name: str
+    entity_slug: str
+    entity_disambiguation: Optional[str]
+    role: Optional[str]
+    source: str
     created_at: str
 
 
@@ -163,7 +166,7 @@ class LiveTopicContent:
     texts: List[TopicText]
     latest_recap: Optional[TopicRecap]
     recaps: List[TopicRecap]
-    latest_relation: Optional[TopicEntityRelation]
+    related_entities: List[RelatedEntity]
     related_topic_links: List[RelatedTopic]
     latest_data: Optional[TopicData]
     datas: List[TopicData]
@@ -235,15 +238,20 @@ def _serialize_recap(recap: Optional[TopicRecap]) -> Optional[SerializableRecap]
     )
 
 
-def _serialize_relation(
-    relation: Optional[TopicEntityRelation],
-) -> Optional[SerializableRelation]:
-    if not relation:
+def _serialize_related_entity(
+    relation: RelatedEntity,
+) -> Optional[SerializableRelatedEntity]:
+    entity = getattr(relation, "entity", None)
+    if entity is None:
         return None
-    return SerializableRelation(
+    return SerializableRelatedEntity(
         id=relation.id,
-        relations=relation.relations,
-        status=relation.status,
+        entity_id=entity.id,
+        entity_name=entity.name,
+        entity_slug=entity.slug,
+        entity_disambiguation=getattr(entity, "disambiguation", None),
+        role=relation.role,
+        source=relation.source,
         created_at=_serialize_dt(relation.created_at) or "",
     )
 
@@ -443,15 +451,14 @@ def _snapshot_recaps(topic: Topic, content: LiveTopicContent) -> Iterable[Snapsh
 
 @register_snapshot_serializer("relation")
 def _snapshot_relations(topic: Topic, content: LiveTopicContent) -> Iterable[SnapshotRecord]:
-    if not content.latest_relation:
-        return []
-    serialized = _serialize_relation(content.latest_relation)
-    if not serialized:
-        return []
-    payload = _payload_with_original_id(
-        asdict(serialized), content.latest_relation.id
-    )
-    return [SnapshotRecord(payload=payload, content_object=content.latest_relation)]
+    records: List[SnapshotRecord] = []
+    for relation in content.related_entities:
+        serialized = _serialize_related_entity(relation)
+        if not serialized:
+            continue
+        payload = _payload_with_original_id(asdict(serialized), relation.id)
+        records.append(SnapshotRecord(payload=payload, content_object=relation))
+    return records
 
 
 @register_snapshot_serializer("related_topic")
@@ -609,9 +616,11 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
         "-created_at"
     )
     recaps = list(recaps_qs)
-    relations_qs = topic.entity_relations.filter(
-        status="finished", is_deleted=False
-    ).order_by("-created_at")
+    related_entities_qs = (
+        topic.related_entities.filter(is_deleted=False)
+        .select_related("entity")
+        .order_by("-created_at")
+    )
     datas_qs = topic.datas.filter(is_deleted=False).order_by("-created_at")
     data_insights_qs = (
         topic.data_insights.filter(is_deleted=False)
@@ -654,7 +663,7 @@ def _collect_live_content(topic: Topic) -> LiveTopicContent:
         texts=texts,
         latest_recap=latest_recap,
         recaps=recaps,
-        latest_relation=relations_qs.first(),
+        related_entities=list(related_entities_qs),
         related_topic_links=related_topic_links,
         latest_data=datas_qs.first(),
         datas=list(datas_qs),
@@ -686,8 +695,7 @@ def _build_context_snapshot_from_snapshots(
 
     texts = _payloads("text")
     recaps = _payloads("recap")
-    relation_list = _payloads("relation")
-    latest_relation = relation_list[0] if relation_list else None
+    related_entities = _payloads("relation")
     datas = _payloads("data")
     data_insights = _payloads("data_insight")
     data_visualizations = _payloads("data_visualization")
@@ -697,14 +705,6 @@ def _build_context_snapshot_from_snapshots(
     webpages = _payloads("webpage")
     events = _payloads("event")
     related_topics = _payloads("related_topic")
-
-    relations_json = ""
-    relations_json_pretty = ""
-    if latest_relation:
-        relations = latest_relation.get("relations") or []
-        if relations:
-            relations_json = json.dumps(relations, separators=(",", ":"))
-            relations_json_pretty = json.dumps(relations, indent=2)
 
     related_event_ids = [
         payload.get("event_id")
@@ -718,9 +718,7 @@ def _build_context_snapshot_from_snapshots(
         "texts": texts,
         "latest_recap": recaps[0] if recaps else None,
         "recaps": recaps,
-        "latest_relation": latest_relation,
-        "relations_json": relations_json,
-        "relations_json_pretty": relations_json_pretty,
+        "related_entities": related_entities,
         "latest_data": datas[0] if datas else None,
         "datas": datas,
         "data_insights": data_insights,
@@ -912,7 +910,6 @@ def publish_topic(topic: Topic, user) -> TopicPublication:
     topic.datas.filter(is_deleted=False).update(published_at=now)
     topic.data_insights.filter(is_deleted=False).update(published_at=now)
     topic.data_visualizations.filter(is_deleted=False).update(published_at=now)
-    topic.entity_relations.filter(is_deleted=False).update(published_at=now)
     topic.images.filter(is_deleted=False).update(published_at=now)
     topic.tweets.filter(is_deleted=False).update(published_at=now)
     topic.youtube_videos.filter(is_deleted=False).update(published_at=now)
@@ -1063,9 +1060,9 @@ def build_publication_context(topic: Topic, publication: TopicPublication) -> Di
         "topic": topic,
         "related_events": related_events,
         "latest_recap": _ns(snapshot.get("latest_recap")),
-        "latest_relation": _ns(snapshot.get("latest_relation")),
-        "relations_json": snapshot.get("relations_json", ""),
-        "relations_json_pretty": snapshot.get("relations_json_pretty", ""),
+        "related_entities": [
+            _ns(entity) for entity in snapshot.get("related_entities", [])
+        ],
         "latest_data": _ns(snapshot.get("latest_data")),
         "datas": [_ns(data) for data in snapshot.get("datas", [])],
         "data_insights": [_ns(data) for data in snapshot.get("data_insights", [])],

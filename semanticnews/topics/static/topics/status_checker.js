@@ -79,27 +79,27 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Fallback applier for relation (graph)
-  const applyRelationFallback = (relations, createdAtIso) => {
-    const graph = document.getElementById('topicRelationGraph');
+  const applyRelationFallback = (entities) => {
     const container = document.getElementById('topicRelationContainer');
+    const listEl = document.getElementById('topicRelatedEntities');
     if (container) container.style.display = '';
-    if (graph && window.renderRelationGraph) {
-      window.renderRelationGraph(graph, relations || []);
+    if (listEl) {
+      const event = new CustomEvent('topics:relations:fallback', {
+        detail: { entities: entities || [] },
+      });
+      listEl.dispatchEvent(event);
     }
     const textarea = document.getElementById('relationText');
     if (textarea) {
-      // keep textarea JSON in sync
-      textarea.value = JSON.stringify(relations || [], null, 2);
+      try {
+        const payload = Array.isArray(entities) ? entities : [];
+        textarea.value = JSON.stringify(payload, null, 2);
+      } catch (err) {
+        // ignore invalid data
+      }
       const form = document.getElementById('relationForm');
       const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
       if (submitBtn) submitBtn.disabled = true;
-      const createdAtEl = document.getElementById('relationCreatedAt');
-      if (createdAtEl && createdAtIso) {
-        const d = new Date(createdAtIso);
-        createdAtEl.textContent = d.toLocaleString(undefined, {
-          year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
-        });
-      }
     }
   };
 
