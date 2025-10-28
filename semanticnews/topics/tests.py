@@ -17,7 +17,15 @@ from semanticnews.agenda.models import Event
 from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
-from .models import Topic, TopicContent, TopicKeyword, TopicModuleLayout, RelatedTopic
+from .models import (
+    Topic,
+    TopicContent,
+    TopicKeyword,
+    TopicModuleLayout,
+    RelatedTopic,
+    RelatedEntity,
+)
+from semanticnews.entities.models import Entity
 from semanticnews.widgets.timeline.models import TopicEvent
 from semanticnews.keywords.models import Keyword
 from semanticnews.widgets.recaps.models import TopicRecap
@@ -25,6 +33,7 @@ from semanticnews.widgets.images.models import TopicImage
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .publishing.service import publish_topic
+from .api import RelatedEntityInput
 
 
 class TopicEmbeddingTests(TestCase):
@@ -1708,3 +1717,95 @@ class RelatedTopicsTemplateTests(TestCase):
         self.assertContains(response, "data-related-topics-card")
 
 
+
+
+class RelatedEntityAPITests(TestCase):
+    """Tests for the topic related entity API endpoints."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user("owner", "owner@example.com", "password")
+        self.other = User.objects.create_user("other", "other@example.com", "password")
+        self.topic = Topic.objects.create(created_by=self.user)
+
+    def test_extract_requires_authentication(self):
+        payload = {"topic_uuid": str(self.topic.uuid), "entities": [{"name": "Alice"}]}
+        response = self.client.post(
+            "/api/topics/relation/extract",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_list_requires_owner(self):
+        response = self.client.get(f"/api/topics/relation/{self.topic.uuid}/list")
+        self.assertEqual(response.status_code, 401)
+
+        self.client.force_login(self.other)
+        response = self.client.get(f"/api/topics/relation/{self.topic.uuid}/list")
+        self.assertEqual(response.status_code, 403)
+
+    def test_create_list_and_delete_entities(self):
+        self.client.force_login(self.user)
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "entities": [
+                {"name": "Alice", "role": "Speaker"},
+                {"name": "Bob", "disambiguation": "Journalist"},
+            ],
+        }
+
+        response = self.client.post(
+            "/api/topics/relation/extract",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data.get("entities", [])), 2)
+
+        relations = RelatedEntity.objects.filter(topic=self.topic, is_deleted=False)
+        self.assertEqual(relations.count(), 2)
+        names = set(rel.entity.name for rel in relations)
+        self.assertEqual(names, {"Alice", "Bob"})
+
+        list_response = self.client.get(f"/api/topics/relation/{self.topic.uuid}/list")
+        self.assertEqual(list_response.status_code, 200)
+        list_data = list_response.json()
+        self.assertEqual(list_data.get("total"), 2)
+
+        # Delete one entity and ensure it no longer appears in the list
+        entity_id = data["entities"][0]["id"]
+        delete_response = self.client.delete(f"/api/topics/relation/{entity_id}")
+        self.assertEqual(delete_response.status_code, 204)
+
+        list_response = self.client.get(f"/api/topics/relation/{self.topic.uuid}/list")
+        remaining = list_response.json().get("items", [])
+        self.assertEqual(len(remaining), 1)
+        self.assertNotEqual(remaining[0]["id"], entity_id)
+
+        # Ensure the underlying relation is soft deleted
+        self.assertTrue(RelatedEntity.objects.filter(id=entity_id, is_deleted=True).exists())
+
+    def test_suggestions_replace_existing(self):
+        self.client.force_login(self.user)
+        Entity.objects.create(name="Existing", slug="existing")
+        RelatedEntity.objects.create(topic=self.topic, entity=Entity.objects.first())
+
+        with patch("semanticnews.topics.api._suggest_related_entities") as mock_suggest:
+            mock_suggest.return_value = [
+                RelatedEntityInput(name="Suggested", role="Analyst"),
+            ]
+            response = self.client.post(
+                "/api/topics/relation/extract",
+                data=json.dumps({"topic_uuid": str(self.topic.uuid)}),
+                content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data.get("entities", [])), 1)
+        self.assertEqual(data["entities"][0]["entity_name"], "Suggested")
+
+        active_relations = RelatedEntity.objects.filter(topic=self.topic, is_deleted=False)
+        self.assertEqual(active_relations.count(), 1)
+        self.assertEqual(active_relations.first().entity.name, "Suggested")

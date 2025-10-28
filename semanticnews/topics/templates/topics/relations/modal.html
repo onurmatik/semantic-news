@@ -4,7 +4,7 @@
         <div class="modal-content">
             <div class="modal-header flex-column align-items-stretch">
                 <div class="d-flex w-100 align-items-center">
-                    <h5 class="modal-title mb-0">{% trans "Entity relations" %}</h5>
+                    <h5 class="modal-title mb-0">{% trans "Related entities" %}</h5>
                     <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                 </div>
                 <div id="relationStatusMessage" class="alert alert-info d-none w-100 mb-0 mt-2" role="alert"></div>
@@ -13,19 +13,21 @@
                 <form id="relationForm">
                     <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
                     <div class="mb-3">
-                        <label for="relationText" class="form-label">{% trans "Relations" %}</label>
-                        <textarea class="form-control" id="relationText" name="relations" rows="8">{{ relations_json_pretty }}</textarea>
+                        <label for="relationText" class="form-label">{% trans "Entities" %}</label>
+                        <textarea class="form-control" id="relationText" name="entities" rows="8">{{ related_entities_json_pretty }}</textarea>
+                        <div class="form-text">
+                            {% trans "Provide a JSON array of objects with 'name', optional 'role', and optional 'disambiguation' fields." %}
+                        </div>
                     </div>
                     <div class="modal-footer px-0">
                         <button type="button" class="btn btn-outline-secondary float-start me-auto" id="fetchRelationSuggestion">
                             <i class="bi bi-stars"></i>
                             {% trans "Get AI suggestions" %}
                         </button>
-                        <button type="submit" class="btn btn-primary">{% trans "Create" %}</button>
+                        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
-

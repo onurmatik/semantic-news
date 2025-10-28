@@ -1,0 +1,10 @@
+{% load i18n %}
+<button
+    id="relationButton"
+    class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal"
+    data-bs-target="#relationModal"{% if topic.status == 'archived' %} disabled{% endif %}
+>
+    <i class="bi bi-people me-1"></i>
+    {% trans "Manage entities" %}
+</button>

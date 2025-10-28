@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -14,7 +15,6 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
-from ..widgets.relations.models import TopicEntityRelation
 from ..widgets.webcontent.models import TopicDocument, TopicWebpage
 from ..widgets.timeline.models import TopicEvent
 
@@ -221,8 +221,13 @@ class Topic(models.Model):
         return self.texts.filter(is_deleted=False)
 
     @property
+    def active_related_entities(self):
+        return self.related_entities.filter(is_deleted=False)
+
+    # Backwards-compatible alias used by legacy templates and views.
+    @property
     def active_entity_relations(self):
-        return self.entity_relations.filter(is_deleted=False)
+        return self.active_related_entities
 
     @property
     def active_images(self):
@@ -544,11 +549,12 @@ class Topic(models.Model):
             TopicText.objects.create(
                 topic=cloned, content=text.content, status="finished"
             )
-        for relation in self.entity_relations.filter(is_deleted=False):
-            TopicEntityRelation.objects.create(
+        for relation in self.related_entities.filter(is_deleted=False):
+            RelatedEntity.objects.create(
                 topic=cloned,
-                relations=relation.relations,
-                status="finished",
+                entity=relation.entity,
+                role=relation.role,
+                source=relation.source,
             )
         for image in self.images.filter(is_deleted=False):
             TopicImage.objects.create(
@@ -608,7 +614,11 @@ class Source(models.TextChoices):
 class RelatedEvent(models.Model):
     event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
 
-    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="related_event_links",
+    )
     source = models.CharField(
         max_length=20,
         choices=Source.choices,
@@ -667,7 +677,11 @@ class RelatedEntity(models.Model):
     entity = models.ForeignKey('entities.Entity', on_delete=models.CASCADE)
     role = models.CharField(max_length=100, blank=True, null=True)
 
-    topic = models.ForeignKey("Topic", on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        "Topic",
+        on_delete=models.CASCADE,
+        related_name="related_entities",
+    )
     source = models.CharField(
         max_length=20,
         choices=Source.choices,
@@ -675,6 +689,14 @@ class RelatedEntity(models.Model):
     )
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def entity_name(self) -> str:
+        return getattr(self.entity, "name", "")
+
+    @property
+    def entity_disambiguation(self) -> Optional[str]:
+        return getattr(self.entity, "disambiguation", None)
 
     class Meta:
         constraints = [

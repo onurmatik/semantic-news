@@ -1,0 +1,35 @@
+{% load i18n %}
+<div class="my-3{% if edit_mode %} card{% endif %}" id="topicRelationContainer"{% if not related_entities %} data-empty="true"{% if not edit_mode %} style="display: none;"{% endif %}{% endif %}>
+    {% if edit_mode %}
+        <div class="card-header d-flex align-items-center">
+            <h6 class="fs-5 mb-0">{% trans "Entities" %}</h6>
+            <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions>
+                {% include "topics/relations/button.html" %}
+            </div>
+        </div>
+    {% endif %}
+    <div class="{% if edit_mode %}card-body{% endif %}">
+        <div id="topicRelatedEntities" class="d-flex flex-column gap-2" data-edit-mode="{{ edit_mode|yesno:'true,false' }}" data-empty-message="{% trans 'No related entities yet.' %}">
+            {% for relation in related_entities %}
+                <div class="border rounded px-3 py-2 d-flex align-items-start justify-content-between" data-related-entity-id="{{ relation.id }}">
+                    <div class="me-3">
+                        <div class="fw-semibold">{{ relation.entity_name }}</div>
+                        {% if relation.entity_disambiguation %}
+                            <div class="text-secondary small">{{ relation.entity_disambiguation }}</div>
+                        {% endif %}
+                        {% if relation.role %}
+                            <div class="text-secondary small">{{ relation.role }}</div>
+                        {% endif %}
+                    </div>
+                    {% if edit_mode %}
+                        <button type="button" class="btn btn-link text-danger p-0" data-remove-related-entity="{{ relation.id }}" aria-label="{% trans 'Remove entity' %}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="text-secondary small mb-0" data-empty-state>{% trans "No related entities yet." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>

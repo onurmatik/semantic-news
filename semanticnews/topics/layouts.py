@@ -129,7 +129,7 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
                 "context": {"edit_mode": True},
             },
         },
-        "context_keys": ["latest_relation", "relations_json", "topic"],
+        "context_keys": ["related_entities", "topic"],
     },
     "related_topics": {
         "templates": {
