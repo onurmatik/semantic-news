@@ -154,77 +154,18 @@
 
 </div>
 
-<div class="row">
-
-    <div class="col-12 col-lg-8" data-layout-column="primary">
-
-        {% for module in primary_modules %}
-            {% with base_key=module.base_module_key|default:module.module_key %}
-                {% if base_key == 'images' %}
-                    <section
-                        class="topic-module-wrapper"
-                        data-module="{{ module.module_key }}"
-                        data-placement="{{ module.placement }}"
-                        data-display-order="{{ module|module_display_order }}"
-                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
-                    >
-                        {% render_topic_module module %}
-                    </section>
-                {% endif %}
-            {% endwith %}
-        {% endfor %}
-
-        {% for module in primary_modules %}
-            {% with base_key=module.base_module_key|default:module.module_key %}
-                {% if base_key == 'recaps' %}
-                    <section
-                        class="topic-module-wrapper"
-                        data-module="{{ module.module_key }}"
-                        data-placement="{{ module.placement }}"
-                        data-display-order="{{ module|module_display_order }}"
-                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
-                    >
-                        {% render_topic_module module %}
-                    </section>
-                {% endif %}
-            {% endwith %}
-        {% endfor %}
-
-        {% for module in primary_modules %}
-            {% with base_key=module.base_module_key|default:module.module_key %}
-                {% if base_key != 'images' and base_key != 'recaps' %}
-                    <section
-                        class="topic-module-wrapper"
-                        data-module="{{ module.module_key }}"
-                        data-placement="{{ module.placement }}"
-                        data-display-order="{{ module|module_display_order }}"
-                        data-has-content="{{ module.has_content|yesno:'true,false' }}"
-                    >
-                        {% render_topic_module module %}
-                    </section>
-                {% endif %}
-            {% endwith %}
-        {% endfor %}
-
-    </div>
-
-
-    <div class="col-12 col-lg-4" data-layout-column="sidebar">
-
-        {% for module in sidebar_modules %}
-            <section
+<div class="topic-modules">
+    <ol class="list-unstyled d-flex flex-column gap-4" data-topic-modules>
+        {% for module in modules %}
+            <li
                 class="topic-module-wrapper"
                 data-module="{{ module.module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module|module_display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}
-            </section>
+            </li>
         {% endfor %}
-
-    </div>
-
+    </ol>
 </div>
 {% endblock %}
 

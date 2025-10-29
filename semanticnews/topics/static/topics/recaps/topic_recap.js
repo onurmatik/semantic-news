@@ -68,13 +68,13 @@ document.addEventListener('DOMContentLoaded', () => {
       sections.push(`# ${title}`);
     }
 
-    const layout = document.querySelector('[data-topic-layout]');
-    if (!layout) {
+    const moduleList = document.querySelector('[data-topic-modules]');
+    if (!moduleList) {
       return sections.join('\n\n');
     }
 
     const moduleSections = [];
-    layout.querySelectorAll('.topic-module-wrapper').forEach((moduleEl) => {
+    moduleList.querySelectorAll('.topic-module-wrapper').forEach((moduleEl) => {
       const text = collectModuleText(moduleEl);
       if (text) {
         moduleSections.push(text);

@@ -80,15 +80,13 @@ def _render_topic_detail(request, topic):
         annotate_module_content(sidebar_modules, context)
         primary_modules = _filter_empty_related_topic_modules(primary_modules)
         sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-        context["primary_modules"] = primary_modules
-        context["sidebar_modules"] = sidebar_modules
+        context["modules"] = [*primary_modules, *sidebar_modules]
         context.update(_build_topic_metadata(request, topic, context))
         return render(request, "topics/topics_detail.html", context)
 
     context = {
         "topic": topic,
-        "primary_modules": [],
-        "sidebar_modules": [],
+        "modules": [],
         "is_unpublished": True,
     }
 
@@ -417,8 +415,7 @@ def topics_detail_edit(request, topic_uuid, username):
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
-    context["primary_modules"] = primary_modules
-    context["sidebar_modules"] = sidebar_modules
+    context["modules"] = [*primary_modules, *sidebar_modules]
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
@@ -466,8 +463,7 @@ def topics_detail_preview(request, topic_uuid, username):
     annotate_module_content(sidebar_modules, context)
     primary_modules = _filter_empty_related_topic_modules(primary_modules)
     sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-    context["primary_modules"] = primary_modules
-    context["sidebar_modules"] = sidebar_modules
+    context["modules"] = [*primary_modules, *sidebar_modules]
     context["is_preview"] = True
 
     context.update(_build_topic_metadata(request, topic, context))
