@@ -565,6 +565,9 @@ def reorder_data_modules(request, payload: TopicDataReorderRequest):
     except Topic.DoesNotExist:
         raise HttpError(404, "Topic not found")
 
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
     data_values = list(
         topic.datas.filter(is_deleted=False).order_by("display_order", "created_at")
     )

@@ -274,3 +274,41 @@ class TopicDataReorderAPITests(TestCase):
             {"topic_uuid": str(self.topic.uuid), "data_items": [], "visualization_items": []},
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_reorder_requires_topic_ownership(self):
+        other_user = get_user_model().objects.create_user(
+            "other", "other@example.com", "password"
+        )
+        self.client.force_login(other_user)
+
+        data_entry = TopicData.objects.create(
+            topic=self.topic,
+            data={"headers": ["A"], "rows": [["1"]]},
+            display_order=1,
+        )
+        visualization_entry = TopicDataVisualization.objects.create(
+            topic=self.topic,
+            insight=None,
+            chart_type="bar",
+            chart_data={"labels": ["A"], "datasets": []},
+            display_order=1,
+        )
+
+        response = self._post_json(
+            "/api/topics/data/reorder",
+            {
+                "topic_uuid": str(self.topic.uuid),
+                "data_items": [{"id": data_entry.id, "display_order": 0}],
+                "visualization_items": [
+                    {"id": visualization_entry.id, "display_order": 0}
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        data_entry.refresh_from_db()
+        visualization_entry.refresh_from_db()
+
+        self.assertEqual(data_entry.display_order, 1)
+        self.assertEqual(visualization_entry.display_order, 1)
