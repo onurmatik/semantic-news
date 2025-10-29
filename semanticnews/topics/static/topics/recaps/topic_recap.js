@@ -16,10 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const collectModuleText = (moduleEl) => {
     if (!(moduleEl instanceof Element)) return '';
-    const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
-    if (moduleKey === 'recap') {
-      return '';
-    }
 
     const parts = [];
 
@@ -53,7 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const headingEl = moduleEl.querySelector('h6, h5, h4');
-    const heading = sanitize(headingEl ? headingEl.textContent : moduleKey.replace(/[-_]/g, ' '));
+    const fallbackHeading = (moduleEl.dataset.topicWidgetKey || moduleEl.dataset.topicWidget || '')
+      .replace(/[-_]/g, ' ');
+    const heading = sanitize(headingEl ? headingEl.textContent : fallbackHeading);
     if (heading) {
       return `## ${heading}\n${parts.join('\n\n')}`;
     }
@@ -68,13 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
       sections.push(`# ${title}`);
     }
 
-    const moduleList = document.querySelector('[data-topic-modules]');
-    if (!moduleList) {
+    const widgetList = document.querySelector('[data-topic-primary-widgets]');
+    if (!widgetList) {
       return sections.join('\n\n');
     }
 
     const moduleSections = [];
-    moduleList.querySelectorAll('.topic-module-wrapper').forEach((moduleEl) => {
+    widgetList.querySelectorAll('[data-topic-widget-entry]').forEach((moduleEl) => {
       const text = collectModuleText(moduleEl);
       if (text) {
         moduleSections.push(text);

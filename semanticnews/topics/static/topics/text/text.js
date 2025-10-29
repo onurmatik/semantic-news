@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!topicUuid) return;
 
   const apiBase = '/api/topics/text';
-  const moduleList = document.querySelector('[data-topic-modules]');
+  const widgetList = document.querySelector('[data-topic-primary-widgets]');
   const cardTemplate = document.querySelector('template[data-text-card-template]');
 
   const getCsrfToken = () => {
@@ -279,17 +279,17 @@ document.addEventListener('DOMContentLoaded', () => {
       ? cardTemplate.content.cloneNode(true)
       : null;
     if (!fragment) return null;
-    const moduleEl = fragment.querySelector('.topic-module-wrapper');
+    const entry = fragment.querySelector('[data-topic-widget-entry]');
     const card = fragment.querySelector('[data-text-card]');
-    if (!moduleEl || !card) return null;
+    if (!entry || !card) return null;
 
     const moduleKey = data.module_key || 'text:' + data.id;
     const content = data.content || '';
 
-    moduleEl.dataset.module = moduleKey;
-    moduleEl.dataset.hasContent = content.trim() ? 'true' : 'false';
+    entry.dataset.topicWidget = 'text';
+    entry.dataset.topicWidgetKey = moduleKey;
 
-    const deleteBtn = moduleEl.querySelector('[data-action="delete-text"]');
+    const deleteBtn = entry.querySelector('[data-action="delete-text"]');
     if (deleteBtn) {
       deleteBtn.setAttribute('data-text-id', data.id);
     }
@@ -306,12 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
       textarea.value = content;
     }
 
-    return moduleEl;
+    return entry;
   };
 
-  const insertModule = (moduleEl, data) => {
-    if (!moduleList) return;
-    moduleList.appendChild(moduleEl);
+  const insertModule = (entryEl) => {
+    if (!widgetList) return;
+    widgetList.appendChild(entryEl);
     document.dispatchEvent(new CustomEvent('topic:changed'));
   };
 
@@ -337,17 +337,17 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error('Failed to create text block');
         }
         const data = await res.json();
-        if (!moduleList || !cardTemplate) {
+        if (!widgetList || !cardTemplate) {
           window.location.reload();
           return;
         }
-        const moduleEl = createModuleFromTemplate(data);
-        if (!moduleEl) {
+        const entry = createModuleFromTemplate(data);
+        if (!entry) {
           window.location.reload();
           return;
         }
-        insertModule(moduleEl, data);
-        const card = moduleEl.querySelector('[data-text-card]');
+        insertModule(entry);
+        const card = entry.querySelector('[data-text-card]');
         if (card) {
           setupCard(card);
           window.setTimeout(() => {

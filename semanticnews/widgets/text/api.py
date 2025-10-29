@@ -14,13 +14,14 @@ from pydantic import Field
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from semanticnews.topics.layouts import PLACEMENT_PRIMARY
 from semanticnews.topics.models import Topic
 from .models import TopicText
 
 router = Router()
 
 logger = logging.getLogger(__name__)
+
+PLACEMENT_PRIMARY = "primary"
 
 
 class TopicTextCreateRequest(Schema):

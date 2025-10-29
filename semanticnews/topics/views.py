@@ -10,6 +10,7 @@ import json
 
 from django.db.models import Prefetch
 from django.db.models.functions import Coalesce
+from types import SimpleNamespace
 
 from semanticnews.agenda.models import Event
 from semanticnews.agenda.localities import (
@@ -23,12 +24,6 @@ from .models import (
     RelatedEntity,
     RelatedEvent,
     Source,
-)
-from .layouts import (
-    PLACEMENT_PRIMARY,
-    PLACEMENT_SIDEBAR,
-    annotate_module_content,
-    get_layout_for_mode,
 )
 from semanticnews.widgets.data.models import TopicDataVisualization
 from semanticnews.widgets.mcps.models import MCPServer
@@ -71,42 +66,14 @@ def _render_topic_detail(request, topic):
     if not _topic_is_visible_to_user(topic, request.user):
         raise Http404("Topic not found")
 
-    if topic.status == "published":
-        context = _build_topic_module_context(topic, request.user)
-        layout = get_layout_for_mode(topic, mode="detail")
-        primary_modules = layout.get(PLACEMENT_PRIMARY, [])
-        sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
-        annotate_module_content(primary_modules, context)
-        annotate_module_content(sidebar_modules, context)
-        primary_modules = _filter_empty_related_topic_modules(primary_modules)
-        sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-        context["modules"] = [*primary_modules, *sidebar_modules]
-        context.update(_build_topic_metadata(request, topic, context))
-        return render(request, "topics/topics_detail.html", context)
+    context = _build_topic_page_context(topic, request.user, edit_mode=False)
 
-    context = {
-        "topic": topic,
-        "modules": [],
-        "is_unpublished": True,
-    }
-
-    context.update(_build_topic_module_context(topic, request.user))
+    if topic.status != "published":
+        context["is_unpublished"] = True
 
     context.update(_build_topic_metadata(request, topic, context))
 
     return render(request, "topics/topics_detail.html", context)
-
-
-def _filter_empty_related_topic_modules(modules):
-    """Remove related-topic modules that have no content."""
-
-    filtered = []
-    for module in modules:
-        base_key = module.get("base_module_key", module.get("module_key"))
-        if base_key == "related_topics" and not module.get("has_content"):
-            continue
-        filtered.append(module)
-    return filtered
 
 
 def topics_detail_redirect(request, topic_uuid, username):
@@ -189,7 +156,7 @@ def topics_detail(request, slug, username):
 
 
 def _build_topic_module_context(topic, user=None):
-    """Collect related objects used to render topic modules."""
+    """Collect related objects used to render topic content."""
 
     related_events = topic.active_events
     current_recap = topic.active_recaps.order_by("-created_at").first()
@@ -213,19 +180,31 @@ def _build_topic_module_context(topic, user=None):
     ]
     related_entities_json = json.dumps(related_entities_payload, separators=(",", ":"))
     related_entities_json_pretty = json.dumps(related_entities_payload, indent=2)
-    documents = list(topic.active_documents)
-    webpages = list(topic.active_webpages)
-    datas = list(topic.active_datas.order_by("-created_at"))
-    latest_data = datas[0] if datas else None
+    texts = list(topic.active_texts.order_by("display_order", "created_at"))
+    documents = list(
+        topic.active_documents.order_by("display_order", "-created_at")
+    )
+    webpages = list(
+        topic.active_webpages.order_by("display_order", "-created_at")
+    )
+    datas = list(topic.active_datas.order_by("display_order", "created_at"))
+    latest_data = max(datas, key=lambda item: item.created_at) if datas else None
     data_insights = list(
         topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
     )
     data_visualizations = list(
-        topic.active_data_visualizations.select_related("insight").order_by("-created_at")
+        topic.active_data_visualizations
+        .select_related("insight")
+        .order_by("display_order", "created_at")
     )
     has_saved_data_content = bool(latest_data or data_insights or data_visualizations)
-    youtube_video = topic.active_youtube_videos.order_by("-created_at").first()
-    tweets = topic.active_tweets.order_by("-created_at")
+    youtube_videos = list(
+        topic.active_youtube_videos.order_by("display_order", "-created_at")
+    )
+    youtube_video = youtube_videos[0] if youtube_videos else None
+    tweets = list(
+        topic.active_tweets.order_by("display_order", "-created_at")
+    )
 
     related_topic_links = list(
         getattr(topic, "prefetched_related_topic_links", None)
@@ -266,18 +245,173 @@ def _build_topic_module_context(topic, user=None):
         "related_entities": related_entities,
         "related_entities_json": related_entities_json,
         "related_entities_json_pretty": related_entities_json_pretty,
+        "texts": texts,
         "latest_data": latest_data,
         "datas": datas,
         "data_insights": data_insights,
         "data_visualizations": data_visualizations,
         "data_button_status": "success" if has_saved_data_content else "finished",
         "youtube_video": youtube_video,
+        "youtube_videos": youtube_videos,
         "tweets": tweets,
         "documents": documents,
         "webpages": webpages,
         "related_topic_links": active_related_topic_links,
         "related_topics": related_topics,
     }
+
+
+def _resolve_data_widget_visibility(datas, data_insights):
+    data_ids_with_insights = set()
+    has_unsourced_insight = False
+
+    for insight in data_insights:
+        sources_manager = getattr(insight, "sources", None)
+        if sources_manager is None:
+            continue
+        sources = list(sources_manager.all())
+        if not sources:
+            has_unsourced_insight = True
+        for source in sources:
+            source_id = getattr(source, "id", None)
+            if source_id is not None:
+                data_ids_with_insights.add(str(source_id))
+
+    visibility = {}
+    unsourced_assigned = False
+
+    for data_obj in datas:
+        identifier = getattr(data_obj, "id", None)
+        if identifier is None:
+            continue
+        key = str(identifier)
+        should_show = key in data_ids_with_insights
+        if not should_show and has_unsourced_insight and not unsourced_assigned:
+            should_show = True
+            unsourced_assigned = True
+        visibility[key] = should_show
+
+    return visibility
+
+
+def _build_primary_widgets(context, *, edit_mode=False):
+    widgets = []
+    texts = context.get("texts") or []
+    datas = context.get("datas") or []
+    data_visualizations = context.get("data_visualizations") or []
+    documents = list(context.get("documents") or [])
+    webpages = list(context.get("webpages") or [])
+    tweets = list(context.get("tweets") or [])
+    youtube_video = context.get("youtube_video")
+    data_insights = context.get("data_insights") or []
+
+    data_visibility = _resolve_data_widget_visibility(datas, data_insights)
+
+    for text in texts:
+        identifier = getattr(text, "id", None)
+        if identifier is None:
+            continue
+        module_key = f"text:{identifier}"
+        module = SimpleNamespace(module_key=module_key, text=text)
+        widgets.append(
+            SimpleNamespace(
+                key=module_key,
+                kind="text",
+                display_order=getattr(text, "display_order", 0),
+                module=module,
+                edit_mode=edit_mode,
+            )
+        )
+
+    for dataset in datas:
+        identifier = getattr(dataset, "id", None)
+        if identifier is None:
+            continue
+        key = str(identifier)
+        widgets.append(
+            SimpleNamespace(
+                key=f"data:{key}",
+                kind="data",
+                display_order=getattr(dataset, "display_order", 0),
+                data=dataset,
+                show_data_insights=data_visibility.get(key, False),
+                edit_mode=edit_mode,
+            )
+        )
+
+    for visualization in data_visualizations:
+        identifier = getattr(visualization, "id", None)
+        if identifier is None:
+            continue
+        module_key = f"data_visualizations:{identifier}"
+        module = SimpleNamespace(
+            module_key=module_key,
+            visualization=visualization,
+        )
+        widgets.append(
+            SimpleNamespace(
+                key=module_key,
+                kind="data_visualization",
+                display_order=getattr(visualization, "display_order", 0),
+                module=module,
+                edit_mode=edit_mode,
+            )
+        )
+
+    embed_orders = []
+    if youtube_video is not None:
+        order = getattr(youtube_video, "display_order", None)
+        if order is not None:
+            embed_orders.append(order)
+    for tweet in tweets:
+        order = getattr(tweet, "display_order", None)
+        if order is not None:
+            embed_orders.append(order)
+    if edit_mode or youtube_video or tweets:
+        display_order = min(embed_orders) if embed_orders else 0
+        widgets.append(
+            SimpleNamespace(
+                key="embeds",
+                kind="embeds",
+                display_order=display_order,
+                youtube_video=youtube_video,
+                tweets=tweets,
+                edit_mode=edit_mode,
+            )
+        )
+
+    reference_orders = []
+    for document in documents:
+        order = getattr(document, "display_order", None)
+        if order is not None:
+            reference_orders.append(order)
+    for webpage in webpages:
+        order = getattr(webpage, "display_order", None)
+        if order is not None:
+            reference_orders.append(order)
+
+    if edit_mode or documents or webpages:
+        display_order = min(reference_orders) if reference_orders else 0
+        widgets.append(
+            SimpleNamespace(
+                key="references",
+                kind="references",
+                display_order=display_order,
+                documents=documents,
+                webpages=webpages,
+                edit_mode=edit_mode,
+            )
+        )
+
+    widgets.sort(key=lambda item: (item.display_order, item.key))
+    return widgets
+
+
+def _build_topic_page_context(topic, user=None, *, edit_mode=False):
+    context = _build_topic_module_context(topic, user)
+    context["primary_widgets"] = _build_primary_widgets(context, edit_mode=edit_mode)
+    context["edit_mode"] = edit_mode
+    return context
 
 
 def _build_topic_metadata(request, topic, context):
@@ -404,18 +538,9 @@ def topics_detail_edit(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    context = _build_topic_module_context(topic, request.user)
+    context = _build_topic_page_context(topic, request.user, edit_mode=True)
     mcp_servers = MCPServer.objects.filter(active=True)
-
-    layout = get_layout_for_mode(topic, mode="edit")
-    primary_modules = layout.get(PLACEMENT_PRIMARY, [])
-    sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
-
     context["mcp_servers"] = mcp_servers
-
-    annotate_module_content(primary_modules, context)
-    annotate_module_content(sidebar_modules, context)
-    context["modules"] = [*primary_modules, *sidebar_modules]
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid
@@ -453,17 +578,7 @@ def topics_detail_preview(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    context = _build_topic_module_context(topic)
-
-    layout = get_layout_for_mode(topic, mode="detail")
-    primary_modules = layout.get(PLACEMENT_PRIMARY, [])
-    sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
-
-    annotate_module_content(primary_modules, context)
-    annotate_module_content(sidebar_modules, context)
-    primary_modules = _filter_empty_related_topic_modules(primary_modules)
-    sidebar_modules = _filter_empty_related_topic_modules(sidebar_modules)
-    context["modules"] = [*primary_modules, *sidebar_modules]
+    context = _build_topic_page_context(topic, user=None, edit_mode=False)
     context["is_preview"] = True
 
     context.update(_build_topic_metadata(request, topic, context))
