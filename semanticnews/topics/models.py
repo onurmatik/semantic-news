@@ -57,18 +57,143 @@ class Topic(models.Model):
         blank=True,
     )
 
-    @cached_property
+    def _get_draft_title_record(self):
+        if not self.pk:
+            return None
+
+        return (
+            self.titles.filter(published_at__isnull=True)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+
+    def _get_published_title_record(self):
+        if not self.pk:
+            return None
+
+        return (
+            self.titles.filter(published_at__isnull=False)
+            .order_by("-published_at", "-id")
+            .first()
+        )
+
+    def _get_current_title_record(self):
+        draft = self._get_draft_title_record()
+        if draft:
+            return draft
+
+        return self._get_published_title_record()
+
+    @property
     def title(self):
-        return self.titles.exclude(published_at__isnull=True).last()
+        if not self.pk:
+            return getattr(self, "_pending_title_value", None)
 
-    @cached_property
+        record = self._get_current_title_record()
+        if record:
+            return record.title
+
+        return None
+
+    @title.setter
+    def title(self, value):
+        normalized = (value or "").strip() or None
+
+        if not self.pk:
+            self._pending_title_value = normalized
+            return
+
+        self._apply_title_update(normalized)
+
+    @property
     def title_draft(self):
-        return self.titles.filter(published_at__isnull=True).last()
+        return self._get_draft_title_record()
 
-    @cached_property
+    @property
     def slug(self):
-        if self.title:
-            return self.title.slug
+        if not self.pk:
+            return getattr(self, "_pending_slug_value", None)
+
+        record = self._get_current_title_record()
+        if record:
+            return record.slug
+
+        return None
+
+    @slug.setter
+    def slug(self, value):
+        normalized = (value or "").strip() or None
+
+        if not self.pk:
+            self._pending_slug_value = normalized
+            return
+
+        self._apply_slug_update(normalized)
+
+    def _apply_title_update(self, value: Optional[str]):
+        record = self._get_current_title_record()
+
+        if value is None:
+            if record:
+                record.delete()
+            return
+
+        slug_value = slugify(value) or None
+
+        if record:
+            updates = []
+            if record.title != value:
+                record.title = value
+                updates.append("title")
+            if record.slug != slug_value:
+                record.slug = slug_value
+                updates.append("slug")
+            if updates:
+                record.save(update_fields=updates)
+        else:
+            self.titles.create(title=value, slug=slug_value)
+
+    def _apply_slug_update(self, value: Optional[str]) -> bool:
+        record = self._get_current_title_record()
+
+        if not record:
+            if value is None:
+                return True
+
+            # No title exists yet – defer applying the slug until one is set.
+            self._pending_slug_value = value
+            return False
+
+        if record.slug != value:
+            record.slug = value
+            record.save(update_fields=["slug"])
+
+        return True
+
+    def save(self, *args, **kwargs):
+        title_sentinel = object()
+        slug_sentinel = object()
+        pending_title = getattr(self, "_pending_title_value", title_sentinel)
+        pending_slug = getattr(self, "_pending_slug_value", slug_sentinel)
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            cleaned = [field for field in update_fields if field not in {"title", "slug"}]
+            if cleaned:
+                kwargs["update_fields"] = cleaned
+            else:
+                kwargs.pop("update_fields")
+
+        super().save(*args, **kwargs)
+
+        if pending_title is not title_sentinel:
+            self._apply_title_update(pending_title)
+            if hasattr(self, "_pending_title_value"):
+                delattr(self, "_pending_title_value")
+
+        if pending_slug is not slug_sentinel:
+            if self._apply_slug_update(pending_slug) and hasattr(self, "_pending_slug_value"):
+                delattr(self, "_pending_slug_value")
 
     def __str__(self):
         return f"{self.title or 'Topic'}"

@@ -126,31 +126,32 @@ def topics_list(request):
 
 
 def topics_detail(request, slug, username):
-    topic = get_object_or_404(
-        Topic.objects.prefetch_related(
-            "events",
-            "recaps",
-            "texts",
-            "images",
-            "documents",
-            "webpages",
-            "youtube_videos",
-            "tweets",
-            RELATED_ENTITIES_PREFETCH,
-            "datas",
-            "data_insights__sources",
-            "data_visualizations__insight",
-            Prefetch(
-                "topic_related_topics",
-                queryset=RelatedTopic.objects.select_related(
-                    "related_topic__created_by"
-                ).order_by("-created_at"),
-                to_attr="prefetched_related_topic_links",
-            ),
+    queryset = Topic.objects.prefetch_related(
+        "events",
+        "recaps",
+        "texts",
+        "images",
+        "documents",
+        "webpages",
+        "youtube_videos",
+        "tweets",
+        RELATED_ENTITIES_PREFETCH,
+        "datas",
+        "data_insights__sources",
+        "data_visualizations__insight",
+        Prefetch(
+            "topic_related_topics",
+            queryset=RelatedTopic.objects.select_related(
+                "related_topic__created_by"
+            ).order_by("-created_at"),
+            to_attr="prefetched_related_topic_links",
         ),
-        slug=slug,
+    ).filter(
+        titles__slug=slug,
         created_by__username=username,
-    )
+    ).distinct()
+
+    topic = get_object_or_404(queryset)
 
     return _render_topic_detail(request, topic)
 
@@ -597,7 +598,9 @@ def topics_detail_preview(request, topic_uuid, username):
 
 @login_required
 def topic_add_event(request, slug, username, event_uuid):
-    topic = get_object_or_404(Topic, slug=slug, created_by__username=username)
+    topic = get_object_or_404(
+        Topic.objects.filter(titles__slug=slug, created_by__username=username).distinct()
+    )
     if request.user != topic.created_by:
         return HttpResponseForbidden()
 
@@ -613,7 +616,9 @@ def topic_add_event(request, slug, username, event_uuid):
 
 @login_required
 def topic_remove_event(request, slug, username, event_uuid):
-    topic = get_object_or_404(Topic, slug=slug, created_by__username=username)
+    topic = get_object_or_404(
+        Topic.objects.filter(titles__slug=slug, created_by__username=username).distinct()
+    )
     if request.user != topic.created_by:
         return HttpResponseForbidden()
 
@@ -629,17 +634,18 @@ def topic_remove_event(request, slug, username, event_uuid):
 
 @login_required
 def topic_clone(request, slug, username):
-    original = get_object_or_404(
-        Topic.objects.prefetch_related(
-            "events",
-            "contents",
-            "recaps",
-            "images",
-            "keywords",
-        ),
-        slug=slug,
+    queryset = Topic.objects.prefetch_related(
+        "events",
+        "contents",
+        "recaps",
+        "images",
+        "keywords",
+    ).filter(
+        titles__slug=slug,
         created_by__username=username,
-    )
+    ).distinct()
+
+    original = get_object_or_404(queryset)
 
     if request.user == original.created_by:
         return HttpResponseForbidden()
