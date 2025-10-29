@@ -38,7 +38,7 @@ from .layouts import (
     serialize_layout,
     _split_module_key,
 )
-from semanticnews.widgets.recaps.api import router as recaps_router
+from .recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
 from semanticnews.widgets.images.api import router as images_router
 from semanticnews.widgets.data.api import router as data_router

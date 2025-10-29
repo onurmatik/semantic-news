@@ -570,7 +570,7 @@ class EventListRelatedTopicsTests(TestCase):
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
         from semanticnews.topics.models import Topic, RelatedEvent, Source
-        from semanticnews.widgets.recaps.models import TopicRecap
+        from semanticnews.topics.models import TopicRecap
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")
@@ -608,7 +608,7 @@ class EventDetailRelatedTopicsTests(TestCase):
     def test_related_topics_in_context(self, mock_topic_embedding):
         from datetime import date
         from semanticnews.topics.models import Topic, RelatedEvent, Source
-        from semanticnews.widgets.recaps.models import TopicRecap
+        from semanticnews.topics.models import TopicRecap
 
         User = get_user_model()
         owner = User.objects.create_user("owner", "owner@example.com", "password")

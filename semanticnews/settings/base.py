@@ -57,7 +57,6 @@ INSTALLED_APPS = [
     # User topics and widget apps
     'semanticnews.widgets',
     'semanticnews.topics',
-    'semanticnews.widgets.recaps',
     'semanticnews.widgets.text',
     'semanticnews.widgets.mcps',
     'semanticnews.widgets.images',

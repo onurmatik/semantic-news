@@ -26,10 +26,10 @@ from .models import (
     RelatedEntity,
     RelatedEvent,
     Source,
+    TopicRecap,
 )
 from semanticnews.entities.models import Entity
 from semanticnews.keywords.models import Keyword
-from semanticnews.widgets.recaps.models import TopicRecap
 from semanticnews.widgets.images.models import TopicImage
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
@@ -572,7 +572,7 @@ class SetTopicStatusAPITests(TestCase):
 class CreateRecapAPITests(TestCase):
     """Tests for the recap creation API endpoint."""
 
-    @patch("semanticnews.widgets.recaps.api.OpenAI")
+    @patch("semanticnews.topics.recaps.api.OpenAI")
     @patch(
         "semanticnews.topics.models.Topic.get_embedding",
         return_value=[0.0] * 1536,
