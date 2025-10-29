@@ -148,6 +148,11 @@ class TopicData(models.Model):
     topic = models.ForeignKey(
         'topics.Topic', on_delete=models.CASCADE, related_name='datas'
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     name = models.CharField(max_length=200, blank=True, null=True)
     data = models.JSONField()
     sources = models.JSONField(default=list)
@@ -158,6 +163,7 @@ class TopicData(models.Model):
 
     class Meta:
         app_label = 'topics'
+        ordering = ['display_order', 'created_at']
 
     def __str__(self):
         return f"{self.name or 'Data'} for {self.topic}"
@@ -167,6 +173,11 @@ class TopicDataInsight(models.Model):
     topic = models.ForeignKey(
         'topics.Topic', on_delete=models.CASCADE, related_name='data_insights'
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     insight = models.TextField()
     sources = models.ManyToManyField('TopicData', related_name='insights')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -175,6 +186,7 @@ class TopicDataInsight(models.Model):
 
     class Meta:
         app_label = 'topics'
+        ordering = ['display_order', 'created_at']
 
     def __str__(self):
         return f"Insight for {self.topic}"
@@ -183,6 +195,11 @@ class TopicDataInsight(models.Model):
 class TopicDataVisualization(models.Model):
     topic = models.ForeignKey(
         'topics.Topic', on_delete=models.CASCADE, related_name='data_visualizations'
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
     )
     insight = models.ForeignKey(
         TopicDataInsight, on_delete=models.SET_NULL, null=True, blank=True, related_name='visualizations'
@@ -195,6 +212,7 @@ class TopicDataVisualization(models.Model):
 
     class Meta:
         app_label = 'topics'
+        ordering = ['display_order', 'created_at']
 
     def __str__(self):
         return f"Visualization for {self.topic}"
