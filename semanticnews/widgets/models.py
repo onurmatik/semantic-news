@@ -10,13 +10,6 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 
-class WidgetPlacement(models.TextChoices):
-    """Fixed areas of the topic editor UI."""
-
-    CONTENT = "content", _("Content area")
-    SIDEBAR = "sidebar", _("Sidebar")
-
-
 class WidgetType(models.TextChoices):
     """All supported widget shells within a topic."""
 
@@ -38,7 +31,6 @@ class WidgetDefinition:
     """Static metadata that drives widget behaviour."""
 
     type: WidgetType
-    placement: WidgetPlacement
     multiple_per_topic: bool = False
     translatable: bool = True
 
@@ -65,17 +57,17 @@ class WidgetRegistry:
 
 
 for definition in (
-    WidgetDefinition(WidgetType.TITLE, WidgetPlacement.CONTENT, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.RECAP, WidgetPlacement.CONTENT, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.COVER_IMAGE, WidgetPlacement.CONTENT, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.TEXT, WidgetPlacement.CONTENT, multiple_per_topic=True),
-    WidgetDefinition(WidgetType.DATA, WidgetPlacement.CONTENT, multiple_per_topic=True),
-    WidgetDefinition(WidgetType.TIMELINE, WidgetPlacement.CONTENT, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.EVENTS, WidgetPlacement.SIDEBAR, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.RELATED_TOPICS, WidgetPlacement.SIDEBAR, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.EXTERNAL_LINKS, WidgetPlacement.SIDEBAR, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.DOCUMENTS, WidgetPlacement.SIDEBAR, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.ENTITIES, WidgetPlacement.SIDEBAR, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.TITLE, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.RECAP, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.COVER_IMAGE, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.TEXT, multiple_per_topic=True),
+    WidgetDefinition(WidgetType.DATA, multiple_per_topic=True),
+    WidgetDefinition(WidgetType.TIMELINE, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.EVENTS, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.RELATED_TOPICS, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.EXTERNAL_LINKS, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.DOCUMENTS, multiple_per_topic=False),
+    WidgetDefinition(WidgetType.ENTITIES, multiple_per_topic=False),
 ):
     WidgetRegistry.register(definition)
 
@@ -109,12 +101,6 @@ class TopicWidget(models.Model):
         default=False,
         help_text=_("Marks the widget instance for the topic's primary language."),
     )
-    placement = models.CharField(
-        max_length=20,
-        choices=WidgetPlacement.choices,
-        blank=True,
-        help_text=_("Determines which column renders this widget."),
-    )
     display_order = models.PositiveIntegerField(
         default=0,
         help_text=_("Ordering within the widget's column."),
@@ -144,7 +130,7 @@ class TopicWidget(models.Model):
     objects = TopicWidgetQuerySet.as_manager()
 
     class Meta:
-        ordering = ("placement", "display_order", "id")
+        ordering = ("display_order", "id")
         constraints = [
             models.UniqueConstraint(
                 fields=("topic", "widget_type"),
@@ -170,21 +156,12 @@ class TopicWidget(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        definition = WidgetRegistry.get(self.widget_type)
-        if self.placement != definition.placement:
-            placement_label = definition.placement.label.lower()
-            widget_label = WidgetType(self.widget_type).label
-            message = _("%(widget)s widgets must render in the %(placement)s.") % {
-                "widget": widget_label,
-                "placement": placement_label,
-            }
-            raise ValidationError({"placement": message})
-
         if self.is_primary_language and self.language_code != getattr(settings, "LANGUAGE_CODE", "en"):
             raise ValidationError(
                 {"is_primary_language": _("Primary widgets must use the project's default language code.")}
             )
 
+        definition = WidgetRegistry.get(self.widget_type)
         if not definition.multiple_per_topic:
             clash = (
                 TopicWidget.objects.exclude(pk=self.pk)
@@ -205,9 +182,6 @@ class TopicWidget(models.Model):
             super().save(*args, **kwargs)
             return
 
-        if not self.placement:
-            definition = WidgetRegistry.get(self.widget_type)
-            self.placement = definition.placement
         self.full_clean()
         super().save(*args, **kwargs)
 
