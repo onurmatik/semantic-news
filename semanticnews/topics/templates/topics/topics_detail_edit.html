@@ -123,43 +123,18 @@
 
 </div>
 
-<div class="row" data-topic-layout data-topic-uuid="{{ topic.uuid }}">
-
-    <div class="col-12 col-lg-8 d-flex flex-column gap-3" data-layout-column="primary" data-layout-list>
-
-        {% for module in primary_modules %}
-            <section
+<div class="topic-modules">
+    <ol class="list-unstyled d-flex flex-column gap-3" data-topic-modules>
+        {% for module in modules %}
+            <li
                 class="topic-module-wrapper"
                 data-module="{{ module.module_key }}"
-                data-base-module="{{ module.base_module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module|module_display_order }}"
-                data-has-content="{{ module.has_content|yesno:'true,false' }}"
-                {% if module.base_module_key|is_reorderable_module %}data-layout-reorderable="true"{% endif %}
-            >
-                {% render_topic_module module %}
-            </section>
-        {% endfor %}
-
-    </div>
-
-    <div class="col-12 col-lg-4 d-flex flex-column gap-3" data-layout-column="sidebar">
-
-        {% for module in sidebar_modules %}
-            <section
-                class="topic-module-wrapper"
-                data-module="{{ module.module_key }}"
-                data-base-module="{{ module.base_module_key }}"
-                data-placement="{{ module.placement }}"
-                data-display-order="{{ module|module_display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}
-            </section>
+            </li>
         {% endfor %}
-
-    </div>
-
+    </ol>
 </div>
 {% include "topics/images/confirm_delete.html" %}
 {% include "topics/text/confirm_delete.html" %}

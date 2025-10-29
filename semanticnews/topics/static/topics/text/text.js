@@ -5,10 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!topicUuid) return;
 
   const apiBase = '/api/topics/text';
-  const layoutRoot = document.querySelector('[data-topic-layout]');
-  const moduleList = layoutRoot
-    ? layoutRoot.querySelector('[data-layout-list]')
-    : null;
+  const moduleList = document.querySelector('[data-topic-modules]');
   const cardTemplate = document.querySelector('template[data-text-card-template]');
 
   const getCsrfToken = () => {
@@ -265,14 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCard(card);
   });
 
-  const renumberModules = () => {
-    if (!moduleList) return;
-    const modules = moduleList.querySelectorAll('[data-layout-reorderable="true"]');
-    modules.forEach((moduleEl, index) => {
-      moduleEl.dataset.displayOrder = String(index);
-    });
-  };
-
   const focusEditor = (card) => {
     if (!card) return;
     const textarea = card.querySelector('[data-text-editor]');
@@ -295,16 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!moduleEl || !card) return null;
 
     const moduleKey = data.module_key || 'text:' + data.id;
-    const placement = data.placement || 'primary';
-    const displayOrder = typeof data.display_order === 'number'
-      ? data.display_order
-      : Number.MAX_SAFE_INTEGER;
     const content = data.content || '';
 
     moduleEl.dataset.module = moduleKey;
-    moduleEl.dataset.baseModule = 'text';
-    moduleEl.dataset.placement = placement;
-    moduleEl.dataset.displayOrder = String(displayOrder);
     moduleEl.dataset.hasContent = content.trim() ? 'true' : 'false';
 
     const deleteBtn = moduleEl.querySelector('[data-action="delete-text"]');
@@ -329,24 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const insertModule = (moduleEl, data) => {
     if (!moduleList) return;
-    const displayOrder = typeof data.display_order === 'number'
-      ? data.display_order
-      : Number.MAX_SAFE_INTEGER;
-    const reorderable = Array.from(moduleList.querySelectorAll('[data-layout-reorderable="true"]'));
-    const insertBeforeTarget = reorderable.find((el) => {
-      const currentOrder = Number.parseInt(el.dataset.displayOrder || '0', 10);
-      return Number.isFinite(currentOrder) && currentOrder > displayOrder;
-    });
-    if (insertBeforeTarget) {
-      moduleList.insertBefore(moduleEl, insertBeforeTarget);
-    } else {
-      moduleList.appendChild(moduleEl);
-    }
-    renumberModules();
-    if (layoutRoot) {
-      layoutRoot.dispatchEvent(new CustomEvent('topicLayout:addModule', { detail: moduleEl }));
-      layoutRoot.dispatchEvent(new CustomEvent('topicLayout:save'));
-    }
+    moduleList.appendChild(moduleEl);
     document.dispatchEvent(new CustomEvent('topic:changed'));
   };
 
