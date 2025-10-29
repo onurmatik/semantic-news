@@ -13,7 +13,6 @@ from slugify import slugify
 from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
-from ..widgets.recaps.models import TopicRecap
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
 from ..widgets.webcontent.models import TopicDocument, TopicWebpage
@@ -53,8 +52,6 @@ class TopicModuleLayout(models.Model):
 
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    title = models.CharField(max_length=200, blank=True, null=True)
-    slug = models.SlugField(max_length=200, blank=True, null=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
     status = models.CharField(max_length=20, db_index=True, choices=(
         ('removed', 'Removed'),
@@ -96,9 +93,6 @@ class Topic(models.Model):
         return f"{self.title or 'Topic'}"
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['slug', 'created_by'], name='unique_topic_title_user')
-        ]
         indexes = [
             HnswIndex(
                 name='topic_embedding_hnsw',
@@ -520,16 +514,6 @@ class Topic(models.Model):
                 source=relation.source,
             )
 
-        for tc in TopicContent.objects.filter(topic=self):
-            TopicContent.objects.create(
-                topic=cloned,
-                content=tc.content,
-                role=tc.role,
-                source=tc.source,
-                relevance=tc.relevance,
-                created_by=user,
-            )
-
         for recap in self.recaps.filter(is_deleted=False):
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
@@ -589,6 +573,42 @@ class Topic(models.Model):
             )
 
         return cloned
+
+
+#
+# Topic content required for publishing: Title, recap
+#
+
+class TopicTitle(models.Model):
+    topic = models.ForeignKey(Topic, related_name='titles', on_delete=models.CASCADE)
+
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=500, blank=True, null=True)
+
+    slug = models.SlugField(max_length=200, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['slug', 'topic'], name='unique_topic_title_slug')
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class TopicRecap(models.Model):
+    topic = models.ForeignKey(Topic, related_name='recaps', on_delete=models.CASCADE)
+
+    recap = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    def __str__(self):
+        return f"Recap for {self.topic}"
 
 
 #
