@@ -133,7 +133,7 @@
                 data-module="{{ module.module_key }}"
                 data-base-module="{{ module.base_module_key }}"
                 data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
+                data-display-order="{{ module|module_display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
                 {% if module.base_module_key|is_reorderable_module %}data-layout-reorderable="true"{% endif %}
             >
@@ -151,7 +151,7 @@
                 data-module="{{ module.module_key }}"
                 data-base-module="{{ module.base_module_key }}"
                 data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
+                data-display-order="{{ module|module_display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}

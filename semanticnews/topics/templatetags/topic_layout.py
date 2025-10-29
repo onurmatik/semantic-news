@@ -56,3 +56,28 @@ def is_sidebar_fixed_module(base_module_key):
     """Return ``True`` for fixed sidebar modules."""
 
     return _normalize_base_key(base_module_key) in SIDEBAR_FIXED_BASE_MODULES
+
+
+@register.filter
+def module_display_order(module):
+    """Return the display order for a rendered module descriptor."""
+
+    if isinstance(module, dict):
+        for key in ("text", "data", "visualization"):
+            value = module.get(key)
+            order = getattr(value, "display_order", None)
+            if order is not None:
+                return order
+
+        overrides = module.get("context_overrides")
+        if isinstance(overrides, dict):
+            data_value = overrides.get("data")
+            order = getattr(data_value, "display_order", None)
+            if order is not None:
+                return order
+
+        fallback = module.get("display_order")
+        if fallback is not None:
+            return fallback
+
+    return 0
