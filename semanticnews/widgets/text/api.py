@@ -21,9 +21,6 @@ router = Router()
 
 logger = logging.getLogger(__name__)
 
-PLACEMENT_PRIMARY = "primary"
-
-
 class TopicTextCreateRequest(Schema):
     topic_uuid: str
     content: Optional[str] = ""
@@ -39,7 +36,6 @@ class TopicTextResponse(Schema):
     created_at: datetime
     updated_at: datetime
     module_key: str
-    placement: str
     display_order: int
 
 
@@ -96,7 +92,6 @@ def _serialize_text(text: TopicText) -> TopicTextResponse:
         created_at=make_naive(text.created_at),
         updated_at=make_naive(text.updated_at),
         module_key=module_key,
-        placement=PLACEMENT_PRIMARY,
         display_order=text.display_order,
     )
 
