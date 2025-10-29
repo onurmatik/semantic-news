@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const apiBase = '/api/topics/text';
   const widgetList = document.querySelector('[data-topic-primary-widgets]');
   const cardTemplate = document.querySelector('template[data-text-card-template]');
+  const reorderState = { pending: false };
 
   const getCsrfToken = () => {
     const name = 'csrftoken=';
@@ -262,6 +263,122 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCard(card);
   });
 
+  const getTextEntries = () => {
+    if (!widgetList) return [];
+    return Array.from(widgetList.querySelectorAll('[data-topic-widget-entry]'))
+      .filter((entry) => entry.dataset && entry.dataset.topicWidget === 'text');
+  };
+
+  const updateMoveButtonStates = () => {
+    const entries = getTextEntries();
+    const lastIndex = entries.length - 1;
+    entries.forEach((entry, index) => {
+      const upButton = entry.querySelector('[data-action="move-text-up"]');
+      const downButton = entry.querySelector('[data-action="move-text-down"]');
+      const disableUp = reorderState.pending || index <= 0;
+      const disableDown = reorderState.pending || index >= lastIndex;
+      if (upButton) {
+        upButton.disabled = disableUp;
+        if (disableUp) {
+          upButton.setAttribute('aria-disabled', 'true');
+        } else {
+          upButton.removeAttribute('aria-disabled');
+        }
+      }
+      if (downButton) {
+        downButton.disabled = disableDown;
+        if (disableDown) {
+          downButton.setAttribute('aria-disabled', 'true');
+        } else {
+          downButton.removeAttribute('aria-disabled');
+        }
+      }
+    });
+  };
+
+  const captureWidgetOrder = () => {
+    if (!widgetList) return [];
+    return Array.from(widgetList.children);
+  };
+
+  const restoreWidgetOrder = (snapshot) => {
+    if (!widgetList || !Array.isArray(snapshot)) return;
+    snapshot.forEach((node) => {
+      if (node && node.parentNode === widgetList) {
+        widgetList.appendChild(node);
+      }
+    });
+  };
+
+  const persistTextOrder = async () => {
+    if (!widgetList) return;
+    const entries = getTextEntries();
+    if (!entries.length) return;
+
+    const items = [];
+    let missingId = false;
+
+    entries.forEach((entry, index) => {
+      const card = entry.querySelector('[data-text-card]');
+      const textId = card && card.dataset ? card.dataset.textId : null;
+      const numericId = textId ? parseInt(textId, 10) : NaN;
+      if (!numericId || Number.isNaN(numericId)) {
+        missingId = true;
+        return;
+      }
+      items.push({ id: numericId, display_order: index });
+    });
+
+    if (missingId || !items.length) {
+      throw new Error('Unable to determine text card identifiers');
+    }
+
+    const res = await fetch(apiBase + '/reorder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify({
+        topic_uuid: topicUuid,
+        items,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to reorder text cards');
+    }
+  };
+
+  const moveEntry = (entry, direction) => {
+    if (!widgetList || !entry) return false;
+    const entries = getTextEntries();
+    const index = entries.indexOf(entry);
+    if (index === -1) {
+      return false;
+    }
+
+    if (direction === 'up' && index > 0) {
+      const previousEntry = entries[index - 1];
+      if (previousEntry) {
+        widgetList.insertBefore(entry, previousEntry);
+        return true;
+      }
+    }
+
+    if (direction === 'down' && index < entries.length - 1) {
+      const nextEntry = entries[index + 1];
+      if (nextEntry) {
+        widgetList.insertBefore(entry, nextEntry.nextSibling);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  updateMoveButtonStates();
+
   const focusEditor = (card) => {
     if (!card) return;
     const textarea = card.querySelector('[data-text-editor]');
@@ -313,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!widgetList) return;
     widgetList.appendChild(entryEl);
     document.dispatchEvent(new CustomEvent('topic:changed'));
+    updateMoveButtonStates();
   };
 
   document.querySelectorAll('[data-action="create-text"]').forEach((button) => {
@@ -353,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
           window.setTimeout(() => {
             focusEditor(card);
           }, 0);
+          updateMoveButtonStates();
         }
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -407,6 +526,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!(event.target instanceof Element)) {
       return;
     }
+
+    const moveButton = event.target.closest('[data-action="move-text-up"], [data-action="move-text-down"]');
+    if (moveButton) {
+      if (!widgetList) {
+        return;
+      }
+      event.preventDefault();
+      if (reorderState.pending) {
+        return;
+      }
+
+      const entry = moveButton.closest('[data-topic-widget-entry]');
+      if (!entry || entry.dataset.topicWidget !== 'text') {
+        return;
+      }
+
+      const direction = moveButton.matches('[data-action="move-text-up"]') ? 'up' : 'down';
+      const snapshot = captureWidgetOrder();
+      const moved = moveEntry(entry, direction);
+      if (!moved) {
+        updateMoveButtonStates();
+        return;
+      }
+
+      reorderState.pending = true;
+      updateMoveButtonStates();
+
+      persistTextOrder()
+        .then(() => {
+          document.dispatchEvent(new CustomEvent('topic:changed'));
+        })
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error(error);
+          restoreWidgetOrder(snapshot);
+          const card = entry.querySelector('[data-text-card]');
+          const errorEl = card ? card.querySelector('[data-text-error]') : null;
+          const message = card && card.dataset && card.dataset.reorderErrorMessage
+            ? card.dataset.reorderErrorMessage
+            : 'Unable to reorder text cards. Please try again.';
+          showError(errorEl, message, null);
+        })
+        .finally(() => {
+          reorderState.pending = false;
+          updateMoveButtonStates();
+          window.requestAnimationFrame(() => {
+            if (typeof moveButton.focus === 'function') {
+              moveButton.focus();
+            }
+          });
+        });
+      return;
+    }
+
     const deleteBtn = event.target.closest('[data-action="delete-text"]');
     if (!deleteBtn) return;
     event.preventDefault();

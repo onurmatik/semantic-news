@@ -6,6 +6,7 @@
     data-text-id="{{ text.id|default:'' }}"
     data-module-key="{{ module.module_key }}"
     {% if text %}data-text-raw="{{ text.content|default:''|escape }}"{% endif %}
+    {% if edit_mode %}data-reorder-error-message="{% trans 'Unable to reorder text cards. Please try again.' %}"{% endif %}
 >
     {% if edit_mode %}
         <div class="card-header d-flex flex-column gap-2">
@@ -32,6 +33,30 @@
                         >
                             {% trans "Saved" %}
                         </span>
+                    </div>
+                    <div class="btn-group" role="group" aria-label="{% trans 'Reorder text card' %}">
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-action="move-text-up"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Move text card up' %}"
+                            aria-label="{% trans 'Move text card up' %}"
+                        >
+                            <i class="bi bi-arrow-up" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Move up" %}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-action="move-text-down"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Move text card down' %}"
+                            aria-label="{% trans 'Move text card down' %}"
+                        >
+                            <i class="bi bi-arrow-down" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Move down" %}</span>
+                        </button>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <button
