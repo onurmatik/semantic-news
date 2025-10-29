@@ -23,59 +23,91 @@
       return;
     }
 
+    const widgetList = document.querySelector('[data-topic-primary-widgets]');
+    if (!widgetList) {
+      return;
+    }
+
     const panelMap = new Map();
+    const entryMap = new Map();
+
     panels.forEach((panel) => {
       const key = panel.dataset.contentEditor;
-      if (key) {
-        panelMap.set(key, panel);
+      if (!key) {
+        return;
       }
+      panelMap.set(key, panel);
+      panel.classList.add('d-none');
     });
 
-    const hidePanel = (panel) => {
+    const createEntryForPanel = (panel) => {
       if (!panel) return;
-      if (panel.classList.contains('d-none')) {
-        return;
-      }
-      panel.classList.add('d-none');
-      panel.dispatchEvent(new CustomEvent('content-toolbar:hide', { bubbles: true }));
-    };
-
-    const showPanel = (panel) => {
-      if (!panel) return;
-      if (!panel.classList.contains('d-none')) {
-        return;
-      }
-      panels.forEach((other) => {
-        if (other !== panel) {
-          hidePanel(other);
+      if (entryMap.has(panel)) {
+        const existingEntry = entryMap.get(panel);
+        if (existingEntry && typeof existingEntry.scrollIntoView === 'function') {
+          existingEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      });
+        panel.dispatchEvent(new CustomEvent('content-toolbar:show', { bubbles: true }));
+        return;
+      }
+
+      const entry = document.createElement('div');
+      entry.className = 'topic-widget-entry';
+      entry.dataset.topicWidgetEntry = '';
+      entry.dataset.topicWidget = panel.dataset.contentEditor || '';
+      entry.dataset.topicWidgetKey = '';
+
       panel.classList.remove('d-none');
+      entry.appendChild(panel);
+      widgetList.appendChild(entry);
+      entryMap.set(panel, entry);
+
       panel.dispatchEvent(new CustomEvent('content-toolbar:show', { bubbles: true }));
+
+      if (typeof entry.scrollIntoView === 'function') {
+        entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     };
 
-    const togglePanel = (key) => {
-      if (!key) return;
-      const panel = panelMap.get(key);
+    const dismissPanel = (panel) => {
       if (!panel) return;
-      if (panel.classList.contains('d-none')) {
-        showPanel(panel);
-      } else {
-        hidePanel(panel);
+      const entry = entryMap.get(panel);
+      if (!entry) {
+        return;
       }
+      panel.dispatchEvent(new CustomEvent('content-toolbar:hide', { bubbles: true }));
+      panel.classList.add('d-none');
+      panelsContainer.appendChild(panel);
+      entry.remove();
+      entryMap.delete(panel);
     };
 
     toolbar.addEventListener('click', (event) => {
       const button = event.target.closest('[data-toolbar-button]');
       if (button) {
-        event.preventDefault();
-        togglePanel(button.dataset.toolbarButton);
+        const key = button.dataset.toolbarButton;
+        if (key && panelMap.has(key)) {
+          event.preventDefault();
+          createEntryForPanel(panelMap.get(key));
+        }
       }
+    });
+
+    document.addEventListener('click', (event) => {
       const dismiss = event.target.closest('[data-toolbar-dismiss]');
-      if (dismiss) {
-        event.preventDefault();
-        togglePanel(dismiss.dataset.toolbarDismiss);
+      if (!dismiss) {
+        return;
       }
+      const key = dismiss.dataset.toolbarDismiss;
+      if (!key) {
+        return;
+      }
+      const panel = panelMap.get(key);
+      if (!panel) {
+        return;
+      }
+      event.preventDefault();
+      dismissPanel(panel);
     });
   });
 }());
