@@ -6,8 +6,7 @@ from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from semanticnews.topics.models import Topic
-from .models import TopicRecap
+from ..models import Topic, TopicRecap
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 

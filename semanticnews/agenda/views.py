@@ -15,7 +15,7 @@ from semanticnews.agenda.localities import (
 from .models import Event, Category, Source
 from semanticnews.topics.models import Topic
 from semanticnews.widgets.data.models import TopicDataVisualization
-from semanticnews.widgets.recaps.models import TopicRecap
+from semanticnews.topics.models import TopicRecap
 
 
 DISTANCE_THRESHOLD = 1

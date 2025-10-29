@@ -608,12 +608,25 @@ class TopicTitle(models.Model):
 
 
 class TopicRecap(models.Model):
-    topic = models.ForeignKey(Topic, related_name='recaps', on_delete=models.CASCADE)
+    topic = models.ForeignKey(Topic, related_name="recaps", on_delete=models.CASCADE)
 
     recap = models.TextField()
 
     created_at = models.DateTimeField(auto_now_add=True)
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    is_deleted = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("in_progress", "In progress"),
+            ("finished", "Finished"),
+            ("error", "Error"),
+        ],
+        default="in_progress",
+    )
+    error_message = models.TextField(blank=True, null=True)
+    error_code = models.CharField(blank=True, null=True, max_length=20)
 
     def __str__(self):
         return f"Recap for {self.topic}"

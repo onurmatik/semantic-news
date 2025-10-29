@@ -6,8 +6,7 @@ class TopicsConfig(AppConfig):
     name = 'semanticnews.topics'
 
     def ready(self):
-        # Ensure submodule models are imported so Django sees them for migrations.
-        # from semanticnews.widgets.recaps import models  # noqa: F401
+        # Ensure widget models are imported so Django sees them for migrations.
         from semanticnews.widgets.images import models  # noqa: F401
         from semanticnews.widgets.arguments import models  # noqa: F401
         from semanticnews.widgets.webcontent import models  # noqa: F401

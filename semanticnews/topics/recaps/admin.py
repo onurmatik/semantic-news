@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import TopicRecap
+from ..models import TopicRecap
 
 
 @admin.register(TopicRecap)
