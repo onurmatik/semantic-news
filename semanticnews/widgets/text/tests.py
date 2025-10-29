@@ -4,10 +4,11 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from semanticnews.topics.layouts import PLACEMENT_PRIMARY
 from semanticnews.topics.models import Topic
 from semanticnews.prompting import get_default_language_instruction
 from .models import TopicText
+
+PLACEMENT_PRIMARY = "primary"
 
 
 class TopicTextAPITests(TestCase):

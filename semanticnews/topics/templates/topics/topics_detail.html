@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% load static i18n humanize markdown_extras topic_layout %}
+{% load static i18n humanize markdown_extras %}
 
 {% block title %}{{ topic.display_title }}{% endblock %}
 
@@ -154,18 +154,42 @@
 
 </div>
 
-<div class="topic-modules">
-    <ol class="list-unstyled d-flex flex-column gap-4" data-topic-modules>
-        {% for module in modules %}
-            <li
-                class="topic-module-wrapper"
-                data-module="{{ module.module_key }}"
-                data-has-content="{{ module.has_content|yesno:'true,false' }}"
-            >
-                {% render_topic_module module %}
-            </li>
-        {% endfor %}
-    </ol>
+<div class="row g-4" data-topic-columns>
+    <div class="col-lg-8 col-xl-9">
+        <div class="d-flex flex-column gap-4" data-topic-primary-column>
+            {% include "topics/images/hero.html" %}
+            {% include "topics/recaps/card.html" with edit_mode=False %}
+            <div class="d-flex flex-column gap-4" data-topic-primary-widgets>
+                {% for widget in primary_widgets %}
+                    <div
+                        class="topic-widget-entry"
+                        data-topic-widget-entry
+                        data-topic-widget="{{ widget.kind }}"
+                        data-topic-widget-key="{{ widget.key }}"
+                    >
+                        {% if widget.kind == 'text' %}
+                            {% include "topics/text/card.html" with module=widget.module edit_mode=widget.edit_mode %}
+                        {% elif widget.kind == 'data' %}
+                            {% include "topics/data/card.html" with data=widget.data data_insights=data_insights show_data_insights=widget.show_data_insights edit_mode=widget.edit_mode %}
+                        {% elif widget.kind == 'data_visualization' %}
+                            {% include "topics/data/visualization_card.html" with module=widget.module edit_mode=widget.edit_mode %}
+                        {% elif widget.kind == 'embeds' %}
+                            {% include "topics/webcontent/embeds/card.html" with youtube_video=widget.youtube_video tweets=widget.tweets edit_mode=widget.edit_mode %}
+                        {% elif widget.kind == 'references' %}
+                            {% include "topics/webcontent/documents/card.html" with documents=widget.documents webpages=widget.webpages edit_mode=widget.edit_mode %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 col-xl-3">
+        <div class="d-flex flex-column gap-4" data-topic-sidebar>
+            {% include "topics/relations/card.html" with edit_mode=False %}
+            {% include "topics/related_topics/detail_card.html" with edit_mode=False %}
+            {% include "topics/timeline/related_events_card.html" with edit_mode=False %}
+        </div>
+    </div>
 </div>
 {% endblock %}
 
