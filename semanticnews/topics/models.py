@@ -89,6 +89,10 @@ class Topic(models.Model):
         blank=True,
     )
 
+    @cached_property
+    def title(self):
+        return self.titles.last()
+
     def __str__(self):
         return f"{self.title or 'Topic'}"
 
