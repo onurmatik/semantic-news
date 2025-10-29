@@ -97,6 +97,11 @@ class Topic(models.Model):
     def title_draft(self):
         return self.titles.filter(published_at__isnull=True).last()
 
+    @cached_property
+    def slug(self):
+        if self.title:
+            return self.title.slug
+
     def __str__(self):
         return f"{self.title or 'Topic'}"
 
