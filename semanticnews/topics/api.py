@@ -532,7 +532,7 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
 
     new_title = (payload.title or "").strip()
     topic.title = new_title or None
-    topic.save(update_fields=["title"])
+    topic.save()
 
     slug_value = topic.slug
     detail_url = None

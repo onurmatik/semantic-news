@@ -11,7 +11,7 @@ class TopicAdmin(admin.ModelAdmin):
     list_display = ('title', 'status', 'created_at', 'last_published_at')
     list_editable = ('status',)
     list_filter = ('status',)
-    search_fields = ('title',)
+    search_fields = ('titles__title',)
     actions = [
         'update_recap',
         'extract_entity_graph',
