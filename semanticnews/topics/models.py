@@ -91,7 +91,11 @@ class Topic(models.Model):
 
     @cached_property
     def title(self):
-        return self.titles.last()
+        return self.titles.exclude(published_at__isnull=True).last()
+
+    @cached_property
+    def title_draft(self):
+        return self.titles.filter(published_at__isnull=True).last()
 
     def __str__(self):
         return f"{self.title or 'Topic'}"
