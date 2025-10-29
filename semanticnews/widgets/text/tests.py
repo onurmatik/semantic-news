@@ -8,8 +8,6 @@ from semanticnews.topics.models import Topic
 from semanticnews.prompting import get_default_language_instruction
 from .models import TopicText
 
-PLACEMENT_PRIMARY = "primary"
-
 
 class TopicTextAPITests(TestCase):
     def setUp(self):
@@ -34,7 +32,6 @@ class TopicTextAPITests(TestCase):
         self.assertEqual(text.content, 'Hello world')
         self.assertEqual(text.display_order, 1)
         self.assertEqual(data['display_order'], 1)
-        self.assertEqual(data['placement'], PLACEMENT_PRIMARY)
 
     def test_delete_text_marks_record_deleted(self):
         text = TopicText.objects.create(topic=self.topic, content='To remove', status='finished')
