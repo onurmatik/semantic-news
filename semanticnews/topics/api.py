@@ -30,7 +30,6 @@ from .models import (
     RelatedEvent,
     Source,
 )
-from .publishing import publish_topic
 from .layouts import (
     ALLOWED_PLACEMENTS,
     MODULE_REGISTRY,
