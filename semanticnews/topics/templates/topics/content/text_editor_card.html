@@ -20,69 +20,71 @@
             data-module-key=""
             data-text-raw=""
         >
-            <div class="card-header d-flex align-items-center">
-                <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
-                <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-danger order-2"
-                        data-action="delete-text"
-                        data-text-id=""
-                    >
-                        <i class="bi bi-trash"></i>
-                        <span class="ms-1">{% trans "Remove" %}</span>
-                        <span class="visually-hidden">{% trans "Text" %}</span>
-                    </button>
+            <div class="card-header d-flex flex-column gap-3">
+                <div class="d-flex align-items-start gap-2">
+                    <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
+                    <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-danger order-2"
+                            data-action="delete-text"
+                            data-text-id=""
+                        >
+                            <i class="bi bi-trash"></i>
+                            <span class="ms-1">{% trans "Remove" %}</span>
+                            <span class="visually-hidden">{% trans "Text" %}</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-danger d-none mb-0" role="alert" data-text-error></div>
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-3">
+                    <div class="d-flex align-items-center gap-2 small text-secondary" data-text-status>
+                        <span class="spinner-border spinner-border-sm d-none" data-text-status-spinner aria-hidden="true"></span>
+                        <span
+                            data-text-status-text
+                            data-saved-label="{% trans "Saved" %}"
+                            data-saving-label="{% trans "Saving…" %}"
+                            data-error-label="{% trans "Unable to save" %}"
+                            data-dirty-label="{% trans "Unsaved changes" %}"
+                            data-error-message="{% trans "Unable to save changes. Please try again." %}"
+                        >
+                            {% trans "Saved" %}
+                        </span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 ms-lg-auto">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="revise"
+                            data-loading-label="{% trans 'Revising…' %}"
+                        >
+                            {% trans "Revise" %}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="shorten"
+                            data-loading-label="{% trans 'Shortening…' %}"
+                        >
+                            {% trans "Shorten" %}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="expand"
+                            data-loading-label="{% trans 'Expanding…' %}"
+                        >
+                            {% trans "Expand" %}
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
-                <div class="alert alert-danger d-none" role="alert" data-text-error></div>
-                <div class="d-flex align-items-center gap-2 small text-secondary mb-3" data-text-status>
-                    <span class="spinner-border spinner-border-sm d-none" data-text-status-spinner aria-hidden="true"></span>
-                    <span
-                        data-text-status-text
-                        data-saved-label="{% trans "Saved" %}"
-                        data-saving-label="{% trans "Saving…" %}"
-                        data-error-label="{% trans "Unable to save" %}"
-                        data-dirty-label="{% trans "Unsaved changes" %}"
-                        data-error-message="{% trans "Unable to save changes. Please try again." %}"
-                    >
-                        {% trans "Saved" %}
-                    </span>
-                </div>
-                <div class="mb-3">
-                    <textarea
-                        class="form-control"
-                        data-text-editor
-                        rows="8"
-                    ></textarea>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        class="btn btn-outline-primary btn-sm"
-                        data-text-transform="revise"
-                        data-loading-label="{% trans 'Revising…' %}"
-                    >
-                        {% trans "Revise" %}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-primary btn-sm"
-                        data-text-transform="shorten"
-                        data-loading-label="{% trans 'Shortening…' %}"
-                    >
-                        {% trans "Shorten" %}
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-outline-primary btn-sm"
-                        data-text-transform="expand"
-                        data-loading-label="{% trans 'Expanding…' %}"
-                    >
-                        {% trans "Expand" %}
-                    </button>
-                </div>
+                <textarea
+                    class="form-control"
+                    data-text-editor
+                    rows="8"
+                ></textarea>
             </div>
         </div>
     </div>
