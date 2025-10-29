@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from typing import Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Literal, Set
 
-from .models import TopicModuleLayout
+Placement = Literal["primary", "sidebar"]
 
-REORDERABLE_BASE_MODULES = {"text", "data", "embeds"}
-PRIMARY_FIXED_BASE_MODULES = {"images", "recaps", "content_toolbar"}
-SIDEBAR_FIXED_BASE_MODULES = {"relations", "timeline", "related_topics"}
+PLACEMENT_PRIMARY: Placement = "primary"
+PLACEMENT_SIDEBAR: Placement = "sidebar"
 
-LayoutMode = Literal["detail", "edit"]
+REORDERABLE_BASE_MODULES = {"text", "data", "data_visualizations"}
+PRIMARY_FIXED_BASE_MODULES = {"images", "recaps", "content_toolbar", "relations"}
+SIDEBAR_FIXED_BASE_MODULES = {"timeline", "related_topics", "documents", "related_events"}
+
+DISPLAY_ORDER_SCALE = 1000
 
 
 def _topic_has_hero_image(context):
@@ -189,271 +191,242 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
 DEFAULT_LAYOUT: List[Dict[str, object]] = [
     {
         "module_key": "images",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 1,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 10,
     },
     {
         "module_key": "recaps",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 2,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 20,
     },
     {
         "module_key": "content_toolbar",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 3,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 30,
+    },
+    {
+        "module_key": "text",
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 40,
     },
     {
         "module_key": "data",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 4,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 50,
     },
     {
         "module_key": "data_visualizations",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 5,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 60,
     },
     {
         "module_key": "embeds",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 6,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 70,
     },
     {
         "module_key": "relations",
-        "placement": TopicModuleLayout.PLACEMENT_PRIMARY,
-        "display_order": 7,
+        "placement": PLACEMENT_PRIMARY,
+        "display_order": 80,
     },
     {
         "module_key": "related_topics",
-        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 11,
+        "placement": PLACEMENT_SIDEBAR,
+        "display_order": 10,
     },
     {
         "module_key": "related_events",
-        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 8,
+        "placement": PLACEMENT_SIDEBAR,
+        "display_order": 20,
     },
     {
         "module_key": "timeline",
-        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 9,
+        "placement": PLACEMENT_SIDEBAR,
+        "display_order": 30,
     },
     {
         "module_key": "documents",
-        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 10,
+        "placement": PLACEMENT_SIDEBAR,
+        "display_order": 40,
     },
 ]
 
 
-def _split_module_key(module_key: str) -> Tuple[str, Optional[str]]:
-    if ":" in module_key:
-        base, identifier = module_key.split(":", 1)
-        return base, identifier
-    return module_key, None
-
-
-def _normalize_layout(records: Iterable[TopicModuleLayout]) -> List[Dict[str, object]]:
-    """Convert ``TopicModuleLayout`` rows into plain dictionaries."""
-
-    layout: List[Dict[str, object]] = []
-    for record in records:
-        layout.append(
-            {
-                "module_key": record.module_key,
-                "placement": record.placement,
-                "display_order": record.display_order,
-            }
-        )
-    if not layout:
-        layout = deepcopy(DEFAULT_LAYOUT)
-    else:
-        existing_keys = {entry["module_key"] for entry in layout}
-        for default_entry in DEFAULT_LAYOUT:
-            if default_entry["module_key"] not in existing_keys:
-                layout.append(deepcopy(default_entry))
-    return layout
-
-
-def get_topic_layout(topic) -> List[Dict[str, object]]:
-    """Return the stored layout configuration for ``topic`` or defaults."""
-
-    return _normalize_layout(topic.module_layouts.all())
-
-
-def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, object]]]:
-    """Return ordered module descriptors grouped by placement for ``mode``."""
-
-    base_layout = get_topic_layout(topic)
-    placements: Dict[str, List[Dict[str, object]]] = {
-        TopicModuleLayout.PLACEMENT_PRIMARY: [],
-        TopicModuleLayout.PLACEMENT_SIDEBAR: [],
-    }
-
-    text_manager = getattr(topic, "texts", None)
-    if text_manager is not None:
-        text_values = list(text_manager.all())
-    else:
-        text_values = []
-    text_map = {str(text.id): text for text in text_values}
-
-    data_manager = getattr(topic, "datas", None)
-    if data_manager is not None:
-        data_values = list(data_manager.order_by("-created_at"))
-    else:
-        data_values = []
-    data_map = {str(data.id): data for data in data_values}
-
-    data_insight_manager = getattr(topic, "data_insights", None)
-    data_ids_with_insights: Set[str] = set()
-    has_unsourced_insight = False
-    if data_insight_manager is not None:
-        insight_qs = data_insight_manager.filter(is_deleted=False).prefetch_related(
-            "sources"
-        )
-        for insight in insight_qs:
-            sources = list(insight.sources.all())
-            if not sources:
-                has_unsourced_insight = True
-            for source in sources:
-                source_id = getattr(source, "id", None)
-                if source_id is not None:
-                    data_ids_with_insights.add(str(source_id))
-
-    visualization_manager = getattr(topic, "data_visualizations", None)
-    if visualization_manager is not None:
-        visualization_values = list(visualization_manager.order_by("-created_at"))
-    else:
-        visualization_values = []
-    visualization_map = {str(viz.id): viz for viz in visualization_values}
-
-    explicit_data_ids = {
-        identifier
-        for layout_entry in base_layout
-        for base_key, identifier in [_split_module_key(layout_entry["module_key"])]
-        if base_key == "data" and identifier
-    }
-    explicit_visualization_ids = {
-        identifier
-        for layout_entry in base_layout
-        for base_key, identifier in [_split_module_key(layout_entry["module_key"])]
-        if base_key == "data_visualizations" and identifier
-    }
-
-    unsourced_insights_assigned = False
-
-    for entry in base_layout:
-        module_key = entry["module_key"]
-        base_key, identifier = _split_module_key(module_key)
-        registry_entry = MODULE_REGISTRY.get(base_key)
-        if not registry_entry:
-            continue
-        templates = registry_entry.get("templates", {})
-        template_config = templates.get(mode)
-        if not template_config:
-            continue
-
-        if base_key == "data" and not identifier:
-            placement = entry["placement"]
-            base_display_order = entry["display_order"]
-            base_context_overrides = dict(template_config.get("context", {}))
-            for offset, data_obj in enumerate(data_values):
-                data_identifier = str(data_obj.id)
-                if data_identifier in explicit_data_ids:
-                    continue
-                explicit_data_ids.add(data_identifier)
-                context_overrides = dict(base_context_overrides)
-                should_show_insights = data_identifier in data_ids_with_insights
-                if (
-                    not should_show_insights
-                    and has_unsourced_insight
-                    and not unsourced_insights_assigned
-                ):
-                    should_show_insights = True
-                    unsourced_insights_assigned = True
-                context_overrides["show_data_insights"] = should_show_insights
-                context_overrides["data"] = data_obj
-                descriptor = {
-                    "module_key": f"{base_key}:{data_identifier}",
-                    "base_module_key": base_key,
-                    "module_identifier": data_identifier,
-                    "placement": placement,
-                    "display_order": base_display_order + offset,
-                    "template_name": template_config.get("template"),
-                    "context_overrides": context_overrides,
-                    "context_keys": registry_entry.get("context_keys", []),
-                    "data": data_obj,
-                }
-                placements.setdefault(placement, []).append(descriptor)
-            continue
-
-        if base_key == "data_visualizations" and not identifier:
-            placement = entry["placement"]
-            base_display_order = entry["display_order"]
-            base_context_overrides = template_config.get("context", {})
-            for offset, viz in enumerate(visualization_values):
-                viz_identifier = str(viz.id)
-                if viz_identifier in explicit_visualization_ids:
-                    continue
-                explicit_visualization_ids.add(viz_identifier)
-                context_overrides = dict(base_context_overrides)
-                descriptor = {
-                    "module_key": f"{base_key}:{viz_identifier}",
-                    "base_module_key": base_key,
-                    "module_identifier": viz_identifier,
-                    "placement": placement,
-                    "display_order": base_display_order + offset,
-                    "template_name": template_config.get("template"),
-                    "context_overrides": context_overrides,
-                    "context_keys": registry_entry.get("context_keys", []),
-                    "visualization": viz,
-                }
-                placements.setdefault(placement, []).append(descriptor)
-            continue
-
-        placement = entry["placement"]
-        display_order = entry["display_order"]
-        context_overrides = dict(template_config.get("context", {}))
+def _build_text_descriptors(
+    template_config: Dict[str, object],
+    registry_entry: Dict[str, object],
+    placement: Placement,
+    base_display_order: int,
+    texts,
+) -> List[Dict[str, object]]:
+    descriptors: List[Dict[str, object]] = []
+    base_context_overrides = dict(template_config.get("context", {}))
+    for index, text_obj in enumerate(texts):
+        identifier = str(text_obj.id)
         descriptor = {
-            "module_key": module_key,
-            "base_module_key": base_key,
+            "module_key": f"text:{identifier}",
+            "base_module_key": "text",
             "module_identifier": identifier,
             "placement": placement,
-            "display_order": display_order,
+            "display_order": base_display_order + index,
+            "template_name": template_config.get("template"),
+            "context_overrides": dict(base_context_overrides),
+            "context_keys": registry_entry.get("context_keys", []),
+            "text": text_obj,
+        }
+        descriptors.append(descriptor)
+    return descriptors
+
+
+def _build_data_descriptors(
+    template_config: Dict[str, object],
+    registry_entry: Dict[str, object],
+    placement: Placement,
+    base_display_order: int,
+    data_values,
+    data_ids_with_insights: Set[str],
+    has_unsourced_insight: bool,
+) -> List[Dict[str, object]]:
+    descriptors: List[Dict[str, object]] = []
+    base_context_overrides = dict(template_config.get("context", {}))
+    unsourced_assigned = False
+    for index, data_obj in enumerate(data_values):
+        identifier = str(data_obj.id)
+        context_overrides = dict(base_context_overrides)
+        should_show_insights = identifier in data_ids_with_insights
+        if not should_show_insights and has_unsourced_insight and not unsourced_assigned:
+            should_show_insights = True
+            unsourced_assigned = True
+        context_overrides["show_data_insights"] = should_show_insights
+        context_overrides["data"] = data_obj
+        descriptor = {
+            "module_key": f"data:{identifier}",
+            "base_module_key": "data",
+            "module_identifier": identifier,
+            "placement": placement,
+            "display_order": base_display_order + index,
             "template_name": template_config.get("template"),
             "context_overrides": context_overrides,
             "context_keys": registry_entry.get("context_keys", []),
+            "data": data_obj,
         }
+        descriptors.append(descriptor)
+    return descriptors
 
-        if base_key == "text" and identifier:
-            descriptor["text"] = text_map.get(identifier)
 
-        if base_key == "data" and identifier:
-            data_obj = data_map.get(identifier)
-            if not data_obj:
-                placements.setdefault(entry["placement"], []).append(descriptor)
-                continue
-            explicit_data_ids.add(identifier)
-            descriptor["data"] = data_obj
-            descriptor["context_overrides"]["data"] = data_obj
-            data_identifier = identifier
-            should_show_insights = data_identifier in data_ids_with_insights
-            if (
-                not should_show_insights
-                and has_unsourced_insight
-                and not unsourced_insights_assigned
-            ):
-                should_show_insights = True
-                unsourced_insights_assigned = True
-            descriptor["context_overrides"]["show_data_insights"] = should_show_insights
+def _build_visualization_descriptors(
+    template_config: Dict[str, object],
+    registry_entry: Dict[str, object],
+    placement: Placement,
+    base_display_order: int,
+    visualizations,
+) -> List[Dict[str, object]]:
+    descriptors: List[Dict[str, object]] = []
+    base_context_overrides = dict(template_config.get("context", {}))
+    for index, visualization in enumerate(visualizations):
+        identifier = str(visualization.id)
+        descriptor = {
+            "module_key": f"data_visualizations:{identifier}",
+            "base_module_key": "data_visualizations",
+            "module_identifier": identifier,
+            "placement": placement,
+            "display_order": base_display_order + index,
+            "template_name": template_config.get("template"),
+            "context_overrides": dict(base_context_overrides),
+            "context_keys": registry_entry.get("context_keys", []),
+            "visualization": visualization,
+        }
+        descriptors.append(descriptor)
+    return descriptors
 
-        if base_key == "data_visualizations" and identifier:
-            viz = visualization_map.get(identifier)
-            if not viz:
-                continue
-            descriptor["visualization"] = viz
-            explicit_visualization_ids.add(identifier)
 
-        placements.setdefault(placement, []).append(descriptor)
+def get_layout_for_mode(topic, mode: Literal["detail", "edit"]) -> Dict[str, List[Dict[str, object]]]:
+    """Return ordered module descriptors grouped by placement for ``mode``."""
+
+    placements: Dict[str, List[Dict[str, object]]] = {
+        PLACEMENT_PRIMARY: [],
+        PLACEMENT_SIDEBAR: [],
+    }
+
+    text_values = list(
+        topic.texts.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    data_values = list(
+        topic.datas.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    visualization_values = list(
+        topic.data_visualizations.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    insight_qs = topic.data_insights.filter(is_deleted=False).prefetch_related("sources")
+
+    data_ids_with_insights: Set[str] = set()
+    has_unsourced_insight = False
+    for insight in insight_qs:
+        sources = list(insight.sources.all())
+        if not sources:
+            has_unsourced_insight = True
+        for source in sources:
+            source_id = getattr(source, "id", None)
+            if source_id is not None:
+                data_ids_with_insights.add(str(source_id))
+
+    for entry in DEFAULT_LAYOUT:
+        module_key = entry["module_key"]
+        placement = entry["placement"]
+        base_display_order = entry["display_order"] * DISPLAY_ORDER_SCALE
+        registry_entry = MODULE_REGISTRY.get(module_key)
+        if not registry_entry:
+            continue
+        template_config = registry_entry.get("templates", {}).get(mode)
+        if not template_config:
+            continue
+
+        if module_key == "text":
+            descriptors = _build_text_descriptors(
+                template_config,
+                registry_entry,
+                placement,
+                base_display_order,
+                text_values,
+            )
+            placements[placement].extend(descriptors)
+            continue
+
+        if module_key == "data":
+            descriptors = _build_data_descriptors(
+                template_config,
+                registry_entry,
+                placement,
+                base_display_order,
+                data_values,
+                data_ids_with_insights,
+                has_unsourced_insight,
+            )
+            placements[placement].extend(descriptors)
+            continue
+
+        if module_key == "data_visualizations":
+            descriptors = _build_visualization_descriptors(
+                template_config,
+                registry_entry,
+                placement,
+                base_display_order,
+                visualization_values,
+            )
+            placements[placement].extend(descriptors)
+            continue
+
+        descriptor = {
+            "module_key": module_key,
+            "base_module_key": module_key,
+            "module_identifier": None,
+            "placement": placement,
+            "display_order": base_display_order,
+            "template_name": template_config.get("template"),
+            "context_overrides": dict(template_config.get("context", {})),
+            "context_keys": registry_entry.get("context_keys", []),
+        }
+        placements[placement].append(descriptor)
 
     for modules in placements.values():
         modules.sort(key=lambda module: module["display_order"])
@@ -522,23 +495,3 @@ def annotate_module_content(modules: List[Dict[str, object]], context: Dict[str,
 
     for module in modules:
         module["has_content"] = _module_has_content(module, context)
-
-
-def serialize_layout(layout: Sequence[Dict[str, object]]) -> List[Dict[str, object]]:
-    """Return a JSON-serialisable copy of ``layout`` entries."""
-
-    return [
-        {
-            "module_key": entry["module_key"],
-            "placement": entry["placement"],
-            "display_order": entry["display_order"],
-        }
-        for entry in layout
-    ]
-
-
-ALLOWED_PLACEMENTS = {
-    TopicModuleLayout.PLACEMENT_PRIMARY,
-    TopicModuleLayout.PLACEMENT_SIDEBAR,
-}
-

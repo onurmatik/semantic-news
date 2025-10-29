@@ -10,7 +10,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import Field
 
-from semanticnews.topics.models import Topic, TopicModuleLayout
+from semanticnews.topics.models import Topic
 from .models import (
     TopicData,
     TopicDataInsight,
@@ -530,12 +530,18 @@ def save_data(request, payload: TopicDataSaveRequest):
         seen.add(url)
         unique_sources.append(url)
 
+    max_order = (
+        topic.datas.filter(is_deleted=False)
+        .aggregate(Max("display_order"))
+        .get("display_order__max")
+    )
     topic_data = TopicData.objects.create(
         topic=topic,
         name=payload.name,
         data={"headers": payload.headers, "rows": payload.rows},
         sources=unique_sources,
         explanation=payload.explanation,
+        display_order=(max_order or 0) + 1,
     )
 
     if matching_request and matching_request.saved_data_id is None:
@@ -668,51 +674,6 @@ def analyze_data(request, payload: TopicDataAnalyzeRequest):
     analysis_request.refresh_from_db()
 
     return _build_analysis_task_response(analysis_request)
-
-
-def _ensure_visualization_layout_entry(topic: Topic, visualization: TopicDataVisualization) -> None:
-    module_key = f"data_visualizations:{visualization.id}"
-    exists = TopicModuleLayout.objects.filter(topic=topic, module_key=module_key).exists()
-    if exists:
-        return
-
-    existing_layouts = list(
-        TopicModuleLayout.objects.filter(
-            topic=topic, module_key__startswith="data_visualizations:"
-        )
-    )
-    if existing_layouts:
-        placement = existing_layouts[0].placement
-        placement_orders = [
-            layout.display_order for layout in existing_layouts if layout.placement == placement
-        ]
-        max_order = max(placement_orders) if placement_orders else 0
-        display_order = max_order + 1
-    else:
-        aggregate_layout = (
-            TopicModuleLayout.objects.filter(topic=topic, module_key="data_visualizations")
-            .order_by("display_order", "id")
-            .first()
-        )
-        if aggregate_layout:
-            placement = aggregate_layout.placement
-            display_order = aggregate_layout.display_order
-        else:
-            placement = TopicModuleLayout.PLACEMENT_PRIMARY
-            max_order = (
-                TopicModuleLayout.objects.filter(topic=topic, placement=placement)
-                .aggregate(Max("display_order"))
-                .get("display_order__max")
-            )
-            display_order = (max_order or 0) + 1
-
-    TopicModuleLayout.objects.create(
-        topic=topic,
-        module_key=module_key,
-        placement=placement,
-        display_order=display_order,
-    )
-
 
 @router.delete("/request/{request_id}", response=TopicDataSaveResponse)
 def delete_data_request(request, request_id: int):
@@ -854,13 +815,18 @@ def visualize_data(request, payload: TopicDataVisualizeRequest):
                     insight_obj.sources.set(datas)
 
         with transaction.atomic():
+            max_order = (
+                topic.data_visualizations.filter(is_deleted=False)
+                .aggregate(Max("display_order"))
+                .get("display_order__max")
+            )
             visualization = TopicDataVisualization.objects.create(
                 topic=topic,
                 insight=insight_obj,
                 chart_type=chart_type,
                 chart_data=chart_data,
+                display_order=(max_order or 0) + 1,
             )
-            _ensure_visualization_layout_entry(topic, visualization)
 
             TopicDataVisualizationRequest.objects.filter(id=visualization_request.id).update(
                 saved_visualization=visualization,
@@ -939,15 +905,10 @@ def delete_visualization(request, visualization_id: int):
     if visualization.topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    module_key = f"data_visualizations:{visualization.id}"
     if visualization.is_deleted:
         return TopicDataSaveResponse(success=True)
 
     with transaction.atomic():
-        TopicModuleLayout.objects.filter(
-            topic=visualization.topic, module_key=module_key
-        ).delete()
-        visualization.delete()
         visualization.is_deleted = True
         visualization.save(update_fields=["is_deleted"])
 

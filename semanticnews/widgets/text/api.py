@@ -12,7 +12,8 @@ from ninja.errors import HttpError
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 
-from semanticnews.topics.models import Topic, TopicModuleLayout
+from semanticnews.topics.layouts import PLACEMENT_PRIMARY
+from semanticnews.topics.models import Topic
 from .models import TopicText
 
 router = Router()
@@ -23,7 +24,6 @@ logger = logging.getLogger(__name__)
 class TopicTextCreateRequest(Schema):
     topic_uuid: str
     content: Optional[str] = ""
-    placement: Optional[str] = None
 
 
 class TopicTextUpdateRequest(Schema):
@@ -71,63 +71,45 @@ def _get_owned_topic(request, topic_uuid: str) -> Topic:
     return topic
 
 
-def _serialize_text(text: TopicText, layout: Optional[TopicModuleLayout]) -> TopicTextResponse:
+def _serialize_text(text: TopicText) -> TopicTextResponse:
     module_key = f"text:{text.id}"
-    placement = layout.placement if layout else TopicModuleLayout.PLACEMENT_PRIMARY
-    display_order = layout.display_order if layout else 0
     return TopicTextResponse(
         id=text.id,
         content=text.content or "",
         created_at=make_naive(text.created_at),
         updated_at=make_naive(text.updated_at),
         module_key=module_key,
-        placement=placement,
-        display_order=display_order,
+        placement=PLACEMENT_PRIMARY,
+        display_order=text.display_order,
     )
 
 
 @router.get("/{topic_uuid}/list", response=TopicTextListResponse)
 def list_texts(request, topic_uuid: str):
     topic = _get_owned_topic(request, topic_uuid)
-    texts = list(topic.texts.filter(is_deleted=False).order_by("created_at"))
-    layouts = {
-        layout.module_key: layout
-        for layout in topic.module_layouts.filter(module_key__startswith="text:")
-    }
-    items = [
-        _serialize_text(text, layouts.get(f"text:{text.id}"))
-        for text in texts
-    ]
+    texts = list(
+        topic.texts.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    items = [_serialize_text(text) for text in texts]
     return TopicTextListResponse(total=len(items), items=items)
 
 
 @router.post("/create", response=TopicTextResponse)
 def create_text(request, payload: TopicTextCreateRequest):
     topic = _get_owned_topic(request, payload.topic_uuid)
-    placement = TopicModuleLayout.PLACEMENT_PRIMARY
     with transaction.atomic():
+        max_order = (
+            topic.texts.filter(is_deleted=False)
+            .aggregate(Max("display_order"))
+            .get("display_order__max")
+        )
         text = TopicText.objects.create(
             topic=topic,
             content=payload.content or "",
             status="finished",
+            display_order=(max_order or 0) + 1,
         )
-        module_key = f"text:{text.id}"
-        # Determine display order within placement
-        max_order = (
-            TopicModuleLayout.objects
-            .filter(topic=topic, placement=placement)
-            .aggregate(Max("display_order"))
-            .get("display_order__max")
-        )
-        display_order = (max_order or 0) + 1
-        TopicModuleLayout.objects.create(
-            topic=topic,
-            module_key=module_key,
-            placement=placement,
-            display_order=display_order,
-        )
-    layout = topic.module_layouts.get(module_key=module_key)
-    return _serialize_text(text, layout)
+    return _serialize_text(text)
 
 
 def _transform_text(request, payload: TopicTextTransformRequest, mode: str) -> TopicTextTransformResponse:
@@ -216,8 +198,7 @@ def update_text(request, text_id: int, payload: TopicTextUpdateRequest):
     text.error_message = None
     text.error_code = None
     text.save(update_fields=["content", "status", "error_message", "error_code", "updated_at"])
-    layout = text.topic.module_layouts.filter(module_key=f"text:{text.id}").first()
-    return _serialize_text(text, layout)
+    return _serialize_text(text)
 
 
 @router.delete("/{text_id}", response={204: None})
@@ -233,10 +214,7 @@ def delete_text(request, text_id: int):
         raise HttpError(403, "Forbidden")
     if text.is_deleted:
         return 204, None
-    topic = text.topic
-    module_key = f"text:{text.id}"
     with transaction.atomic():
-        TopicModuleLayout.objects.filter(topic=topic, module_key=module_key).delete()
         text.is_deleted = True
         text.save(update_fields=["is_deleted", "updated_at"])
     return 204, None

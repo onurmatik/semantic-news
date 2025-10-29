@@ -19,13 +19,17 @@ from semanticnews.agenda.localities import (
 
 from .models import (
     Topic,
-    TopicModuleLayout,
     RelatedTopic,
     RelatedEntity,
     RelatedEvent,
     Source,
 )
-from .layouts import annotate_module_content, get_layout_for_mode
+from .layouts import (
+    PLACEMENT_PRIMARY,
+    PLACEMENT_SIDEBAR,
+    annotate_module_content,
+    get_layout_for_mode,
+)
 from semanticnews.widgets.data.models import TopicDataVisualization
 from semanticnews.widgets.mcps.models import MCPServer
 
@@ -70,8 +74,8 @@ def _render_topic_detail(request, topic):
     if topic.status == "published":
         context = _build_topic_module_context(topic, request.user)
         layout = get_layout_for_mode(topic, mode="detail")
-        primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-        sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+        primary_modules = layout.get(PLACEMENT_PRIMARY, [])
+        sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
         annotate_module_content(primary_modules, context)
         annotate_module_content(sidebar_modules, context)
         primary_modules = _filter_empty_related_topic_modules(primary_modules)
@@ -171,7 +175,6 @@ def topics_detail(request, slug, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
-            "module_layouts",
             Prefetch(
                 "topic_related_topics",
                 queryset=RelatedTopic.objects.select_related(
@@ -388,7 +391,6 @@ def topics_detail_edit(request, topic_uuid, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
-            "module_layouts",
             Prefetch(
                 "topic_related_topics",
                 queryset=RelatedTopic.objects.select_related(
@@ -408,15 +410,10 @@ def topics_detail_edit(request, topic_uuid, username):
     mcp_servers = MCPServer.objects.filter(active=True)
 
     layout = get_layout_for_mode(topic, mode="edit")
-    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+    primary_modules = layout.get(PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
 
-    context.update(
-        {
-            "mcp_servers": mcp_servers,
-            "layout_update_url": f"/api/topics/{topic.uuid}/layout",
-        }
-    )
+    context["mcp_servers"] = mcp_servers
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)
@@ -451,7 +448,6 @@ def topics_detail_preview(request, topic_uuid, username):
             "datas",
             "data_insights__sources",
             "data_visualizations__insight",
-            "module_layouts",
         ),
         uuid=topic_uuid,
         created_by__username=username,
@@ -463,8 +459,8 @@ def topics_detail_preview(request, topic_uuid, username):
     context = _build_topic_module_context(topic)
 
     layout = get_layout_for_mode(topic, mode="detail")
-    primary_modules = layout.get(TopicModuleLayout.PLACEMENT_PRIMARY, [])
-    sidebar_modules = layout.get(TopicModuleLayout.PLACEMENT_SIDEBAR, [])
+    primary_modules = layout.get(PLACEMENT_PRIMARY, [])
+    sidebar_modules = layout.get(PLACEMENT_SIDEBAR, [])
 
     annotate_module_content(primary_modules, context)
     annotate_module_content(sidebar_modules, context)

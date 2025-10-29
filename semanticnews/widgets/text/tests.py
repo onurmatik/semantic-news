@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from semanticnews.topics.models import Topic, TopicModuleLayout
+from semanticnews.topics.layouts import PLACEMENT_PRIMARY
+from semanticnews.topics.models import Topic
 from semanticnews.prompting import get_default_language_instruction
 from .models import TopicText
 
@@ -19,7 +20,7 @@ class TopicTextAPITests(TestCase):
     def _post_json(self, url, payload):
         return self.client.post(url, data=json.dumps(payload), content_type='application/json')
 
-    def test_create_text_creates_layout_entry(self):
+    def test_create_text_assigns_display_order(self):
         response = self._post_json(
             '/api/topics/text/create',
             {'topic_uuid': str(self.topic.uuid), 'content': 'Hello world'},
@@ -30,27 +31,17 @@ class TopicTextAPITests(TestCase):
 
         text = TopicText.objects.get(id=text_id)
         self.assertEqual(text.content, 'Hello world')
+        self.assertEqual(text.display_order, 1)
+        self.assertEqual(data['display_order'], 1)
+        self.assertEqual(data['placement'], PLACEMENT_PRIMARY)
 
-        layout_key = f'text:{text_id}'
-        self.assertTrue(
-            TopicModuleLayout.objects.filter(topic=self.topic, module_key=layout_key).exists()
-        )
-
-    def test_delete_text_removes_layout_entry(self):
+    def test_delete_text_marks_record_deleted(self):
         text = TopicText.objects.create(topic=self.topic, content='To remove', status='finished')
-        TopicModuleLayout.objects.create(
-            topic=self.topic,
-            module_key=f'text:{text.id}',
-            placement=TopicModuleLayout.PLACEMENT_PRIMARY,
-            display_order=1,
-        )
 
         response = self.client.delete(f'/api/topics/text/{text.id}')
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(TopicText.objects.filter(id=text.id).exists())
-        self.assertFalse(
-            TopicModuleLayout.objects.filter(topic=self.topic, module_key=f'text:{text.id}').exists()
-        )
+        text.refresh_from_db()
+        self.assertTrue(text.is_deleted)
 
     @patch('semanticnews.widgets.text.api.OpenAI')
     def test_revise_text_returns_transformed_content(self, mock_openai):
