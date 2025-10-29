@@ -3,20 +3,12 @@ from django.test import TestCase
 
 from semanticnews.topics.models import Topic
 
-from .models import TopicWidget, WidgetPlacement, WidgetType
+from .models import TopicWidget, WidgetType
 
 
 class TopicWidgetModelTests(TestCase):
     def setUp(self):
         self.topic = Topic.objects.create(title="")
-
-    def test_default_placement_is_applied(self):
-        widget = TopicWidget.objects.create(
-            topic=self.topic,
-            widget_type=WidgetType.TITLE,
-            language_code="en",
-        )
-        self.assertEqual(widget.placement, WidgetPlacement.CONTENT)
 
     def test_singleton_enforced_per_language(self):
         TopicWidget.objects.create(
