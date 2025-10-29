@@ -371,6 +371,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmBtn = document.getElementById('confirmDeleteTextBtn');
   const confirmSpinner = document.getElementById('confirmDeleteTextSpinner');
 
+  const performDeleteRequest = (textId) => fetch(apiBase + '/' + textId, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+    },
+  }).then((res) => {
+    if (!res.ok && res.status !== 204) {
+      throw new Error('Failed to delete text');
+    }
+    window.location.reload();
+  });
+
+  const cardHasContent = (card) => {
+    if (!card) return false;
+    const valuesToCheck = [];
+
+    const textarea = card.querySelector('[data-text-editor]');
+    if (textarea) {
+      if (textarea._easyMDE && typeof textarea._easyMDE.value === 'function') { // eslint-disable-line no-underscore-dangle
+        valuesToCheck.push(textarea._easyMDE.value());
+      } else if (typeof textarea.value === 'string') {
+        valuesToCheck.push(textarea.value);
+      }
+    }
+
+    if (card.dataset && typeof card.dataset.textRaw === 'string') {
+      valuesToCheck.push(card.dataset.textRaw);
+    }
+
+    return valuesToCheck.some((value) => normalize(value || '').trim().length > 0);
+  };
+
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) {
       return;
@@ -379,6 +411,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!deleteBtn) return;
     event.preventDefault();
     const textId = deleteBtn.getAttribute('data-text-id');
+    if (!textId) {
+      return;
+    }
+
+    const card = deleteBtn.closest('[data-text-card]');
+    if (card && !cardHasContent(card)) {
+      deleteBtn.disabled = true;
+      deleteBtn.setAttribute('aria-busy', 'true');
+      performDeleteRequest(textId)
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error(error);
+          deleteBtn.disabled = false;
+          deleteBtn.removeAttribute('aria-busy');
+        });
+      return;
+    }
+
     if (confirmBtn) {
       confirmBtn.setAttribute('data-text-id', textId || '');
     }
@@ -405,18 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
 
-      fetch(apiBase + '/' + textId, {
-        method: 'DELETE',
-        headers: {
-          'X-CSRFToken': getCsrfToken()
-        }
-      })
-        .then((res) => {
-          if (!res.ok && res.status !== 204) {
-            throw new Error('Failed to delete text');
-          }
-          window.location.reload();
-        })
+      performDeleteRequest(textId)
         .catch((error) => {
           // eslint-disable-next-line no-console
           console.error(error);
