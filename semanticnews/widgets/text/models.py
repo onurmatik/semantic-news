@@ -7,6 +7,11 @@ class TopicText(models.Model):
         on_delete=models.CASCADE,
         related_name='texts',
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     content = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -26,7 +31,7 @@ class TopicText(models.Model):
 
     class Meta:
         app_label = 'topics'
-        ordering = ['created_at']
+        ordering = ['display_order', 'created_at']
 
     def __str__(self):
         return f"Text block for {self.topic}" if self.topic_id else "Text block"

@@ -15,6 +15,11 @@ class TopicDocument(models.Model):
         on_delete=models.CASCADE,
         related_name='documents',
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     title = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=1000)
     description = models.TextField(blank=True)
@@ -60,10 +65,11 @@ class TopicDocument(models.Model):
         app_label = 'topics'
         verbose_name = 'Document'
         verbose_name_plural = 'Documents'
-        ordering = ['-created_at']
+        ordering = ['display_order', '-created_at']
         indexes = [
             models.Index(fields=['topic']),
             models.Index(fields=['document_type']),
+            models.Index(fields=['display_order']),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial string representation
@@ -105,6 +111,11 @@ class TopicWebpage(models.Model):
         on_delete=models.CASCADE,
         related_name='webpages',
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     title = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=1000)
     description = models.TextField(blank=True)
@@ -123,10 +134,11 @@ class TopicWebpage(models.Model):
         app_label = 'topics'
         verbose_name = 'Webpage'
         verbose_name_plural = 'Webpages'
-        ordering = ['-created_at']
+        ordering = ['display_order', '-created_at']
         indexes = [
             models.Index(fields=['topic']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['display_order']),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial string representation
@@ -143,6 +155,11 @@ class TopicTweet(models.Model):
     topic = models.ForeignKey(
         'topics.Topic', on_delete=models.CASCADE, related_name='tweets'
     )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     tweet_id = models.CharField(max_length=50, db_index=True)
     url = models.URLField()
     html = models.TextField()
@@ -152,7 +169,7 @@ class TopicTweet(models.Model):
 
     class Meta:
         app_label = 'topics'
-        ordering = ('-created_at',)
+        ordering = ('display_order', '-created_at')
         constraints = [
             models.UniqueConstraint(
                 fields=("topic", "tweet_id"), name="unique_topic_tweet"
@@ -167,6 +184,11 @@ class TopicYoutubeVideo(models.Model):
     """Embedded YouTube video linked to a topic."""
 
     topic = models.ForeignKey('topics.Topic', on_delete=models.CASCADE, related_name='youtube_videos')
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Ordering position within the topic's content column.",
+    )
     url = models.URLField(blank=True, null=True)
     video_id = models.CharField(max_length=50, unique=True, db_index=True)
     title = models.CharField(max_length=200)
@@ -192,6 +214,7 @@ class TopicYoutubeVideo(models.Model):
 
     class Meta:
         app_label = 'topics'
+        ordering = ['display_order', 'created_at']
 
     def __str__(self):  # pragma: no cover - trivial string representation
         return f"{self.title} for {self.topic.title}"
