@@ -13,17 +13,18 @@
         data-topic-widget="text"
         data-topic-widget-key=""
     >
-        <div
-            class="topic-widget card border-light my-3"
-            data-text-card
-            data-text-id=""
-            data-module-key=""
-            data-text-raw=""
-        >
-            <div class="card-header d-flex flex-column gap-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
-                    <div
+            <div
+                class="topic-widget card border-light my-3"
+                data-text-card
+                data-text-id=""
+                data-module-key=""
+                data-text-raw=""
+                data-reorder-error-message="{% trans 'Unable to reorder text cards. Please try again.' %}"
+            >
+                <div class="card-header d-flex flex-column gap-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
+                        <div
                         class="d-flex align-items-center gap-2 flex-wrap ms-auto"
                         data-topic-module-header-actions
                     >
@@ -44,6 +45,30 @@
                             >
                                 {% trans "Saved" %}
                             </span>
+                        </div>
+                        <div class="btn-group" role="group" aria-label="{% trans 'Reorder text card' %}">
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                data-action="move-text-up"
+                                data-bs-toggle="tooltip"
+                                title="{% trans 'Move text card up' %}"
+                                aria-label="{% trans 'Move text card up' %}"
+                            >
+                                <i class="bi bi-arrow-up" aria-hidden="true"></i>
+                                <span class="visually-hidden">{% trans "Move up" %}</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                data-action="move-text-down"
+                                data-bs-toggle="tooltip"
+                                title="{% trans 'Move text card down' %}"
+                                aria-label="{% trans 'Move text card down' %}"
+                            >
+                                <i class="bi bi-arrow-down" aria-hidden="true"></i>
+                                <span class="visually-hidden">{% trans "Move down" %}</span>
+                            </button>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <button
