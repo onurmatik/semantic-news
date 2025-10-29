@@ -165,7 +165,7 @@
                         class="topic-module-wrapper"
                         data-module="{{ module.module_key }}"
                         data-placement="{{ module.placement }}"
-                        data-display-order="{{ module.display_order }}"
+                        data-display-order="{{ module|module_display_order }}"
                         data-has-content="{{ module.has_content|yesno:'true,false' }}"
                     >
                         {% render_topic_module module %}
@@ -181,7 +181,7 @@
                         class="topic-module-wrapper"
                         data-module="{{ module.module_key }}"
                         data-placement="{{ module.placement }}"
-                        data-display-order="{{ module.display_order }}"
+                        data-display-order="{{ module|module_display_order }}"
                         data-has-content="{{ module.has_content|yesno:'true,false' }}"
                     >
                         {% render_topic_module module %}
@@ -197,7 +197,7 @@
                         class="topic-module-wrapper"
                         data-module="{{ module.module_key }}"
                         data-placement="{{ module.placement }}"
-                        data-display-order="{{ module.display_order }}"
+                        data-display-order="{{ module|module_display_order }}"
                         data-has-content="{{ module.has_content|yesno:'true,false' }}"
                     >
                         {% render_topic_module module %}
@@ -216,7 +216,7 @@
                 class="topic-module-wrapper"
                 data-module="{{ module.module_key }}"
                 data-placement="{{ module.placement }}"
-                data-display-order="{{ module.display_order }}"
+                data-display-order="{{ module|module_display_order }}"
                 data-has-content="{{ module.has_content|yesno:'true,false' }}"
             >
                 {% render_topic_module module %}

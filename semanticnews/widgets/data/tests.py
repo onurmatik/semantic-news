@@ -1,10 +1,12 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from unittest.mock import MagicMock, patch
 
 from semanticnews.prompting import get_default_language_instruction
 from semanticnews.topics.models import Topic
-from .models import TopicDataInsight, TopicDataVisualization
+from .models import TopicData, TopicDataInsight, TopicDataVisualization
 
 
 class TopicDataSearchAPITests(TestCase):
@@ -199,3 +201,76 @@ class TopicDataVisualizationDeleteTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.visualization.refresh_from_db()
         self.assertFalse(self.visualization.is_deleted)
+
+
+class TopicDataReorderAPITests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user("editor", "editor@example.com", "password")
+        self.topic = Topic.objects.create(title="Topic", created_by=self.user)
+        self.client.force_login(self.user)
+
+    def _post_json(self, url, payload):
+        return self.client.post(url, data=json.dumps(payload), content_type="application/json")
+
+    def test_reorder_updates_display_order(self):
+        data_one = TopicData.objects.create(
+            topic=self.topic,
+            data={"headers": ["A"], "rows": [["1"]]},
+            display_order=1,
+        )
+        data_two = TopicData.objects.create(
+            topic=self.topic,
+            data={"headers": ["B"], "rows": [["2"]]},
+            display_order=2,
+        )
+        viz_one = TopicDataVisualization.objects.create(
+            topic=self.topic,
+            insight=None,
+            chart_type="bar",
+            chart_data={"labels": ["A"], "datasets": []},
+            display_order=1,
+        )
+        viz_two = TopicDataVisualization.objects.create(
+            topic=self.topic,
+            insight=None,
+            chart_type="line",
+            chart_data={"labels": ["B"], "datasets": []},
+            display_order=2,
+        )
+
+        response = self._post_json(
+            "/api/topics/data/reorder",
+            {
+                "topic_uuid": str(self.topic.uuid),
+                "data_items": [
+                    {"id": data_two.id, "display_order": 0},
+                    {"id": data_one.id, "display_order": 1},
+                ],
+                "visualization_items": [
+                    {"id": viz_two.id, "display_order": 0},
+                    {"id": viz_one.id, "display_order": 1},
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"success": True})
+
+        data_one.refresh_from_db()
+        data_two.refresh_from_db()
+        viz_one.refresh_from_db()
+        viz_two.refresh_from_db()
+
+        self.assertEqual(data_one.display_order, 2)
+        self.assertEqual(data_two.display_order, 1)
+        self.assertEqual(viz_one.display_order, 2)
+        self.assertEqual(viz_two.display_order, 1)
+
+    def test_reorder_requires_authentication(self):
+        self.client.logout()
+        response = self._post_json(
+            "/api/topics/data/reorder",
+            {"topic_uuid": str(self.topic.uuid), "data_items": [], "visualization_items": []},
+        )
+        self.assertEqual(response.status_code, 401)

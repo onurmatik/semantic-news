@@ -110,11 +110,75 @@
         moduleEl.dataset.displayOrder = String(index);
         payload.push({
           module_key: moduleEl.dataset.module || '',
+          base_module_key: moduleEl.dataset.baseModule || '',
           placement: moduleEl.dataset.placement || 'primary',
           display_order: index,
         });
       });
       return payload;
+    }
+
+    function buildReorderPayloads(modules) {
+      const payloads = {
+        text: [],
+        data: [],
+        visualizations: [],
+      };
+
+      modules.forEach((module) => {
+        if (!module || typeof module !== 'object') {
+          return;
+        }
+        const moduleKey = typeof module.module_key === 'string' ? module.module_key : '';
+        const baseKey = typeof module.base_module_key === 'string'
+          ? module.base_module_key
+          : '';
+        const [keyPrefix, identifierPart] = moduleKey.split(':');
+        if (!identifierPart) {
+          return;
+        }
+        const numericId = Number.parseInt(identifierPart, 10);
+        if (!Number.isFinite(numericId) || numericId <= 0) {
+          return;
+        }
+        const orderValue = Number.isFinite(module.display_order)
+          ? module.display_order
+          : 0;
+
+        if (baseKey === 'text' || keyPrefix === 'text') {
+          payloads.text.push({ id: numericId, display_order: orderValue });
+          return;
+        }
+        if (baseKey === 'data' || keyPrefix === 'data') {
+          payloads.data.push({ id: numericId, display_order: orderValue });
+          return;
+        }
+        if (baseKey === 'data_visualizations' || keyPrefix === 'data_visualizations') {
+          payloads.visualizations.push({ id: numericId, display_order: orderValue });
+        }
+      });
+
+      return payloads;
+    }
+
+    async function sendJsonRequest(url, method, body, errorMessage) {
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(errorMessage, error);
+      }
     }
 
     async function saveLayout() {
@@ -132,20 +196,43 @@
       if (!modules.length) {
         return;
       }
-      try {
-        await fetch(apiUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken(),
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify({ modules }),
-        });
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to save topic layout', error);
+      const requests = [];
+      requests.push(
+        sendJsonRequest(apiUrl, 'PUT', { modules }, 'Failed to save topic layout'),
+      );
+
+      const reorderPayloads = buildReorderPayloads(modules);
+
+      if (reorderPayloads.text.length) {
+        requests.push(
+          sendJsonRequest(
+            '/api/topics/text/reorder',
+            'POST',
+            {
+              topic_uuid: topicUuid,
+              items: reorderPayloads.text,
+            },
+            'Failed to reorder text widgets',
+          ),
+        );
       }
+
+      if (reorderPayloads.data.length || reorderPayloads.visualizations.length) {
+        requests.push(
+          sendJsonRequest(
+            '/api/topics/data/reorder',
+            'POST',
+            {
+              topic_uuid: topicUuid,
+              data_items: reorderPayloads.data,
+              visualization_items: reorderPayloads.visualizations,
+            },
+            'Failed to reorder data widgets',
+          ),
+        );
+      }
+
+      await Promise.all(requests);
     }
 
     function handleDragStart(event, moduleOverride = null) {

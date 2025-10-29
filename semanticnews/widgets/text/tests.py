@@ -112,3 +112,44 @@ class TopicTextAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    def test_reorder_text_updates_display_order(self):
+        first = TopicText.objects.create(
+            topic=self.topic,
+            content='First',
+            status='finished',
+            display_order=1,
+        )
+        second = TopicText.objects.create(
+            topic=self.topic,
+            content='Second',
+            status='finished',
+            display_order=2,
+        )
+
+        response = self._post_json(
+            '/api/topics/text/reorder',
+            {
+                'topic_uuid': str(self.topic.uuid),
+                'items': [
+                    {'id': second.id, 'display_order': 0},
+                    {'id': first.id, 'display_order': 1},
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'success': True})
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.display_order, 2)
+        self.assertEqual(second.display_order, 1)
+
+    def test_reorder_text_requires_authentication(self):
+        self.client.logout()
+        response = self._post_json(
+            '/api/topics/text/reorder',
+            {'topic_uuid': str(self.topic.uuid), 'items': []},
+        )
+        self.assertEqual(response.status_code, 401)

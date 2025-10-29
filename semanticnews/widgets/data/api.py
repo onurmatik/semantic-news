@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import Dict, List, Sequence, Set
 
 from django.conf import settings
 from django.db import transaction
@@ -122,6 +122,17 @@ class TopicDataTaskResponse(Schema):
     updated_at: datetime | None = None
 
 
+class TopicDataReorderItem(Schema):
+    id: int
+    display_order: int
+
+
+class TopicDataReorderRequest(Schema):
+    topic_uuid: str
+    data_items: List[TopicDataReorderItem] = Field(default_factory=list)
+    visualization_items: List[TopicDataReorderItem] = Field(default_factory=list)
+
+
 def _build_task_response(request: TopicDataRequest) -> TopicDataTaskResponse:
     result_payload = request.result if isinstance(request.result, dict) else None
     schema_kwargs = {
@@ -217,6 +228,54 @@ def _resolve_data_labels(topic: Topic, data_ids: List[int]) -> List[str]:
             continue
         labels.append(_("Data %(id)s") % {"id": data_id})
     return labels
+
+
+def _determine_reordered_ids(
+    objects: Sequence,
+    items: Sequence[TopicDataReorderItem],
+    *,
+    not_found_message: str,
+) -> tuple[List[int], Dict[int, object]]:
+    object_map: Dict[int, object] = {getattr(obj, "id"): obj for obj in objects}
+    seen_ids: Set[int] = set()
+    ordered_ids: List[int] = []
+
+    sorted_items = sorted(items, key=lambda item: (item.display_order, item.id))
+    for item in sorted_items:
+        obj = object_map.get(item.id)
+        if obj is None:
+            raise HttpError(404, not_found_message)
+        if item.id in seen_ids:
+            continue
+        seen_ids.add(item.id)
+        ordered_ids.append(item.id)
+
+    for obj in objects:
+        obj_id = getattr(obj, "id", None)
+        if obj_id is None:
+            continue
+        if obj_id not in seen_ids:
+            ordered_ids.append(obj_id)
+
+    return ordered_ids, object_map
+
+
+def _apply_data_display_order(model, object_map: Dict[int, object], ordered_ids: Sequence[int]) -> None:
+    if not ordered_ids:
+        return
+
+    updates = []
+    for index, object_id in enumerate(ordered_ids, start=1):
+        obj = object_map.get(object_id)
+        if obj is None:
+            continue
+        if getattr(obj, "display_order", None) == index:
+            continue
+        obj.display_order = index
+        updates.append(obj)
+
+    if updates:
+        model.objects.bulk_update(updates, ["display_order"])
 
 
 def _build_analysis_task_response(
@@ -493,6 +552,46 @@ def visualize_request_status(
         raise HttpError(404, "No visualization request found")
 
     return _build_visualization_task_response(visualization_request)
+
+
+@router.post("/reorder", response=TopicDataSaveResponse)
+def reorder_data_modules(request, payload: TopicDataReorderRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    data_values = list(
+        topic.datas.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    visualization_values = list(
+        topic.data_visualizations.filter(is_deleted=False).order_by(
+            "display_order", "created_at"
+        )
+    )
+
+    with transaction.atomic():
+        data_order, data_map = _determine_reordered_ids(
+            data_values,
+            payload.data_items,
+            not_found_message="Data table not found",
+        )
+        _apply_data_display_order(TopicData, data_map, data_order)
+
+        visualization_order, visualization_map = _determine_reordered_ids(
+            visualization_values,
+            payload.visualization_items,
+            not_found_message="Data visualization not found",
+        )
+        _apply_data_display_order(
+            TopicDataVisualization, visualization_map, visualization_order
+        )
+
+    return TopicDataSaveResponse(success=True)
 
 
 @router.post("/create", response=TopicDataSaveResponse)

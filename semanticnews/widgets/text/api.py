@@ -1,13 +1,15 @@
 from datetime import datetime
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence, Set
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
+from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
+from pydantic import Field
 
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
@@ -56,6 +58,20 @@ class TopicTextTransformResponse(Schema):
 
 class _TransformTextResponse(Schema):
     content: str
+
+
+class TopicTextReorderItem(Schema):
+    id: int
+    display_order: int
+
+
+class TopicTextReorderRequest(Schema):
+    topic_uuid: str
+    items: List[TopicTextReorderItem] = Field(default_factory=list)
+
+
+class TopicTextOperationResponse(Schema):
+    success: bool
 
 
 def _get_owned_topic(request, topic_uuid: str) -> Topic:
@@ -162,6 +178,73 @@ def _transform_text(request, payload: TopicTextTransformRequest, mode: str) -> T
 
     transformed = (response.output_parsed.content or "").strip()
     return TopicTextTransformResponse(content=transformed)
+
+
+def _resolve_reordered_ids(
+    texts: Sequence[TopicText],
+    items: Sequence[TopicTextReorderItem],
+) -> List[int]:
+    text_map: Dict[int, TopicText] = {text.id: text for text in texts}
+    seen_ids: Set[int] = set()
+    ordered_ids: List[int] = []
+
+    sorted_items = sorted(items, key=lambda item: (item.display_order, item.id))
+    for item in sorted_items:
+        text = text_map.get(item.id)
+        if text is None:
+            raise HttpError(404, "Text block not found")
+        if item.id in seen_ids:
+            continue
+        seen_ids.add(item.id)
+        ordered_ids.append(item.id)
+
+    for text in texts:
+        if text.id not in seen_ids:
+            ordered_ids.append(text.id)
+
+    return ordered_ids
+
+
+def _apply_display_order(
+    *,
+    text_map: Dict[int, TopicText],
+    ordered_ids: Sequence[int],
+) -> None:
+    if not ordered_ids:
+        return
+
+    updates: List[TopicText] = []
+    timestamp = timezone.now()
+
+    for index, text_id in enumerate(ordered_ids, start=1):
+        text = text_map.get(text_id)
+        if not text:
+            continue
+        if text.display_order == index:
+            continue
+        text.display_order = index
+        text.updated_at = timestamp
+        updates.append(text)
+
+    if updates:
+        TopicText.objects.bulk_update(updates, ["display_order", "updated_at"])
+
+
+@router.post("/reorder", response=TopicTextOperationResponse)
+def reorder_texts(request, payload: TopicTextReorderRequest):
+    topic = _get_owned_topic(request, payload.topic_uuid)
+
+    texts = list(
+        topic.texts.filter(is_deleted=False).order_by("display_order", "created_at")
+    )
+    text_map: Dict[int, TopicText] = {text.id: text for text in texts}
+
+    ordered_ids = _resolve_reordered_ids(texts, payload.items)
+
+    with transaction.atomic():
+        _apply_display_order(text_map=text_map, ordered_ids=ordered_ids)
+
+    return TopicTextOperationResponse(success=True)
 
 
 @router.post("/revise", response=TopicTextTransformResponse)
