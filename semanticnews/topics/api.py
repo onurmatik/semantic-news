@@ -24,19 +24,10 @@ from semanticnews.prompting import append_default_language_instruction
 
 from .models import (
     Topic,
-    TopicModuleLayout,
     RelatedTopic,
     RelatedEntity,
     RelatedEvent,
     Source,
-)
-from .layouts import (
-    ALLOWED_PLACEMENTS,
-    MODULE_REGISTRY,
-    REORDERABLE_BASE_MODULES,
-    get_topic_layout,
-    serialize_layout,
-    _split_module_key,
 )
 from .recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
@@ -471,26 +462,6 @@ class TopicTitleUpdateResponse(Schema):
     edit_url: str
 
 
-class TopicLayoutModule(Schema):
-    """Schema describing a single module layout entry."""
-
-    module_key: str
-    placement: Literal["primary", "sidebar"]
-    display_order: int
-
-
-class TopicLayoutResponse(Schema):
-    """Response wrapper for a topic layout."""
-
-    modules: List[TopicLayoutModule]
-
-
-class TopicLayoutUpdateRequest(Schema):
-    """Payload for updating a topic's module layout."""
-
-    modules: List[TopicLayoutModule]
-
-
 @api.post("/set-status", response=TopicStatusUpdateResponse)
 def set_topic_status(request, payload: TopicStatusUpdateRequest):
     """Update the status of a topic owned by the authenticated user.
@@ -600,77 +571,6 @@ def _get_owned_topic(request, topic_uuid: str) -> Topic:
         raise HttpError(403, "Forbidden")
 
     return topic
-
-
-def _validate_layout_modules(modules: List[TopicLayoutModule]) -> List[dict]:
-    validated: List[dict] = []
-    seen_keys = set()
-
-    for index, module in enumerate(modules):
-        key = module.module_key
-        base_key, identifier = _split_module_key(key)
-        if base_key not in MODULE_REGISTRY:
-            raise HttpError(400, f"Unknown module key: {key}")
-        if base_key in {"text", "data_visualizations"} and not identifier:
-            raise HttpError(400, f"{base_key.replace('_', ' ').title()} modules must include an identifier")
-        if base_key not in REORDERABLE_BASE_MODULES:
-            readable_name = base_key.replace("_", " ")
-            raise HttpError(400, f"{readable_name.title()} modules cannot be reordered")
-        if key in seen_keys:
-            raise HttpError(400, f"Duplicate module key: {key}")
-        seen_keys.add(key)
-
-        if module.placement not in ALLOWED_PLACEMENTS:
-            raise HttpError(400, f"Invalid placement: {module.placement}")
-
-        if module.display_order < 0:
-            raise HttpError(400, "Display order must be non-negative")
-
-        validated.append(
-            {
-                "module_key": key,
-                "placement": module.placement,
-                "display_order": module.display_order if module.display_order is not None else index,
-            }
-        )
-
-    return validated
-
-
-@api.get("/{topic_uuid}/layout", response=TopicLayoutResponse)
-def get_topic_layout_configuration(request, topic_uuid: str):
-    """Return the saved module layout for the authenticated owner."""
-
-    topic = _get_owned_topic(request, topic_uuid)
-    layout = get_topic_layout(topic)
-    return TopicLayoutResponse(modules=serialize_layout(layout))
-
-
-@api.put("/{topic_uuid}/layout", response=TopicLayoutResponse)
-def update_topic_layout_configuration(
-    request, topic_uuid: str, payload: TopicLayoutUpdateRequest
-):
-    """Persist a custom module layout for the authenticated owner."""
-
-    topic = _get_owned_topic(request, topic_uuid)
-    validated_modules = _validate_layout_modules(payload.modules)
-
-    with transaction.atomic():
-        TopicModuleLayout.objects.filter(topic=topic).delete()
-        TopicModuleLayout.objects.bulk_create(
-            [
-                TopicModuleLayout(
-                    topic=topic,
-                    module_key=module["module_key"],
-                    placement=module["placement"],
-                    display_order=module["display_order"],
-                )
-                for module in validated_modules
-            ]
-        )
-
-    layout = get_topic_layout(topic)
-    return TopicLayoutResponse(modules=serialize_layout(layout))
 
 
 class TopicRelatedEventAddRequest(Schema):

@@ -21,7 +21,6 @@ from .models import (
     Topic,
     TopicContent,
     TopicKeyword,
-    TopicModuleLayout,
     RelatedTopic,
     RelatedEntity,
     RelatedEvent,
@@ -831,16 +830,13 @@ class VisualizeDataAPITests(TestCase):
         self.assertEqual(TopicDataVisualization.objects.count(), 1)
         viz = TopicDataVisualization.objects.first()
         self.assertEqual(viz.chart_type, "bar")
+        self.assertEqual(viz.display_order, 1)
         self.assertEqual(response.json(), {
             "id": viz.id,
             "insight": "Insight",
             "chart_type": "bar",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
-        layout_entry = TopicModuleLayout.objects.get(
-            topic=topic, module_key=f"data_visualizations:{viz.id}"
-        )
-        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
         called_kwargs = mock_client.responses.parse.call_args.kwargs
         self.assertIn("Highlight revenue trends.", called_kwargs["input"])
 
@@ -877,16 +873,13 @@ class VisualizeDataAPITests(TestCase):
         self.assertEqual(TopicDataVisualization.objects.count(), 1)
         viz = TopicDataVisualization.objects.first()
         self.assertEqual(viz.chart_type, "pie")
+        self.assertEqual(viz.display_order, 1)
         self.assertEqual(response.json(), {
             "id": viz.id,
             "insight": "Insight",
             "chart_type": "pie",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
-        layout_entry = TopicModuleLayout.objects.get(
-            topic=topic, module_key=f"data_visualizations:{viz.id}"
-        )
-        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
 
     @patch("semanticnews.widgets.data.api.OpenAI")
     def test_visualizes_custom_insight(self, mock_openai):
@@ -920,16 +913,13 @@ class VisualizeDataAPITests(TestCase):
         viz = TopicDataVisualization.objects.first()
         self.assertEqual(viz.chart_type, "bar")
         self.assertIsNone(viz.insight)
+        self.assertEqual(viz.display_order, 1)
         self.assertEqual(response.json(), {
             "id": viz.id,
             "insight": "Custom",
             "chart_type": "bar",
             "chart_data": {"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
         })
-        layout_entry = TopicModuleLayout.objects.get(
-            topic=topic, module_key=f"data_visualizations:{viz.id}"
-        )
-        self.assertEqual(layout_entry.placement, TopicModuleLayout.PLACEMENT_PRIMARY)
 
 
 class TopicDetailViewTests(TestCase):

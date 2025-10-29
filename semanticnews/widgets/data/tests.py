@@ -3,7 +3,7 @@ from django.test import TestCase
 from unittest.mock import MagicMock, patch
 
 from semanticnews.prompting import get_default_language_instruction
-from semanticnews.topics.models import Topic, TopicModuleLayout
+from semanticnews.topics.models import Topic
 from .models import TopicDataInsight, TopicDataVisualization
 
 
@@ -178,11 +178,6 @@ class TopicDataVisualizationDeleteTests(TestCase):
             insight=self.insight,
             chart_type="bar",
             chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
-        )
-        TopicModuleLayout.objects.create(
-            topic=self.topic,
-            module_key=f"data_visualizations:{self.visualization.id}",
-            placement=TopicModuleLayout.PLACEMENT_PRIMARY,
             display_order=1,
         )
 
@@ -193,15 +188,8 @@ class TopicDataVisualizationDeleteTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"success": True})
-        self.assertFalse(
-            TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
-        )
-        self.assertFalse(
-            TopicModuleLayout.objects.filter(
-                topic=self.topic,
-                module_key=f"data_visualizations:{self.visualization.id}",
-            ).exists()
-        )
+        self.visualization.refresh_from_db()
+        self.assertTrue(self.visualization.is_deleted)
 
     def test_other_user_cannot_delete_visualization(self):
         self.client.force_login(self.other)
@@ -209,12 +197,5 @@ class TopicDataVisualizationDeleteTests(TestCase):
         response = self.client.delete(f"/api/topics/data/visualization/{self.visualization.id}")
 
         self.assertEqual(response.status_code, 403)
-        self.assertTrue(
-            TopicDataVisualization.objects.filter(id=self.visualization.id).exists()
-        )
-        self.assertTrue(
-            TopicModuleLayout.objects.filter(
-                topic=self.topic,
-                module_key=f"data_visualizations:{self.visualization.id}",
-            ).exists()
-        )
+        self.visualization.refresh_from_db()
+        self.assertFalse(self.visualization.is_deleted)
