@@ -128,7 +128,6 @@
         <div class="d-flex flex-column gap-3" data-topic-primary-column>
             {% include "topics/images/card.html" %}
             {% include "topics/recaps/card.html" with edit_mode=True %}
-            {% include "topics/content/toolbar.html" with edit_mode=True %}
             <div class="d-flex flex-column gap-3" data-topic-primary-widgets>
                 {% for widget in primary_widgets %}
                     <div
@@ -151,6 +150,7 @@
                     </div>
                 {% endfor %}
             </div>
+            {% include "topics/content/toolbar.html" with edit_mode=True %}
         </div>
     </div>
     <div class="col-lg-4 col-xl-3">
