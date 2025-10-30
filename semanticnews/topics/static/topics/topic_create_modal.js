@@ -149,7 +149,7 @@
 
     const buildEditUrl = (topicUuid) => {
       if (currentUser) {
-        return `/@${currentUser}/${topicUuid}/edit/`;
+        return `/${currentUser}/${topicUuid}/edit/`;
       }
       return `/topics/${topicUuid}/`;
     };
