@@ -47,22 +47,25 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
 
+    'widget_tweaks',
+
     'semanticnews.profiles',
     'semanticnews.agenda',
     'semanticnews.entities',
     'semanticnews.contents',
 
-    # User topics and utility apps
+    # User topics and widget apps
+    'semanticnews.widgets',
     'semanticnews.topics',
-    'semanticnews.topics.utils.recaps',
-    'semanticnews.topics.utils.text',
-    'semanticnews.topics.utils.mcps',
-    'semanticnews.topics.utils.images',
-    'semanticnews.topics.utils.embeds',
-    'semanticnews.topics.utils.relations',
-    'semanticnews.topics.utils.data',
-    'semanticnews.topics.utils.documents',
-    'semanticnews.topics.utils.timeline',
+    'semanticnews.widgets.recaps',
+    'semanticnews.widgets.text',
+    'semanticnews.widgets.mcps',
+    'semanticnews.widgets.images',
+    'semanticnews.widgets.embeds',
+    'semanticnews.widgets.relations',
+    'semanticnews.widgets.data',
+    'semanticnews.widgets.documents',
+    'semanticnews.widgets.timeline',
 ]
 
 MIDDLEWARE = [

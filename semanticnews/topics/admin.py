@@ -6,11 +6,11 @@ from .publishing.models import (
     TopicPublicationModule,
     TopicPublicationSnapshot
 )
-from .utils.recaps import admin as recaps_admin  # noqa: F401
-from .utils.text import admin as text_admin  # noqa: F401
-from .utils.relations import admin as relations_admin  # noqa: F401
-from .utils.documents import admin as documents_admin  # noqa: F401
-from .utils.timeline import admin as timeline_admin  # noqa: F401
+from ..widgets.recaps import admin as recaps_admin  # noqa: F401
+from ..widgets.text import admin as text_admin  # noqa: F401
+from ..widgets.relations import admin as relations_admin  # noqa: F401
+from ..widgets.documents import admin as documents_admin  # noqa: F401
+from ..widgets.timeline import admin as timeline_admin  # noqa: F401
 
 
 @admin.register(Topic)

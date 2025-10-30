@@ -13,60 +13,80 @@
 {% endblock %}
 
 
+{% block extra_head %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'agenda/filter-controls.css' %}">
+{% endblock %}
+
 {% block content %}
 
 <div class="container">
 
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h1 class="fs-3 mb-0">
-            {% if period.granularity == "day" %}
-                {{ start|date:"F j, Y" }}
-            {% elif period.granularity == "month" %}
-                {{ start|date:"F Y" }}
-            {% else %}
-                {{ period.year }}
-            {% endif %}
-        </h1>
-        <div class="d-flex align-items-center">
-            <div class="btn-group me-2">
-                <a href="{{ prev_url }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Previous' %}">
-                    <i class="bi bi-chevron-left"></i>
-                </a>
-                <a href="{{ next_url }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Next' %}">
-                    <i class="bi bi-chevron-right"></i>
-                </a>
+    <div class="row g-4">
+
+        <div class="col-12 col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h1 class="fs-3 mb-0">
+                    {% if period.granularity == "day" %}
+                        {{ start|date:"F j, Y" }}
+                    {% elif period.granularity == "month" %}
+                        {{ start|date:"F Y" }}
+                    {% else %}
+                        {{ period.year }}
+                    {% endif %}
+                </h1>
+                <div class="d-flex align-items-center">
+                    <div class="btn-group me-2">
+                        <a href="{{ prev_url }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Previous' %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                        <a href="{{ next_url }}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Next' %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
             </div>
+
+            {% if categories or domains %}
+              <div class="d-flex align-items-center flex-wrap filter-controls mb-3">
+                  {% if categories %}
+                  <div class="d-flex flex-wrap filter-list me-2">
+                      {% for category in categories %}
+                      <a href="#" class="btn btn-sm btn-outline-secondary category-filter filter-toggle" data-category="{{ category.name|slugify }}">{{ category.name }}</a>
+                      {% endfor %}
+                  </div>
+                  {% endif %}
+                  {% if domains %}
+                  <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle filter-toggle filter-dropdown" type="button" id="domainDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-default-label="{% trans 'All sources' %}">{% trans "All sources" %}</button>
+                      <ul class="dropdown-menu" aria-labelledby="domainDropdown">
+                          <li><a class="dropdown-item domain-option active" href="#" data-domain="">{% trans "All sources" %}</a></li>
+                          {% for domain in domains %}
+                          <li><a class="dropdown-item domain-option" href="#" data-domain="{{ domain }}">{{ domain }}</a></li>
+                          {% endfor %}
+                      </ul>
+                  </div>
+                  {% endif %}
+              </div>
+            {% endif %}
+
+            {% for event in events %}
+                {% include "agenda/event_list_item.html" %}
+            {% empty %}
+                <p class="text-muted">{% trans "No events" %}</p>
+            {% endfor %}
         </div>
+
+        <div class="col-12 col-lg-4">
+            <h2 class="fs-5 mb-3">{% trans "Related topics" %}</h2>
+            {% for topic in related_topics %}
+                {% include "topics/related_topic_sidebar_item.html" %}
+            {% empty %}
+                <p class="text-muted small">{% trans "No related topics" %}</p>
+            {% endfor %}
+        </div>
+
     </div>
-
-    {% if categories or domains %}
-      <div class="d-flex align-items-center mb-3">
-          {% if categories %}
-          <div class="me-1">
-              {% for category in categories %}
-              <a href="#" class="btn btn-sm btn-outline-secondary me-1 category-filter" data-category="{{ category.name|slugify }}">{{ category.name }}</a>
-              {% endfor %}
-          </div>
-          {% endif %}
-          {% if domains %}
-          <div class="dropdown">
-              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="domainDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-default-label="{% trans 'All sources' %}">{% trans "All source" %}</button>
-              <ul class="dropdown-menu" aria-labelledby="domainDropdown">
-                  <li><a class="dropdown-item domain-option active" href="#" data-domain="">{% trans "All sources" %}</a></li>
-                  {% for domain in domains %}
-                  <li><a class="dropdown-item domain-option" href="#" data-domain="{{ domain }}">{{ domain }}</a></li>
-                  {% endfor %}
-              </ul>
-          </div>
-          {% endif %}
-      </div>
-    {% endif %}
-
-    {% for event in events %}
-        {% include "agenda/event_list_item.html" %}
-    {% empty %}
-        <p class="text-muted">{% trans "No events" %}</p>
-    {% endfor %}
 
 </div>
 {% endblock %}

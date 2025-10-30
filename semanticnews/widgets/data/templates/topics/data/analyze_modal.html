@@ -1,0 +1,71 @@
+{% load i18n %}
+<div class="modal fade modal-lg" id="dataAnalyzeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header flex-column align-items-stretch">
+                <div class="d-flex w-100 align-items-center">
+                    <h5 class="modal-title mb-0">{% trans "Analyze data" %}</h5>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+                </div>
+                <div id="analyzeStatusMessage" class="alert alert-info d-none w-100 mb-0 mt-2" role="alert"></div>
+            </div>
+            <div class="modal-body">
+                <form id="dataAnalyzeForm">
+                    <input type="hidden" name="topic_uuid" value="{{ topic.uuid }}">
+                    <input type="hidden" name="request_id" id="analyzeRequestId">
+                    <div class="mb-3">
+                        {% for data in datas %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="{{ data.id }}" id="analyzeData{{ data.id }}" name="data_ids" checked>
+                            <label class="form-check-label" for="analyzeData{{ data.id }}">
+                                {% if data.name %}{{ data.name }}{% else %}{{ data.created_at|date:"Y-m-d" }}{% endif %}
+                            </label>
+                        </div>
+                        {% empty %}
+                        <p class="text-secondary mb-0">{% trans "No data tables available" %}</p>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="analyzeInstructions" class="form-label">{% trans "Additional instructions" %}</label>
+                        <textarea class="form-control" id="analyzeInstructions" name="instructions" rows="3" placeholder="{% trans 'e.g., Focus on anomalies' %}"></textarea>
+                    </div>
+                    <div class="mb-3 d-none" id="analyzePreviewSection">
+                        <hr>
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                            <div>
+                                <span class="fw-semibold d-block">{% trans "Preview" %}</span>
+                                <div id="analyzePreviewMeta" class="small text-muted d-none" data-label="{% trans 'Tables' %}"></div>
+                            </div>
+                            <button type="button" class="btn btn-link btn-sm text-danger p-0 d-none" id="analyzePreviewDeleteBtn" aria-label="{% trans 'Delete response' %}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div id="dataInsights" class="d-none"></div>
+                    </div>
+                    <div class="modal-footer px-0">
+                        <button type="button" class="btn btn-outline-secondary float-start me-auto" id="analyzeDataBtn">{% trans "Analyze" %}</button>
+                        <button type="submit" class="btn btn-primary" id="saveInsightsBtn" disabled>{% trans "Save" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="analyzePreviewDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Delete preview" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">{% trans "Are you sure you want to delete this analysis preview?" %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-danger" id="analyzePreviewDeleteConfirm">{% trans "Delete" %}</button>
+            </div>
+        </div>
+    </div>
+</div>

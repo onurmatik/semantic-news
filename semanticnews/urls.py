@@ -53,15 +53,16 @@ urlpatterns += i18n_patterns(
         name='event_list_year',
     ),
 
-    path('@<slug:username>/<slug:slug>/add-event/<uuid:event_uuid>/', topics_views.topic_add_event, name='topics_add_event'),
-    path('@<slug:username>/<slug:slug>/remove-event/<uuid:event_uuid>/', topics_views.topic_remove_event, name='topics_remove_event'),
-    path('@<slug:username>/<slug:slug>/clone/', topics_views.topic_clone, name='topics_clone'),
-    path('@<slug:username>/<uuid:topic_uuid>/edit/', topics_views.topics_detail_edit, name='topics_detail_edit'),
-    path('@<slug:username>/<uuid:topic_uuid>/', topics_views.topics_detail_redirect, name='topics_detail_redirect'),
-    path('@<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
+    path('<slug:username>/<slug:slug>/add-event/<uuid:event_uuid>/', topics_views.topic_add_event, name='topics_add_event'),
+    path('<slug:username>/<slug:slug>/remove-event/<uuid:event_uuid>/', topics_views.topic_remove_event, name='topics_remove_event'),
+    path('<slug:username>/<slug:slug>/clone/', topics_views.topic_clone, name='topics_clone'),
+    path('<slug:username>/<uuid:topic_uuid>/preview/', topics_views.topics_detail_preview, name='topics_detail_preview'),
+    path('<slug:username>/<uuid:topic_uuid>/edit/', topics_views.topics_detail_edit, name='topics_detail_edit'),
+    path('<slug:username>/<uuid:topic_uuid>/', topics_views.topics_detail_redirect, name='topics_detail_redirect'),
+    path('<slug:username>/<slug:slug>/', topics_views.topics_detail, name='topics_detail'),
 
-    path('@<slug:username>/', profiles_views.user_profile, name='user_profile'),
     path("profile/", profiles_views.profile_settings, name="profile_settings"),
+    path('<slug:username>/', profiles_views.user_profile, name='user_profile'),
 
     prefix_default_language=False
 )

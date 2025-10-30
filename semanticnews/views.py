@@ -4,7 +4,7 @@ from pgvector.django import L2Distance
 
 from .agenda.models import Event
 from .topics.models import Topic
-from .topics.utils.data.models import TopicDataVisualization
+from .widgets.data.models import TopicDataVisualization
 from .openai import OpenAI
 
 

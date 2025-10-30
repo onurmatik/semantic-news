@@ -10,10 +10,15 @@ window.setupTopicHistory = function (options) {
     parseInput,     // function(text) -> data for create
     controller,     // generation button controller
     useMarkdown = false, // whether to enhance textarea with EasyMDE
+    statusMessageId,
+    autoSave: autoSaveOptions = {},
+    saveIndicatorId,
+    messages: messageOverrides = {},
   } = options;
 
   const form = document.getElementById(`${key}Form`);
-  const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`);
+  const triggerButton = document.getElementById(`${key}Button`);
+  const suggestionBtn = document.getElementById(`fetch${capitalize(key)}Suggestion`) || triggerButton;
   const textarea = document.getElementById(`${key}Text`);
   const easyMDE = useMarkdown && textarea && window.EasyMDE ? new EasyMDE({ element: textarea }) : null;
   // expose MDE handle so other scripts can access it (status checker / fallbacks)
@@ -25,6 +30,109 @@ window.setupTopicHistory = function (options) {
   const cardContent = document.getElementById(`topic${capitalize(key)}${cardSuffix}`);
   const modalEl = document.getElementById(`${key}Modal`);
   const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+
+  const defaultMessages = {
+    suggestionError: 'Unable to fetch suggestions. Please try again.',
+    updateError: 'Unable to save your changes. Please try again.',
+    parseError: 'Please review your input and try again.',
+  };
+  const messages = { ...defaultMessages, ...(messageOverrides || {}) };
+  const fallbackModalErrorMessage = (
+    messages.suggestionError || messages.updateError || defaultMessages.updateError || ''
+  ).trim();
+
+  const statusMessageEl = statusMessageId
+    ? document.getElementById(statusMessageId)
+    : document.getElementById(`${key}StatusMessage`);
+
+  const saveIndicatorEl = saveIndicatorId
+    ? document.getElementById(saveIndicatorId)
+    : null;
+  const autoSaveEnabled = !!(autoSaveOptions && autoSaveOptions.enabled);
+  const autoSaveDelay = autoSaveEnabled
+    ? Math.max(0, Number.isFinite(Number(autoSaveOptions.debounceMs))
+      ? Number(autoSaveOptions.debounceMs)
+      : Math.max(0, Number(autoSaveOptions.delayMs) || 2000))
+    : 0;
+  const autoSaveOnBlur = autoSaveEnabled ? autoSaveOptions.saveOnBlur !== false : false;
+  const autoSaveOnShortcut = autoSaveEnabled ? autoSaveOptions.saveOnShortcut !== false : false;
+
+  // triggerButton declared earlier for suggestion fallback
+
+  const parseJsonIfPossible = async (res) => {
+    try {
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const resolveErrorMessage = (data, fallback) => {
+    if (data && typeof data === 'object') {
+      const fields = ['error_message', 'error', 'detail', 'message'];
+      for (const field of fields) {
+        const value = data[field];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+    }
+    return fallback;
+  };
+
+  const clearStatusMessage = () => {
+    if (!statusMessageEl) return;
+    statusMessageEl.classList.add('d-none');
+    statusMessageEl.classList.remove('alert-info', 'alert-success', 'alert-danger');
+    statusMessageEl.textContent = '';
+  };
+
+  const showStatusMessage = (type, message) => {
+    if (!statusMessageEl) return;
+    const className = type === 'success'
+      ? 'alert-success'
+      : type === 'error'
+        ? 'alert-danger'
+        : 'alert-info';
+    statusMessageEl.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+    statusMessageEl.classList.add(className);
+    statusMessageEl.textContent = message;
+  };
+
+  const setButtonError = (message) => {
+    if (!triggerButton) return;
+    if (message) {
+      triggerButton.dataset.error = message;
+    } else if (triggerButton.dataset) {
+      delete triggerButton.dataset.error;
+    }
+  };
+
+  const getButtonError = () => {
+    if (!triggerButton || !triggerButton.dataset) return '';
+    const value = triggerButton.dataset.error;
+    return typeof value === 'string' ? value.trim() : '';
+  };
+
+  const syncModalErrorFromButton = () => {
+    const existingError = getButtonError();
+    if (existingError) {
+      showStatusMessage('error', existingError);
+      return;
+    }
+    const status = triggerButton && triggerButton.dataset
+      ? (triggerButton.dataset.status || '').trim().toLowerCase()
+      : '';
+    if (status === 'error' && fallbackModalErrorMessage) {
+      showStatusMessage('error', fallbackModalErrorMessage);
+      return;
+    }
+    clearStatusMessage();
+  };
+
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', syncModalErrorFromButton);
+  }
 
   const notifyTopicChanged = () => {
     document.dispatchEvent(new CustomEvent('topic:changed'));
@@ -48,6 +156,7 @@ window.setupTopicHistory = function (options) {
   const confirmBtn = document.getElementById(`confirmDelete${capitalize(key)}Btn`);
   const deleteSpinner = document.getElementById(`confirmDelete${capitalize(key)}Spinner`);
   const confirmModal = confirmModalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(confirmModalEl) : null;
+  const fallbackDeleteMessage = (messages && messages.deleteConfirm) || 'Are you sure you want to delete this item?';
 
   const container = document.querySelector('[data-topic-uuid]');
   const topicUuid = container ? container.getAttribute('data-topic-uuid') : null;
@@ -62,19 +171,159 @@ window.setupTopicHistory = function (options) {
 
   const norm = (s) => (s || '').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   let baseline = textarea ? norm(getValue()) : '';
+  const hasUnsavedChanges = () => (textarea ? norm(getValue()) !== baseline : false);
+  let autoSaveTimer = null;
+  let isSaving = false;
+  let pendingSave = false;
+  let lastSavedAt = null;
+
+  const formatSaveTime = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const setSaveIndicator = (state, options = {}) => {
+    if (!saveIndicatorEl) return;
+    const classMap = {
+      idle: 'text-muted',
+      dirty: 'text-warning',
+      saving: 'text-muted',
+      saved: 'text-success',
+      error: 'text-danger',
+    };
+    saveIndicatorEl.dataset.state = state;
+    saveIndicatorEl.classList.remove('text-muted', 'text-warning', 'text-success', 'text-danger');
+    const className = classMap[state] || 'text-muted';
+    saveIndicatorEl.classList.add(className);
+
+    let message = '';
+    if (state === 'dirty') {
+      message = 'Unsaved changes';
+    } else if (state === 'saving') {
+      message = 'Saving…';
+    } else if (state === 'saved') {
+      const savedAt = options.savedAt instanceof Date && !Number.isNaN(options.savedAt.getTime())
+        ? options.savedAt
+        : lastSavedAt;
+      if (savedAt instanceof Date && !Number.isNaN(savedAt.getTime())) {
+        lastSavedAt = savedAt;
+        message = `Last saved ${formatSaveTime(savedAt)}`;
+      } else if (lastSavedAt instanceof Date && !Number.isNaN(lastSavedAt.getTime())) {
+        message = `Last saved ${formatSaveTime(lastSavedAt)}`;
+      } else {
+        message = 'All changes saved';
+      }
+    } else if (state === 'error') {
+      message = options.error || 'Unable to save changes.';
+    } else {
+      message = '';
+    }
+
+    saveIndicatorEl.textContent = message;
+  };
+
+  const clearAutoSaveTimer = () => {
+    if (autoSaveTimer) {
+      window.clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+    }
+  };
+
+  const requestAutoSave = ({ immediate = false } = {}) => {
+    if (!autoSaveEnabled || !textarea) {
+      return;
+    }
+    if (!hasUnsavedChanges()) {
+      clearAutoSaveTimer();
+      setSaveIndicator('saved');
+      return;
+    }
+
+    setSaveIndicator('dirty');
+    if (isSaving) {
+      pendingSave = true;
+      return;
+    }
+
+    clearAutoSaveTimer();
+    if (immediate || autoSaveDelay === 0) {
+      // Allow the current stack to unwind to avoid recursive locking
+      window.setTimeout(() => {
+        persistChanges();
+      }, 0);
+    } else {
+      autoSaveTimer = window.setTimeout(() => {
+        autoSaveTimer = null;
+        persistChanges();
+      }, autoSaveDelay);
+    }
+  };
 
   // Submit button enable/disable based on diff from baseline
   const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   const updateSubmitButtonState = () => {
     if (!submitBtn || !textarea) return;
-    submitBtn.disabled = norm(getValue()) === baseline;
+    submitBtn.disabled = !hasUnsavedChanges();
   };
+
+  const handleEditorChange = () => {
+    updateSubmitButtonState();
+    if (autoSaveEnabled) {
+      requestAutoSave();
+    }
+  };
+
+  const handleEditorBlur = () => {
+    if (autoSaveEnabled && autoSaveOnBlur) {
+      requestAutoSave({ immediate: true });
+    }
+  };
+
   if (easyMDE) {
-    easyMDE.codemirror.on('change', updateSubmitButtonState);
-  } else {
-    textarea && textarea.addEventListener('input', updateSubmitButtonState);
+    easyMDE.codemirror.on('change', handleEditorChange);
+    easyMDE.codemirror.on('blur', handleEditorBlur);
+    if (autoSaveEnabled && autoSaveOnShortcut && easyMDE.codemirror.addKeyMap) {
+      easyMDE.codemirror.addKeyMap({
+        'Cmd-S': () => requestAutoSave({ immediate: true }),
+        'Ctrl-S': () => requestAutoSave({ immediate: true }),
+      });
+    }
+  } else if (textarea) {
+    textarea.addEventListener('input', handleEditorChange);
+    textarea.addEventListener('blur', handleEditorBlur);
   }
+
   updateSubmitButtonState();
+  if (autoSaveEnabled) {
+    if (hasUnsavedChanges()) {
+      setSaveIndicator('dirty');
+    } else {
+      setSaveIndicator('saved');
+    }
+  }
+
+  const handleShortcutEvent = (event) => {
+    if (!autoSaveEnabled || !autoSaveOnShortcut) {
+      return;
+    }
+    if (!(event.metaKey || event.ctrlKey)) {
+      return;
+    }
+    if ((event.key || '').toLowerCase() !== 's') {
+      return;
+    }
+    if (form && !form.contains(event.target)) {
+      return;
+    }
+    event.preventDefault();
+    requestAutoSave({ immediate: true });
+  };
+
+  if (autoSaveEnabled && autoSaveOnShortcut) {
+    window.addEventListener('keydown', handleShortcutEvent);
+  }
 
   // list + pager
   const recs = [];
@@ -106,6 +355,14 @@ window.setupTopicHistory = function (options) {
     // Reset baseline & update submit disabled
     baseline = norm(getValue());
     updateSubmitButtonState();
+    if (autoSaveEnabled) {
+      const createdAt = item && item.created_at ? new Date(item.created_at) : null;
+      if (createdAt instanceof Date && !Number.isNaN(createdAt.getTime())) {
+        setSaveIndicator('saved', { savedAt: createdAt });
+      } else if (!hasUnsavedChanges()) {
+        setSaveIndicator('saved');
+      }
+    }
 
     // Pager/UI
     pagerEl && (pagerEl.style.display = '');
@@ -154,6 +411,9 @@ window.setupTopicHistory = function (options) {
           applyIndex(recs.length - 1);
         } else {
           pagerEl.style.display = 'none';
+          if (autoSaveEnabled && !hasUnsavedChanges()) {
+            setSaveIndicator('saved');
+          }
         }
         if (notify && changed) {
           notifyTopicChanged();
@@ -203,27 +463,55 @@ window.setupTopicHistory = function (options) {
     prevBtn && prevBtn.addEventListener('click', () => applyIndex(currentIndex - 1));
     nextBtn && nextBtn.addEventListener('click', () => applyIndex(currentIndex + 1));
 
-    // delete flow
-    deleteBtn && deleteBtn.addEventListener('click', () => {
+    const executeDelete = async () => {
+      const item = current();
+      if (!item) return;
+      const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Delete failed');
+      window.location.reload(); // per requirement
+    };
+
+    const performDeleteWithUi = async ({ useUi = true } = {}) => {
+      const item = current();
+      if (!item) return;
+      if (useUi && confirmBtn) {
+        confirmBtn.disabled = true;
+        deleteSpinner && deleteSpinner.classList.remove('d-none');
+      }
+      try {
+        await executeDelete();
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        if (useUi && confirmBtn) {
+          confirmBtn.disabled = false;
+          deleteSpinner && deleteSpinner.classList.add('d-none');
+        }
+        confirmModal && confirmModal.hide();
+      }
+    };
+
+    deleteBtn && deleteBtn.addEventListener('click', async () => {
       if (!current()) return;
-      confirmModal && confirmModal.show();
+      if (confirmModal && confirmBtn) {
+        confirmModal.show();
+        return;
+      }
+      if (window.confirm(fallbackDeleteMessage)) {
+        try {
+          await performDeleteWithUi({ useUi: false });
+        } catch (e) {
+          // already logged in performDeleteWithUi
+        }
+      }
     });
 
     confirmBtn && confirmBtn.addEventListener('click', async () => {
-      const item = current();
-      if (!item) return;
-      confirmBtn.disabled = true;
-      deleteSpinner && deleteSpinner.classList.remove('d-none');
       try {
-        const res = await fetch(deleteUrl(item.id), { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) throw new Error('Delete failed');
-        window.location.reload(); // per requirement
+        await performDeleteWithUi({ useUi: true });
       } catch (e) {
-        console.error(e);
         confirmModal && confirmModal.hide();
-      } finally {
-        confirmBtn.disabled = false;
-        deleteSpinner && deleteSpinner.classList.add('d-none');
       }
     });
   }
@@ -241,6 +529,8 @@ window.setupTopicHistory = function (options) {
   // Suggest flow
   if (suggestionBtn && textarea && form) {
     suggestionBtn.addEventListener('click', async () => {
+      clearStatusMessage();
+      setButtonError(null);
       controller && controller.showLoading();
       modal && modal.hide();
       suggestionBtn.disabled = true;
@@ -255,57 +545,163 @@ window.setupTopicHistory = function (options) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
+        const data = await parseJsonIfPossible(res);
+        const fallback = messages.suggestionError || messages.updateError;
+        if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+          const errorMessage = resolveErrorMessage(data, fallback);
+          throw new Error(errorMessage);
+        }
 
         controller && controller.showSuccess();
+        setButtonError(null);
+        clearStatusMessage();
         await afterPersistedChange();
       } catch (err) {
         console.error(err);
         controller && controller.showError();
+        const fallback = messages.suggestionError || messages.updateError;
+        const message = (!err || !err.message || err.name === 'TypeError')
+          ? fallback
+          : err.message;
+        setButtonError(message);
+        showStatusMessage('error', message);
+        modal && modal.show();
       } finally {
         suggestionBtn.disabled = false;
       }
     });
   }
 
+  async function persistChanges({ userInitiated = false } = {}) {
+    if (!form || !topicUuid) {
+      return false;
+    }
+    const canTrackUnsavedChanges = !!textarea;
+    const shouldPersist = canTrackUnsavedChanges ? hasUnsavedChanges() : true;
+    if (!shouldPersist) {
+      if (autoSaveEnabled) {
+        setSaveIndicator('saved');
+      }
+      return false;
+    }
+    if (isSaving) {
+      pendingSave = true;
+      return false;
+    }
+
+    clearAutoSaveTimer();
+    isSaving = true;
+    pendingSave = false;
+
+    submitBtn && (submitBtn.disabled = true);
+    if (userInitiated) {
+      controller && controller.showLoading();
+      setButtonError(null);
+    }
+    clearStatusMessage();
+    if (userInitiated && modal) {
+      modal.hide();
+    }
+    if (autoSaveEnabled) {
+      setSaveIndicator('saving');
+    }
+
+    try {
+      const payload = { topic_uuid: topicUuid };
+      const currentText = textarea ? getValue() : '';
+      const normalizedText = textarea ? norm(currentText) : '';
+      Object.assign(payload, parseInput(currentText));
+      const res = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await parseJsonIfPossible(res);
+      const fallback = messages.updateError;
+      if (!res.ok || (data && typeof data.status === 'string' && data.status.toLowerCase() === 'error')) {
+        const errorMessage = resolveErrorMessage(data, fallback);
+        throw new Error(errorMessage);
+      }
+
+      if (userInitiated) {
+        controller && controller.reset();
+      }
+      if (userInitiated) {
+        setButtonError(null);
+      }
+      clearStatusMessage();
+      baseline = normalizedText;
+      const preReloadValue = textarea ? getValue() : null;
+      const preReloadNormalized = textarea ? norm(preReloadValue) : '';
+      const hadUnsavedDuringSave = textarea ? preReloadNormalized !== normalizedText : false;
+      await afterPersistedChange();
+      if (textarea) {
+        const postReloadValue = getValue();
+        const postReloadNormalized = norm(postReloadValue);
+        if (
+          hadUnsavedDuringSave &&
+          preReloadValue !== null &&
+          postReloadNormalized !== preReloadNormalized
+        ) {
+          setValue(preReloadValue);
+        }
+        baseline = hadUnsavedDuringSave ? normalizedText : postReloadNormalized;
+      }
+      updateSubmitButtonState();
+      if (autoSaveEnabled) {
+        if (hadUnsavedDuringSave) {
+          setSaveIndicator('dirty');
+        } else {
+          setSaveIndicator('saved', { savedAt: new Date() });
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error(err);
+      if (userInitiated) {
+        controller && controller.showError();
+      }
+      const fallback = messages.updateError;
+      let message = fallback;
+      if (err && err.message) {
+        if (err.message === 'Invalid JSON') {
+          message = messages.parseError || fallback;
+        } else if (err.name === 'TypeError') {
+          message = fallback;
+        } else {
+          message = err.message;
+        }
+      }
+      if (userInitiated) {
+        setButtonError(message);
+      }
+      showStatusMessage('error', message);
+      if (userInitiated && modal) {
+        modal.show();
+      }
+      if (autoSaveEnabled) {
+        setSaveIndicator('error', { error: message });
+      }
+      return false;
+    } finally {
+      isSaving = false;
+      if (textarea) {
+        submitBtn && (submitBtn.disabled = !hasUnsavedChanges());
+      } else {
+        submitBtn && (submitBtn.disabled = false);
+      }
+      if (pendingSave && autoSaveEnabled) {
+        pendingSave = false;
+        requestAutoSave({ immediate: true });
+      }
+    }
+  }
+
   // Manual update flow
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      submitBtn && (submitBtn.disabled = true);
-      controller && controller.showLoading();
-      // Close modal if present
-      const modalEl = document.getElementById(`${key}Modal`);
-      const modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
-      modal && modal.hide();
-
-      try {
-        const payload = { topic_uuid: topicUuid };
-        // Pass current text if textarea exists; otherwise an empty string
-        const currentText = textarea ? getValue() : '';
-        Object.assign(payload, parseInput(currentText));
-        const res = await fetch(createUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('Request failed');
-        await res.json();
-
-        // Manual update -> neutral (same as recap flow)
-        controller && controller.reset();
-        await afterPersistedChange();
-      } catch (err) {
-        console.error(err);
-        controller && controller.showError();
-      } finally {
-        if (textarea) {
-          submitBtn && (submitBtn.disabled = norm(getValue()) === baseline);
-        } else {
-          submitBtn && (submitBtn.disabled = false);
-        }
-      }
+      await persistChanges({ userInitiated: true });
     });
   }
 };

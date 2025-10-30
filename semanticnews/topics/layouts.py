@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple
 
 from .models import TopicModuleLayout
 
@@ -114,6 +114,19 @@ MODULE_REGISTRY: Dict[str, Dict[str, object]] = {
         },
         "context_keys": ["latest_relation", "relations_json", "topic"],
     },
+    "related_topics": {
+        "templates": {
+            "detail": {
+                "template": "topics/related_topics/detail_card.html",
+                "context": {"edit_mode": False},
+            },
+            "edit": {
+                "template": "topics/related_topics/edit_card.html",
+                "context": {"edit_mode": True},
+            },
+        },
+        "context_keys": ["related_topic_links", "topic"],
+    },
     "related_events": {
         "templates": {
             "detail": {
@@ -188,19 +201,24 @@ DEFAULT_LAYOUT: List[Dict[str, object]] = [
         "display_order": 6,
     },
     {
-        "module_key": "related_events",
+        "module_key": "related_topics",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
-        "display_order": 7,
+        "display_order": 11,
     },
     {
-        "module_key": "timeline",
+        "module_key": "related_events",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 8,
     },
     {
-        "module_key": "documents",
+        "module_key": "timeline",
         "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
         "display_order": 9,
+    },
+    {
+        "module_key": "documents",
+        "placement": TopicModuleLayout.PLACEMENT_SIDEBAR,
+        "display_order": 10,
     },
 ]
 
@@ -249,6 +267,8 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         TopicModuleLayout.PLACEMENT_SIDEBAR: [],
     }
 
+    related_topic_modules: List[Dict[str, object]] = []
+
     text_manager = getattr(topic, "texts", None)
     if text_manager is not None:
         text_values = list(text_manager.all())
@@ -262,6 +282,22 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
     else:
         data_values = []
     data_map = {str(data.id): data for data in data_values}
+
+    data_insight_manager = getattr(topic, "data_insights", None)
+    data_ids_with_insights: Set[str] = set()
+    has_unsourced_insight = False
+    if data_insight_manager is not None:
+        insight_qs = data_insight_manager.filter(is_deleted=False).prefetch_related(
+            "sources"
+        )
+        for insight in insight_qs:
+            sources = list(insight.sources.all())
+            if not sources:
+                has_unsourced_insight = True
+            for source in sources:
+                source_id = getattr(source, "id", None)
+                if source_id is not None:
+                    data_ids_with_insights.add(str(source_id))
 
     visualization_manager = getattr(topic, "data_visualizations", None)
     if visualization_manager is not None:
@@ -283,7 +319,7 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
         if base_key == "data_visualizations" and identifier
     }
 
-    data_insights_assigned = False
+    unsourced_insights_assigned = False
 
     for entry in base_layout:
         module_key = entry["module_key"]
@@ -306,11 +342,15 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
                     continue
                 explicit_data_ids.add(data_identifier)
                 context_overrides = dict(base_context_overrides)
-                if not data_insights_assigned:
-                    context_overrides["show_data_insights"] = True
-                    data_insights_assigned = True
-                else:
-                    context_overrides["show_data_insights"] = False
+                should_show_insights = data_identifier in data_ids_with_insights
+                if (
+                    not should_show_insights
+                    and has_unsourced_insight
+                    and not unsourced_insights_assigned
+                ):
+                    should_show_insights = True
+                    unsourced_insights_assigned = True
+                context_overrides["show_data_insights"] = should_show_insights
                 context_overrides["data"] = data_obj
                 descriptor = {
                     "module_key": f"{base_key}:{data_identifier}",
@@ -350,13 +390,15 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
                 placements.setdefault(placement, []).append(descriptor)
             continue
 
+        placement = entry["placement"]
+        display_order = entry["display_order"]
         context_overrides = dict(template_config.get("context", {}))
         descriptor = {
             "module_key": module_key,
             "base_module_key": base_key,
             "module_identifier": identifier,
-            "placement": entry["placement"],
-            "display_order": entry["display_order"],
+            "placement": placement,
+            "display_order": display_order,
             "template_name": template_config.get("template"),
             "context_overrides": context_overrides,
             "context_keys": registry_entry.get("context_keys", []),
@@ -373,11 +415,16 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
             explicit_data_ids.add(identifier)
             descriptor["data"] = data_obj
             descriptor["context_overrides"]["data"] = data_obj
-            if not data_insights_assigned:
-                descriptor["context_overrides"]["show_data_insights"] = True
-                data_insights_assigned = True
-            else:
-                descriptor["context_overrides"]["show_data_insights"] = False
+            data_identifier = identifier
+            should_show_insights = data_identifier in data_ids_with_insights
+            if (
+                not should_show_insights
+                and has_unsourced_insight
+                and not unsourced_insights_assigned
+            ):
+                should_show_insights = True
+                unsourced_insights_assigned = True
+            descriptor["context_overrides"]["show_data_insights"] = should_show_insights
 
         if base_key == "data_visualizations" and identifier:
             viz = visualization_map.get(identifier)
@@ -386,7 +433,25 @@ def get_layout_for_mode(topic, mode: LayoutMode) -> Dict[str, List[Dict[str, obj
             descriptor["visualization"] = viz
             explicit_visualization_ids.add(identifier)
 
-        placements.setdefault(entry["placement"], []).append(descriptor)
+        if base_key == "related_topics":
+            descriptor["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            related_topic_modules.append(descriptor)
+            continue
+
+        placements.setdefault(placement, []).append(descriptor)
+
+    if related_topic_modules:
+        sidebar_modules = placements.setdefault(
+            TopicModuleLayout.PLACEMENT_SIDEBAR, []
+        )
+        base_order = max(
+            (module.get("display_order", 0) for module in sidebar_modules),
+            default=0,
+        )
+        for offset, module in enumerate(related_topic_modules, start=1):
+            module["placement"] = TopicModuleLayout.PLACEMENT_SIDEBAR
+            module["display_order"] = base_order + offset
+            sidebar_modules.append(module)
 
     for modules in placements.values():
         modules.sort(key=lambda module: module["display_order"])

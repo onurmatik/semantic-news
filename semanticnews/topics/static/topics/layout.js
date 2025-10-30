@@ -90,6 +90,15 @@
     let draggedModule = null;
     let saveTimeout = null;
     let lastKnownLayoutSignature = null;
+    const layoutLockedModules = new Set(['recap', 'recaps']);
+
+    function isLayoutLocked(moduleEl) {
+      if (!(moduleEl instanceof Element)) {
+        return false;
+      }
+      const moduleKey = (moduleEl.dataset.module || '').toLowerCase();
+      return layoutLockedModules.has(moduleKey);
+    }
 
     function scheduleSave() {
       if (saveTimeout) {
@@ -145,12 +154,21 @@
       }
     }
 
-    function handleDragStart(event) {
-      const target = event.currentTarget;
+    function handleDragStart(event, moduleOverride = null) {
+      const target = moduleOverride || event.currentTarget;
+      if (!(target instanceof Element)) {
+        return;
+      }
       draggedModule = target;
       target.classList.add('topic-module--dragging');
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', target.dataset.module || '');
+      if (event.dataTransfer.setDragImage) {
+        const rect = target.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        event.dataTransfer.setDragImage(target, offsetX, offsetY);
+      }
     }
 
     function handleDragEnd() {
@@ -276,6 +294,9 @@
       if (moduleEl.dataset.hasContent !== 'true') {
         return;
       }
+      if (isLayoutLocked(moduleEl)) {
+        return;
+      }
 
       const controls = document.createElement('div');
       controls.className = 'topic-module-controls';
@@ -283,6 +304,11 @@
       const handle = document.createElement('span');
       handle.className = 'topic-module-handle bi bi-grip-vertical';
       handle.title = 'Drag to reorder';
+      handle.setAttribute('draggable', 'true');
+      handle.addEventListener('dragstart', (event) => {
+        handleDragStart(event, moduleEl);
+      });
+      handle.addEventListener('dragend', handleDragEnd);
       controls.appendChild(handle);
 
       const moveUpButton = document.createElement('button');
@@ -352,15 +378,16 @@
     }
 
     function initModule(moduleEl) {
-      moduleEl.setAttribute('draggable', 'true');
-      moduleEl.addEventListener('dragstart', handleDragStart);
-      moduleEl.addEventListener('dragend', handleDragEnd);
       moduleEl.addEventListener('dragover', handleDragOver);
       moduleEl.addEventListener('dragleave', handleDragLeave);
       moduleEl.addEventListener('drop', handleDrop);
       if (!moduleEl.dataset.placement) {
         const column = moduleEl.closest('[data-layout-column]');
         moduleEl.dataset.placement = column ? column.dataset.layoutColumn : 'primary';
+      }
+      if (isLayoutLocked(moduleEl)) {
+        moduleEl.classList.add('topic-module--layout-locked');
+        return;
       }
       addControls(moduleEl);
     }
