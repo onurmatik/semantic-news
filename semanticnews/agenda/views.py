@@ -200,7 +200,7 @@ def event_list(request, year, month=None, day=None):
     qs = (
         Event.objects.filter(date__range=(start, end))
         .select_related("created_by")
-        .prefetch_related("contents", "categories", "sources")
+        .prefetch_related("categories", "sources")
         .order_by("date", "slug")  # stable order within the period
     )
 

@@ -14,12 +14,10 @@ from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from semanticnews.agenda.models import Event
-from semanticnews.contents.models import Content
 from semanticnews.prompting import get_default_language_instruction
 
 from .models import (
     Topic,
-    TopicContent,
     TopicKeyword,
     RelatedTopic,
     RelatedEntity,
@@ -1170,9 +1168,6 @@ class TopicCloneTests(TestCase):
             source=Source.USER,
         )
 
-        self.content = Content.objects.create(content_type="text", embedding=[0.0] * 1536)
-        TopicContent.objects.create(topic=self.topic, content=self.content, created_by=self.owner)
-
         TopicRecap.objects.create(topic=self.topic, recap="Recap")
 
         image_data = (
@@ -1203,7 +1198,6 @@ class TopicCloneTests(TestCase):
         cloned = Topic.objects.get(created_by=self.cloner)
         self.assertEqual(cloned.based_on, self.topic)
         self.assertEqual(cloned.events.count(), 1)
-        self.assertEqual(cloned.contents.count(), 1)
         self.assertEqual(cloned.recaps.count(), 1)
         self.assertEqual(cloned.images.count(), 1)
         self.assertEqual(cloned.keywords.count(), 1)

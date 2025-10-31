@@ -31,14 +31,6 @@
         {% else %}
             {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; not yet published.{% endblocktrans %}
         {% endif %}
-        {% with item_count=topic.contents.count contributor_count=topic.contributors.count %}
-            <nobr>
-                {% if item_count > 0 %}
-                    {% blocktrans count item_count=item_count %}{{ item_count }} item{% plural %}{{ item_count }} items{% endblocktrans %}
-                {% endif %}
-            </nobr>
-        {% endwith %}
-
         {% if topic.status == "draft" %}
             <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
         {% elif topic.status == "archived" %}
