@@ -636,7 +636,6 @@ def topic_remove_event(request, slug, username, event_uuid):
 def topic_clone(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
-        "contents",
         "recaps",
         "images",
         "keywords",
