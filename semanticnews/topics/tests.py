@@ -1458,6 +1458,90 @@ class TopicSectionModelTests(TestCase):
         self.assertIn("A maximum of 1 items are allowed.", exc.exception.messages[0])
 
 
+class TopicSectionPublishTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "publisher", "publisher@example.com", "password"
+        )
+        self.widget = Widget.objects.create(
+            name="Summary",
+            type=WidgetType.TEXT,
+            response_format={"type": "markdown", "sections": ["summary"]},
+        )
+
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics", return_value=[])
+    def test_publish_topic_marks_sections_and_captures_snapshot(self, _mock_similar):
+        topic = Topic.objects.create(title="Story", created_by=self.owner)
+        TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
+        section = TopicSection.objects.create(
+            topic=topic,
+            widget=self.widget,
+            content={"summary": "Latest"},
+            status="finished",
+        )
+        TopicSection.objects.create(
+            topic=topic,
+            widget=self.widget,
+            content={"summary": "Hidden"},
+            status="finished",
+            is_deleted=True,
+        )
+
+        publication = publish_topic(topic, self.owner)
+
+        section.refresh_from_db()
+        self.assertIsNotNone(section.published_at)
+        self.assertFalse(
+            topic.sections.filter(
+                is_deleted=False,
+                status="finished",
+                published_at__isnull=True,
+            ).exists()
+        )
+
+        snapshot_sections = publication.context_snapshot.get("sections", [])
+        self.assertEqual(len(snapshot_sections), 1)
+        self.assertEqual(snapshot_sections[0]["id"], section.id)
+        self.assertEqual(snapshot_sections[0]["content"], {"summary": "Latest"})
+
+    @patch("semanticnews.topics.publishing.Topic.get_similar_topics", return_value=[])
+    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
+    def test_set_status_published_updates_last_published_timestamp(
+        self, _mock_embedding, _mock_similar
+    ):
+        user = self.User.objects.create_user("author", "author@example.com", "password")
+        self.client.force_login(user)
+
+        topic = Topic.objects.create(title="Story", created_by=user)
+        TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
+        TopicSection.objects.create(
+            topic=topic,
+            widget=self.widget,
+            content={"summary": "Publish me"},
+            status="finished",
+        )
+
+        payload = {"topic_uuid": str(topic.uuid), "status": "published"}
+        response = self.client.post(
+            "/api/topics/set-status",
+            payload,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        topic.refresh_from_db()
+        self.assertEqual(topic.status, "published")
+        self.assertIsNotNone(topic.last_published_at)
+        self.assertFalse(
+            topic.sections.filter(
+                is_deleted=False,
+                status="finished",
+                published_at__isnull=True,
+            ).exists()
+        )
+
 class RelatedTopicPublishTests(TestCase):
     def setUp(self):
         self.User = get_user_model()

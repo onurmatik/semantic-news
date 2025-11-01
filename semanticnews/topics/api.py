@@ -29,6 +29,7 @@ from .models import (
     RelatedEvent,
     Source,
 )
+from .publishing import publish_topic
 from .recaps.api import router as recaps_router
 from semanticnews.widgets.mcps.api import router as mcps_router
 from semanticnews.widgets.images.api import router as images_router
@@ -495,10 +496,7 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
             topic.status == "archived" and topic.last_published_at is not None
         )
 
-        if is_republishing_archived_topic:
-            topic.status = "published"
-            topic.save(update_fields=["status"])
-        else:
+        if not is_republishing_archived_topic:
             if not topic.title:
                 raise HttpError(400, "A title is required to publish a topic.")
 
@@ -506,7 +504,7 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
             if not has_finished_recap:
                 raise HttpError(400, "A recap is required to publish a topic.")
 
-            publish_topic(topic, user)
+        publish_topic(topic, user)
     else:
         topic.status = payload.status
         topic.save(update_fields=["status"])
