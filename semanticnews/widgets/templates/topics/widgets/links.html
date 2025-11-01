@@ -1,0 +1,21 @@
+{% load i18n %}
+{% with links=renderable.content %}
+    {% if links %}
+        <ul class="list-group list-group-flush">
+            {% for link in links %}
+                <li class="list-group-item">
+                    {% if link.url %}
+                        <a href="{{ link.url }}" class="fw-semibold" rel="noopener" target="_blank">{{ link.title|default:link.url }}</a>
+                    {% else %}
+                        <span class="fw-semibold">{{ link.title|default:_("Untitled link") }}</span>
+                    {% endif %}
+                    {% if link.summary %}
+                        <p class="mb-0 text-secondary small">{{ link.summary }}</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "No related coverage links available." %}</p>
+    {% endif %}
+{% endwith %}

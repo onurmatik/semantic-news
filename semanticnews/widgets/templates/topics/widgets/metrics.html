@@ -1,0 +1,22 @@
+{% load i18n %}
+{% with metrics=renderable.content %}
+    {% if metrics %}
+        <div class="d-flex flex-column gap-3">
+            {% for metric in metrics %}
+                <div class="border rounded p-3 bg-body-tertiary">
+                    {% if metric.label %}
+                        <h3 class="fs-6 mb-1 text-uppercase text-secondary">{{ metric.label }}</h3>
+                    {% endif %}
+                    {% if metric.value %}
+                        <p class="fs-4 fw-semibold mb-2">{{ metric.value }}</p>
+                    {% endif %}
+                    {% if metric.description %}
+                        <p class="mb-0">{{ metric.description }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "No data highlights available yet." %}</p>
+    {% endif %}
+{% endwith %}

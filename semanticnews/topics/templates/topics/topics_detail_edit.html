@@ -129,25 +129,10 @@
             {% include "topics/images/card.html" %}
             {% include "topics/recaps/card.html" with edit_mode=True %}
             <div class="d-flex flex-column gap-3" data-topic-primary-widgets>
-                {% for widget in primary_widgets %}
-                    <div
-                        class="topic-widget-entry"
-                        data-topic-widget-entry
-                        data-topic-widget="{{ widget.kind }}"
-                        data-topic-widget-key="{{ widget.key }}"
-                    >
-                        {% if widget.kind == 'text' %}
-                            {% include "topics/text/card.html" with module=widget.module edit_mode=widget.edit_mode %}
-                        {% elif widget.kind == 'data' %}
-                            {% include "topics/data/card.html" with data=widget.data data_insights=data_insights show_data_insights=widget.show_data_insights edit_mode=widget.edit_mode %}
-                        {% elif widget.kind == 'data_visualization' %}
-                            {% include "topics/data/visualization_card.html" with module=widget.module edit_mode=widget.edit_mode %}
-                        {% elif widget.kind == 'embeds' %}
-                            {% include "topics/webcontent/embeds/card.html" with youtube_video=widget.youtube_video tweets=widget.tweets edit_mode=widget.edit_mode %}
-                        {% elif widget.kind == 'references' %}
-                            {% include "topics/webcontent/documents/card.html" with documents=widget.documents webpages=widget.webpages edit_mode=widget.edit_mode %}
-                        {% endif %}
-                    </div>
+                {% for renderable in sections %}
+                    {% include "widgets/topics/widgets/section.html" with renderable=renderable edit_mode=edit_mode %}
+                {% empty %}
+                    <p class="text-secondary fst-italic mb-0">{% trans "This topic does not yet have any sections. Use the tools below to add the first block." %}</p>
                 {% endfor %}
             </div>
             {% include "topics/content/toolbar.html" with edit_mode=True %}
@@ -169,8 +154,6 @@
 
 {% include "topics/mcps/modal.html" %}
 {% comment %} Inline editors render in the content area {% endcomment %}
-{% include "topics/data/analyze_modal.html" %}
-{% include "topics/data/visualize_modal.html" %}
 {% include "topics/images/modal.html" %}
 {% include "topics/relations/modal.html" %}
 {% include "topics/timeline/modal.html" %}
@@ -187,7 +170,6 @@
     {% include "topics/recaps/scripts.html" %}
     <script src="{% static 'topics/content/toolbar.js' %}"></script>
     <script src="{% static 'topics/content/external_content.js' %}"></script>
-    {% include "topics/data/scripts.html" %}
     {% include "topics/text/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}

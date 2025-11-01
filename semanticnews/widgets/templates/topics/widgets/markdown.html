@@ -1,0 +1,15 @@
+{% load i18n markdown_extras %}
+{% with content=renderable.content %}
+    {% if content %}
+        {% for title, body in content.items %}
+            {% if body %}
+                {% if content|length > 1 %}
+                    <h3 class="fs-6 text-secondary text-uppercase mb-2">{{ title }}</h3>
+                {% endif %}
+                <div class="markdown-body">{{ body|markdownify }}</div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "No content available for this section yet." %}</p>
+    {% endif %}
+{% endwith %}

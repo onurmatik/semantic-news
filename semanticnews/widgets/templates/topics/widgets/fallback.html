@@ -1,0 +1,8 @@
+{% load i18n %}
+{% with payload=renderable.section.content %}
+    {% if payload %}
+        <pre class="bg-body-tertiary border rounded p-3 small text-break">{{ payload|default:'' }}</pre>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "This section does not have content yet." %}</p>
+    {% endif %}
+{% endwith %}

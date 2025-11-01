@@ -1,32 +1,26 @@
-from django.shortcuts import render, get_object_or_404, redirect
+import json
+from collections import OrderedDict
+from types import SimpleNamespace
+
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, Http404
+from django.db.models import Prefetch
+from django.db.models.functions import Coalesce
+from django.http import Http404, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from django.utils.translation import gettext as _
 from pgvector.django import L2Distance
-import json
 
-from django.db.models import Prefetch
-from django.db.models.functions import Coalesce
-from types import SimpleNamespace
-
-from semanticnews.agenda.models import Event
 from semanticnews.agenda.localities import (
     get_default_locality_label,
     get_locality_options,
 )
-
-from .models import (
-    Topic,
-    RelatedTopic,
-    RelatedEntity,
-    RelatedEvent,
-    Source,
-)
-from semanticnews.widgets.data.models import TopicDataVisualization
+from semanticnews.agenda.models import Event
 from semanticnews.widgets.mcps.models import MCPServer
+
+from .models import RelatedEntity, RelatedEvent, RelatedTopic, Source, Topic
 
 
 RELATED_ENTITIES_PREFETCH = Prefetch(
@@ -36,6 +30,82 @@ RELATED_ENTITIES_PREFETCH = Prefetch(
     .order_by("-created_at"),
     to_attr="prefetched_related_entities",
 )
+
+
+SECTION_TEMPLATE_MAP = {
+    "markdown": "widgets/topics/widgets/markdown.html",
+    "bulleted_metrics": "widgets/topics/widgets/metrics.html",
+    "timeline": "widgets/topics/widgets/timeline.html",
+    "link_list": "widgets/topics/widgets/links.html",
+    "image_list": "widgets/topics/widgets/images.html",
+    "json_object": "widgets/topics/widgets/json.html",
+}
+
+
+def _normalize_section_content(section, response_type, response_format):
+    """Normalize stored section content for template rendering."""
+
+    payload = section.content
+
+    if response_type == "markdown":
+        if isinstance(payload, dict):
+            required_order = response_format.get("sections") or []
+            if required_order:
+                ordered = OrderedDict()
+                for key in required_order:
+                    if key in payload:
+                        ordered[key] = payload[key]
+                for key, value in payload.items():
+                    if key not in ordered:
+                        ordered[key] = value
+                return ordered
+            return payload
+        return {}
+
+    if response_type in {"bulleted_metrics", "timeline", "link_list", "image_list"}:
+        return payload if isinstance(payload, list) else []
+
+    if response_type == "json_object":
+        return payload if isinstance(payload, dict) else {}
+
+    return payload
+
+
+def _resolve_section_template(section):
+    widget = getattr(section, "widget", None)
+    response_format = getattr(widget, "response_format", None) or {}
+    response_type = response_format.get("type")
+    template_path = SECTION_TEMPLATE_MAP.get(
+        response_type, "widgets/topics/widgets/fallback.html"
+    )
+
+    normalized_content = _normalize_section_content(
+        section, response_type, response_format
+    )
+
+    return SimpleNamespace(
+        section=section,
+        widget=widget,
+        template_path=template_path,
+        response_type=response_type,
+        content=normalized_content,
+        format=response_format,
+    )
+
+
+def _build_renderable_sections(topic, *, edit_mode=False):
+    """Return section descriptors prepared for template rendering."""
+
+    sections = topic.sections_ordered if edit_mode else topic.active_sections
+
+    renderables = []
+    for index, section in enumerate(sections, start=1):
+        descriptor = _resolve_section_template(section)
+        descriptor.key = f"section:{getattr(section, 'id', None) or index}"
+        descriptor.edit_mode = edit_mode
+        renderables.append(descriptor)
+
+    return renderables
 
 
 @login_required
@@ -97,16 +167,11 @@ def topics_detail_redirect(request, topic_uuid, username):
 def topics_list(request):
     """Display the most recently updated published topics."""
 
-    visualizations_prefetch = Prefetch(
-        "data_visualizations",
-        queryset=TopicDataVisualization.objects.order_by("-created_at"),
-    )
-
     topics = (
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by")
-        .prefetch_related("recaps", "images", visualizations_prefetch)
+        .prefetch_related("recaps", "images", "sections__widget")
         .order_by("-ordering_activity", "-created_at")
     )
 
@@ -129,16 +194,9 @@ def topics_detail(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
         "recaps",
-        "texts",
         "images",
-        "documents",
-        "webpages",
-        "youtube_videos",
-        "tweets",
+        "sections__widget",
         RELATED_ENTITIES_PREFETCH,
-        "datas",
-        "data_insights__sources",
-        "data_visualizations__insight",
         Prefetch(
             "topic_related_topics",
             queryset=RelatedTopic.objects.select_related(
@@ -156,7 +214,7 @@ def topics_detail(request, slug, username):
     return _render_topic_detail(request, topic)
 
 
-def _build_topic_module_context(topic, user=None):
+def _build_topic_module_context(topic, user=None, *, edit_mode=False):
     """Collect related objects used to render topic content."""
 
     related_events = topic.active_events
@@ -181,31 +239,6 @@ def _build_topic_module_context(topic, user=None):
     ]
     related_entities_json = json.dumps(related_entities_payload, separators=(",", ":"))
     related_entities_json_pretty = json.dumps(related_entities_payload, indent=2)
-    texts = list(topic.active_texts.order_by("display_order", "created_at"))
-    documents = list(
-        topic.active_documents.order_by("display_order", "-created_at")
-    )
-    webpages = list(
-        topic.active_webpages.order_by("display_order", "-created_at")
-    )
-    datas = list(topic.active_datas.order_by("display_order", "created_at"))
-    latest_data = max(datas, key=lambda item: item.created_at) if datas else None
-    data_insights = list(
-        topic.active_data_insights.prefetch_related("sources").order_by("-created_at")
-    )
-    data_visualizations = list(
-        topic.active_data_visualizations
-        .select_related("insight")
-        .order_by("display_order", "created_at")
-    )
-    has_saved_data_content = bool(latest_data or data_insights or data_visualizations)
-    youtube_videos = list(
-        topic.active_youtube_videos.order_by("display_order", "-created_at")
-    )
-    youtube_video = youtube_videos[0] if youtube_videos else None
-    tweets = list(
-        topic.active_tweets.order_by("display_order", "-created_at")
-    )
 
     related_topic_links = list(
         getattr(topic, "prefetched_related_topic_links", None)
@@ -246,171 +279,14 @@ def _build_topic_module_context(topic, user=None):
         "related_entities": related_entities,
         "related_entities_json": related_entities_json,
         "related_entities_json_pretty": related_entities_json_pretty,
-        "texts": texts,
-        "latest_data": latest_data,
-        "datas": datas,
-        "data_insights": data_insights,
-        "data_visualizations": data_visualizations,
-        "data_button_status": "success" if has_saved_data_content else "finished",
-        "youtube_video": youtube_video,
-        "youtube_videos": youtube_videos,
-        "tweets": tweets,
-        "documents": documents,
-        "webpages": webpages,
         "related_topic_links": active_related_topic_links,
         "related_topics": related_topics,
+        "sections": _build_renderable_sections(topic, edit_mode=edit_mode),
     }
 
 
-def _resolve_data_widget_visibility(datas, data_insights):
-    data_ids_with_insights = set()
-    has_unsourced_insight = False
-
-    for insight in data_insights:
-        sources_manager = getattr(insight, "sources", None)
-        if sources_manager is None:
-            continue
-        sources = list(sources_manager.all())
-        if not sources:
-            has_unsourced_insight = True
-        for source in sources:
-            source_id = getattr(source, "id", None)
-            if source_id is not None:
-                data_ids_with_insights.add(str(source_id))
-
-    visibility = {}
-    unsourced_assigned = False
-
-    for data_obj in datas:
-        identifier = getattr(data_obj, "id", None)
-        if identifier is None:
-            continue
-        key = str(identifier)
-        should_show = key in data_ids_with_insights
-        if not should_show and has_unsourced_insight and not unsourced_assigned:
-            should_show = True
-            unsourced_assigned = True
-        visibility[key] = should_show
-
-    return visibility
-
-
-def _build_primary_widgets(context, *, edit_mode=False):
-    widgets = []
-    texts = context.get("texts") or []
-    datas = context.get("datas") or []
-    data_visualizations = context.get("data_visualizations") or []
-    documents = list(context.get("documents") or [])
-    webpages = list(context.get("webpages") or [])
-    tweets = list(context.get("tweets") or [])
-    youtube_video = context.get("youtube_video")
-    data_insights = context.get("data_insights") or []
-
-    data_visibility = _resolve_data_widget_visibility(datas, data_insights)
-
-    for text in texts:
-        identifier = getattr(text, "id", None)
-        if identifier is None:
-            continue
-        module_key = f"text:{identifier}"
-        module = SimpleNamespace(module_key=module_key, text=text)
-        widgets.append(
-            SimpleNamespace(
-                key=module_key,
-                kind="text",
-                display_order=getattr(text, "display_order", 0),
-                module=module,
-                edit_mode=edit_mode,
-            )
-        )
-
-    for dataset in datas:
-        identifier = getattr(dataset, "id", None)
-        if identifier is None:
-            continue
-        key = str(identifier)
-        widgets.append(
-            SimpleNamespace(
-                key=f"data:{key}",
-                kind="data",
-                display_order=getattr(dataset, "display_order", 0),
-                data=dataset,
-                show_data_insights=data_visibility.get(key, False),
-                edit_mode=edit_mode,
-            )
-        )
-
-    for visualization in data_visualizations:
-        identifier = getattr(visualization, "id", None)
-        if identifier is None:
-            continue
-        module_key = f"data_visualizations:{identifier}"
-        module = SimpleNamespace(
-            module_key=module_key,
-            visualization=visualization,
-        )
-        widgets.append(
-            SimpleNamespace(
-                key=module_key,
-                kind="data_visualization",
-                display_order=getattr(visualization, "display_order", 0),
-                module=module,
-                edit_mode=edit_mode,
-            )
-        )
-
-    embed_orders = []
-    if youtube_video is not None:
-        order = getattr(youtube_video, "display_order", None)
-        if order is not None:
-            embed_orders.append(order)
-    for tweet in tweets:
-        order = getattr(tweet, "display_order", None)
-        if order is not None:
-            embed_orders.append(order)
-    if edit_mode or youtube_video or tweets:
-        display_order = min(embed_orders) if embed_orders else 0
-        widgets.append(
-            SimpleNamespace(
-                key="embeds",
-                kind="embeds",
-                display_order=display_order,
-                youtube_video=youtube_video,
-                tweets=tweets,
-                edit_mode=edit_mode,
-            )
-        )
-
-    reference_orders = []
-    for document in documents:
-        order = getattr(document, "display_order", None)
-        if order is not None:
-            reference_orders.append(order)
-    for webpage in webpages:
-        order = getattr(webpage, "display_order", None)
-        if order is not None:
-            reference_orders.append(order)
-
-    if edit_mode or documents or webpages:
-        display_order = min(reference_orders) if reference_orders else 0
-        widgets.append(
-            SimpleNamespace(
-                key="references",
-                kind="references",
-                display_order=display_order,
-                documents=documents,
-                webpages=webpages,
-                edit_mode=edit_mode,
-            )
-        )
-
-    widgets.sort(key=lambda item: (item.display_order, item.key))
-    return widgets
-
-
 def _build_topic_page_context(topic, user=None, *, edit_mode=False):
-    context = _build_topic_module_context(topic, user)
-    context["primary_widgets"] = _build_primary_widgets(context, edit_mode=edit_mode)
+    context = _build_topic_module_context(topic, user, edit_mode=edit_mode)
     context["edit_mode"] = edit_mode
     return context
 
@@ -514,16 +390,9 @@ def topics_detail_edit(request, topic_uuid, username):
         Topic.objects.prefetch_related(
             "events",
             "recaps",
-            "texts",
             "images",
-            "documents",
-            "webpages",
-            "youtube_videos",
-            "tweets",
+            "sections__widget",
             RELATED_ENTITIES_PREFETCH,
-            "datas",
-            "data_insights__sources",
-            "data_visualizations__insight",
             Prefetch(
                 "topic_related_topics",
                 queryset=RelatedTopic.objects.select_related(
