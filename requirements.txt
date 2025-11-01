@@ -1,4 +1,5 @@
 boto3
+bleach
 celery[redis]
 flower
 django
