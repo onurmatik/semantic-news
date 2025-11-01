@@ -597,14 +597,6 @@ class Topic(models.Model):
                 created_by=user,
             )
 
-        for entity in TopicEntity.objects.filter(topic=self):
-            TopicEntity.objects.create(
-                topic=cloned,
-                entity=entity.entity,
-                relevance=entity.relevance,
-                created_by=user,
-            )
-
         for link in self.topic_related_topics.filter(is_deleted=False):
             RelatedTopic.objects.create(
                 topic=cloned,

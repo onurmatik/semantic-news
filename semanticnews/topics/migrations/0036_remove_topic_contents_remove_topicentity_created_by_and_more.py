@@ -14,10 +14,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RemoveField(
-            model_name='topic',
-            name='contents',
-        ),
-        migrations.RemoveField(
             model_name='topicentity',
             name='created_by',
         ),
@@ -92,9 +88,6 @@ class Migration(migrations.Migration):
             model_name='topic',
             name='events',
             field=models.ManyToManyField(blank=True, related_name='topics', through='topics.RelatedEvent', to='agenda.event'),
-        ),
-        migrations.DeleteModel(
-            name='TopicContent',
         ),
         migrations.DeleteModel(
             name='TopicEntity',
