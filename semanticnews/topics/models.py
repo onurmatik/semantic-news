@@ -283,11 +283,6 @@ class Topic(models.Model):
     def active_related_entities(self):
         return self.related_entities.filter(is_deleted=False)
 
-    # Backwards-compatible alias used by legacy templates and views.
-    @property
-    def active_entity_relations(self):
-        return self.active_related_entities
-
     @property
     def active_related_topic_links(self):
         return self.topic_related_topics.filter(is_deleted=False)
