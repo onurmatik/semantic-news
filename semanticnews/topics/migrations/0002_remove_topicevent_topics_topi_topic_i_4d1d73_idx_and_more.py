@@ -18,14 +18,6 @@ class Migration(migrations.Migration):
             name='topics_topi_topic_i_4d1d73_idx',
         ),
         migrations.RemoveField(
-            model_name='topiccontent',
-            name='pinned',
-        ),
-        migrations.RemoveField(
-            model_name='topiccontent',
-            name='rank',
-        ),
-        migrations.RemoveField(
             model_name='topicevent',
             name='pinned',
         ),

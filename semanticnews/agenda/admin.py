@@ -1,12 +1,10 @@
 from django.contrib import admin, messages
-from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
 from datetime import date as date_cls
 
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.safestring import mark_safe
-from slugify import slugify
 
 from semanticnews.agenda.localities import (
     get_locality_choices,
@@ -31,21 +29,6 @@ class HasEmbeddingFilter(admin.SimpleListFilter):
             return queryset.exclude(embedding__isnull=True)
         if self.value() == "no":
             return queryset.filter(embedding__isnull=True)
-        return queryset
-
-
-class HasContentsFilter(admin.SimpleListFilter):
-    title = "has contents"
-    parameter_name = "has_contents"
-
-    def lookups(self, request, model_admin):
-        return (("yes", "Yes"), ("no", "No"))
-
-    def queryset(self, request, queryset):
-        if self.value() == "yes":
-            return queryset.filter(contents__isnull=False).distinct()
-        if self.value() == "no":
-            return queryset.filter(contents__isnull=True)
         return queryset
 
 
@@ -79,7 +62,6 @@ class EventAdmin(admin.ModelAdmin):
 
     # Filters & search
     list_filter = (
-        HasContentsFilter,
         HasEmbeddingFilter,
         "status",
         "created_by",
@@ -93,9 +75,6 @@ class EventAdmin(admin.ModelAdmin):
         "uuid",
         "title",
         "slug",
-        "contents__title",
-        "contents__url",
-        "contents__source__name",
     )
     date_hierarchy = "date"
     ordering = ("-date", "-created_at")
@@ -110,14 +89,6 @@ class EventAdmin(admin.ModelAdmin):
 
     actions = ("update_embeddings", "publish_events")
     change_list_template = "admin/agenda/event/change_list.html"
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.annotate(contents_count=Count("contents", distinct=True))
-
-    @admin.display(ordering="contents_count", description="Contents")
-    def contents_count(self, obj):
-        return obj.contents_count
 
     @admin.display(boolean=True, description="Embedding")
     def has_embedding_flag(self, obj):

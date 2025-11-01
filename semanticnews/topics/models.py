@@ -357,15 +357,6 @@ class Topic(models.Model):
             event_lines = [f"- {event.title} ({event.date})" for event in events_qs]
             append_section("Events", "\n".join(event_lines))
 
-        contents_qs = self.contents.all().order_by("created_at")
-        if contents_qs.exists():
-            content_sections = []
-            for content in contents_qs:
-                title = content.title or "Content"
-                text = content.markdown or ""
-                content_sections.append(f"### {title}\n{text}".strip())
-            append_section("Contents", "\n\n".join(content_sections))
-
         entities_qs = self.entities.all().order_by("name")
         if entities_qs.exists():
             entity_lines = []
@@ -603,14 +594,6 @@ class Topic(models.Model):
                 title=webpage.title,
                 url=webpage.url,
                 description=webpage.description,
-                created_by=user,
-            )
-
-        for entity in TopicEntity.objects.filter(topic=self):
-            TopicEntity.objects.create(
-                topic=cloned,
-                entity=entity.entity,
-                relevance=entity.relevance,
                 created_by=user,
             )
 

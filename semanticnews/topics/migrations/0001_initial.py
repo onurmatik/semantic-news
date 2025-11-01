@@ -15,7 +15,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('agenda', '0001_initial'),
-        ('contents', '0001_initial'),
         ('entities', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -48,26 +47,6 @@ class Migration(migrations.Migration):
                 ('based_on', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='derivatives', to='topics.topic')),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='topics', to=settings.AUTH_USER_MODEL)),
             ],
-        ),
-        migrations.CreateModel(
-            name='TopicContent',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('role', models.CharField(choices=[('evidence', 'Evidence'), ('summary', 'Summary'), ('quote', 'Quote')], default='evidence', max_length=20)),
-                ('source', models.CharField(choices=[('user', 'User'), ('ml', 'ML'), ('rule', 'Rule')], default='user', max_length=10)),
-                ('relevance', models.FloatField(blank=True, null=True, validators=[django.core.validators.MinValueValidator(0.0), django.core.validators.MaxValueValidator(1.0)])),
-                ('pinned', models.BooleanField(default=False)),
-                ('rank', models.IntegerField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('content', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='contents.content')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('topic', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='topics.topic')),
-            ],
-        ),
-        migrations.AddField(
-            model_name='topic',
-            name='contents',
-            field=models.ManyToManyField(blank=True, related_name='topics', through='topics.TopicContent', to='contents.content'),
         ),
         migrations.CreateModel(
             name='TopicEntity',
@@ -123,18 +102,6 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('topic', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recaps', to='topics.topic')),
             ],
-        ),
-        migrations.AddIndex(
-            model_name='topiccontent',
-            index=models.Index(fields=['topic'], name='topics_topi_topic_i_6f47f7_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='topiccontent',
-            index=models.Index(fields=['content'], name='topics_topi_content_52c700_idx'),
-        ),
-        migrations.AddConstraint(
-            model_name='topiccontent',
-            constraint=models.UniqueConstraint(fields=('topic', 'content'), name='unique_topic_content'),
         ),
         migrations.AddIndex(
             model_name='topicevent',
