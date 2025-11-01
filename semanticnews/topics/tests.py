@@ -11,6 +11,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from semanticnews.agenda.models import Event
@@ -24,10 +25,12 @@ from .models import (
     RelatedEvent,
     Source,
     TopicRecap,
+    TopicSection,
 )
 from semanticnews.entities.models import Entity
 from semanticnews.keywords.models import Keyword
 from semanticnews.widgets.images.models import TopicImage
+from semanticnews.widgets.models import Widget, WidgetType
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .publishing import publish_topic
@@ -1363,6 +1366,71 @@ class RelatedTopicModelTests(TestCase):
 
         context = topic.build_context()
         self.assertNotIn("Sensitive", context)
+
+
+class TopicSectionModelTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            "owner", "owner@example.com", "password"
+        )
+        self.topic = Topic.objects.create(title="Primary", created_by=self.owner)
+        self.widget = Widget.objects.create(
+            name="Summary",
+            type=WidgetType.TEXT,
+            response_format={"type": "markdown", "sections": ["summary"]},
+        )
+
+    def test_active_queryset_filters_deleted(self):
+        active_section = TopicSection.objects.create(
+            topic=self.topic,
+            widget=self.widget,
+            display_order=1,
+            content={"summary": "Hello"},
+            status="finished",
+        )
+        TopicSection.objects.create(
+            topic=self.topic,
+            widget=self.widget,
+            display_order=2,
+            content={"summary": "Discarded"},
+            is_deleted=True,
+            status="finished",
+        )
+
+        sections = list(self.topic.sections.active())
+        self.assertEqual(sections, [active_section])
+
+    def test_validation_enforces_required_sections(self):
+        section = TopicSection(
+            topic=self.topic,
+            widget=self.widget,
+            content={"details": "Missing summary"},
+            status="finished",
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            section.full_clean()
+
+        self.assertIn("Missing required sections", exc.exception.messages[0])
+
+    def test_validation_enforces_max_items(self):
+        widget = Widget.objects.create(
+            name="Links",
+            type=WidgetType.WEBCONTENT,
+            response_format={"type": "link_list", "max_items": 1},
+        )
+        section = TopicSection(
+            topic=self.topic,
+            widget=widget,
+            content=[{"title": "First"}, {"title": "Second"}],
+            status="finished",
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            section.full_clean()
+
+        self.assertIn("A maximum of 1 items are allowed.", exc.exception.messages[0])
 
 
 class RelatedTopicPublishTests(TestCase):

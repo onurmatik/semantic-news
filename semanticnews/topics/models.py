@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.utils.functional import cached_property
-from django.utils.translation import gettext
+from django.utils.translation import gettext, get_supported_language_variant
 from django.urls import reverse
 from django.conf import settings
 from slugify import slugify
@@ -16,6 +16,11 @@ from pgvector.django import VectorField, L2Distance, HnswIndex
 from ..widgets.text.models import TopicText
 from ..widgets.images.models import TopicImage
 from ..widgets.webcontent.models import TopicDocument, TopicWebpage
+
+
+class Source(models.TextChoices):
+    USER = "user", "User"
+    AGENT = "agent", "Agent"
 
 
 class Topic(models.Model):
@@ -666,28 +671,189 @@ class TopicRecap(models.Model):
 # Topic widget content sections
 #
 
+class TopicSectionQuerySet(models.QuerySet):
+    """Query helpers for topic sections."""
+
+    def active(self):
+        """Return sections that have not been soft deleted."""
+
+        return self.filter(is_deleted=False)
+
+    def published(self):
+        """Return sections that have been published."""
+
+        return self.active().filter(published_at__isnull=False)
+
+    def in_language(self, language_code: Optional[str]):
+        """Filter sections by their language code (if provided)."""
+
+        if not language_code:
+            return self
+
+        return self.filter(language_code=language_code)
+
+
 class TopicSection(models.Model):
     topic = models.ForeignKey(Topic, related_name="sections", on_delete=models.CASCADE)
     widget = models.ForeignKey('widgets.Widget', related_name="sections", on_delete=models.CASCADE)
     display_order = models.PositiveSmallIntegerField(default=0)
     content = models.JSONField(blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_deleted = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("in_progress", "In progress"),
+            ("finished", "Finished"),
+            ("error", "Error"),
+        ],
+        default="in_progress",
+    )
+    language_code = models.CharField(max_length=12, blank=True, null=True, db_index=True)
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.USER,
+        blank=True,
+    )
+
+    objects = TopicSectionQuerySet.as_manager()
 
     class Meta:
-        ordering = ("display_order", "id")
+        ordering = ("display_order", "published_at", "id")
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.topic_id}:{self.widget_id}:{self.display_order}"
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        try:
+            normalized_language = self.normalize_language_code(self.language_code)
+        except ValidationError as exc:  # pragma: no cover - exercised indirectly
+            errors["language_code"] = exc.messages
+        else:
+            self.language_code = normalized_language
+
+        try:
+            self.validate_content_against_widget()
+        except ValidationError as exc:
+            errors.setdefault("content", []).extend(exc.messages)
+
+        if errors:
+            raise ValidationError(errors)
+
+    def normalize_language_code(self, language_code: Optional[str]) -> Optional[str]:
+        """Return a normalized, supported language code."""
+
+        if not language_code:
+            return None
+
+        try:
+            return get_supported_language_variant(language_code)
+        except LookupError as exc:
+            available = {code for code, _ in getattr(settings, "LANGUAGES", [])}
+            if available:
+                raise ValidationError(
+                    gettext("Unsupported language code: %(code)s"),
+                    params={"code": language_code},
+                ) from exc
+
+        # Fall back to lower-casing when languages are not configured.
+        return language_code.lower()
+
+    def validate_content_against_widget(self):
+        """Ensure the stored content matches the widget's response format."""
+
+        if not self.widget_id:
+            return
+
+        response_format = getattr(self.widget, "response_format", None) or {}
+        if not response_format:
+            return
+
+        errors = []
+        content = self.content
+
+        expected_type = response_format.get("type")
+        expected_python = {
+            "markdown": dict,
+            "bulleted_metrics": list,
+            "timeline": list,
+            "link_list": list,
+            "image_list": list,
+            "json_object": dict,
+        }.get(expected_type)
+
+        if content is None:
+            return
+
+        if expected_python and not isinstance(content, expected_python):
+            errors.append(
+                gettext("Expected %(type)s content for the %(widget)s widget.")
+                % {
+                    "type": expected_python.__name__,
+                    "widget": expected_type or "unknown",
+                }
+            )
+        elif expected_type == "markdown":
+            errors.extend(self._validate_markdown_content(response_format, content))
+        elif expected_type in {"bulleted_metrics", "timeline", "link_list", "image_list"}:
+            errors.extend(self._validate_list_content(response_format, content))
+        elif response_format.get("json_schema") and not isinstance(content, dict):
+            errors.append(gettext("Content must be a JSON object."))
+
+        if errors:
+            raise ValidationError(errors)
+
+    def _validate_markdown_content(self, response_format, content):
+        errors = []
+        if not isinstance(content, dict):
+            errors.append(gettext("Markdown content must be a mapping of sections to text."))
+            return errors
+
+        sections = response_format.get("sections") or []
+        missing = [section for section in sections if section not in content]
+        if missing:
+            errors.append(
+                gettext("Missing required sections: %(sections)s")
+                % {"sections": ", ".join(sorted(missing))}
+            )
+
+        non_strings = [
+            key for key, value in content.items() if value is not None and not isinstance(value, str)
+        ]
+        if non_strings:
+            errors.append(
+                gettext("Section values must be strings: %(sections)s")
+                % {"sections": ", ".join(sorted(non_strings))}
+            )
+        return errors
+
+    def _validate_list_content(self, response_format, content):
+        errors = []
+        if not isinstance(content, list):
+            errors.append(gettext("Content must be provided as a list."))
+            return errors
+
+        max_items = response_format.get("max_items")
+        if max_items is not None and len(content) > max_items:
+            errors.append(
+                gettext("A maximum of %(max)s items are allowed.") % {"max": max_items}
+            )
+
+        if any(not isinstance(item, dict) for item in content):
+            errors.append(gettext("Each list item must be a JSON object."))
+
+        return errors
 
 
 
 #
 # Linked content models
 #
-
-class Source(models.TextChoices):
-    USER = "user", "User"
-    AGENT = "agent", "Agent"
-
 
 class RelatedEvent(models.Model):
     event = models.ForeignKey('agenda.Event', on_delete=models.CASCADE)
