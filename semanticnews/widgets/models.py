@@ -1,73 +1,17 @@
-from dataclasses import dataclass
-from typing import ClassVar, Dict, Iterable
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 
 class WidgetType(models.TextChoices):
     """All supported widget shells within a topic."""
 
-    TITLE = "title", _("Title")
-    RECAP = "recap", _("Recap")
-    COVER_IMAGE = "cover_image", _("Cover image")
+    IMAGES = "images", _("Images")
     TEXT = "text", _("Text block")
     DATA = "data", _("Data block")
     TIMELINE = "timeline", _("Timeline")
-    EVENTS = "events", _("Linked events")
-    RELATED_TOPICS = "related_topics", _("Related topics")
-    EXTERNAL_LINKS = "external_links", _("External links")
-    DOCUMENTS = "documents", _("Documents")
-    ENTITIES = "entities", _("Entities")
-
-
-@dataclass(frozen=True)
-class WidgetDefinition:
-    """Static metadata that drives widget behaviour."""
-
-    type: WidgetType
-    multiple_per_topic: bool = False
-    translatable: bool = True
-
-
-class WidgetRegistry:
-    """Registry of widget capabilities for quick lookups."""
-
-    _definitions: ClassVar[Dict[str, WidgetDefinition]] = {}
-
-    @classmethod
-    def register(cls, definition: WidgetDefinition) -> None:
-        cls._definitions[definition.type] = definition
-
-    @classmethod
-    def get(cls, widget_type: WidgetType) -> WidgetDefinition:
-        try:
-            return cls._definitions[widget_type]
-        except KeyError as exc:  # pragma: no cover - guarded by tests
-            raise LookupError(f"Unknown widget type: {widget_type}") from exc
-
-    @classmethod
-    def all(cls) -> Iterable[WidgetDefinition]:
-        return cls._definitions.values()
-
-
-for definition in (
-    WidgetDefinition(WidgetType.TITLE, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.RECAP, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.COVER_IMAGE, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.TEXT, multiple_per_topic=True),
-    WidgetDefinition(WidgetType.DATA, multiple_per_topic=True),
-    WidgetDefinition(WidgetType.TIMELINE, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.EVENTS, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.RELATED_TOPICS, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.EXTERNAL_LINKS, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.DOCUMENTS, multiple_per_topic=False),
-    WidgetDefinition(WidgetType.ENTITIES, multiple_per_topic=False),
-):
-    WidgetRegistry.register(definition)
+    WEBCONTENT = "webcontents", _("Web content")
 
 
 class TopicWidgetQuerySet(models.QuerySet):
@@ -132,23 +76,8 @@ class TopicWidget(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=("topic", "widget_type"),
-                condition=Q(is_primary_language=True),
+                condition=models.Q(is_primary_language=True),
                 name="widgets_unique_primary_per_type",
-            ),
-            models.UniqueConstraint(
-                fields=("topic", "widget_type", "language_code"),
-                condition=Q(widget_type__in=[
-                    WidgetType.TITLE,
-                    WidgetType.RECAP,
-                    WidgetType.COVER_IMAGE,
-                    WidgetType.TIMELINE,
-                    WidgetType.EVENTS,
-                    WidgetType.RELATED_TOPICS,
-                    WidgetType.EXTERNAL_LINKS,
-                    WidgetType.DOCUMENTS,
-                    WidgetType.ENTITIES,
-                ]),
-                name="widgets_unique_singleton_per_language",
             ),
         ]
 
@@ -158,22 +87,6 @@ class TopicWidget(models.Model):
             raise ValidationError(
                 {"is_primary_language": _("Primary widgets must use the project's default language code.")}
             )
-
-        definition = WidgetRegistry.get(self.widget_type)
-        if not definition.multiple_per_topic:
-            clash = (
-                TopicWidget.objects.exclude(pk=self.pk)
-                .filter(
-                    topic=self.topic,
-                    widget_type=self.widget_type,
-                    language_code=self.language_code,
-                )
-                .exists()
-            )
-            if clash:
-                raise ValidationError(
-                    _("Only one widget of this type is allowed per topic and language."),
-                )
 
     def save(self, *args, **kwargs):
         if kwargs.get("raw"):
