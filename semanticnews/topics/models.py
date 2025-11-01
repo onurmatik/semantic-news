@@ -672,6 +672,12 @@ class TopicSection(models.Model):
     display_order = models.PositiveSmallIntegerField(default=0)
     content = models.JSONField(blank=True, null=True)
 
+    class Meta:
+        ordering = ("display_order", "id")
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.topic_id}:{self.widget_id}:{self.display_order}"
+
 
 
 #

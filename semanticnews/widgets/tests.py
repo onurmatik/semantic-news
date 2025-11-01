@@ -1,46 +1,26 @@
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from semanticnews.topics.models import Topic
+from .defaults import DEFAULT_WIDGETS
+from .models import Widget, WidgetType
 
-from .models import TopicWidget, WidgetType
 
+class WidgetModelTests(TestCase):
+    def test_seeded_widgets_match_defaults(self):
+        seeded = {widget.name: widget for widget in Widget.objects.all()}
+        expected_names = {definition["name"] for definition in DEFAULT_WIDGETS}
 
-class TopicWidgetModelTests(TestCase):
-    def setUp(self):
-        self.topic = Topic.objects.create(title="")
+        self.assertTrue(expected_names.issubset(seeded.keys()))
 
-    def test_multiple_widgets_allowed_per_language(self):
-        first = TopicWidget.objects.create(
-            topic=self.topic,
-            widget_type=WidgetType.TEXT,
-            language_code="en",
-        )
-        second = TopicWidget.objects.create(
-            topic=self.topic,
-            widget_type=WidgetType.TEXT,
-            language_code="en",
-        )
+        for definition in DEFAULT_WIDGETS:
+            widget = seeded[definition["name"]]
+            self.assertEqual(widget.type, definition["type"])
+            self.assertEqual(widget.prompt, definition["prompt"])
+            self.assertEqual(widget.response_format, definition["response_format"])
+            self.assertEqual(widget.tools, definition["tools"])
+            self.assertEqual(widget.template, definition["template"])
 
-        self.assertNotEqual(first.pk, second.pk)
-        self.assertEqual(
-            TopicWidget.objects.filter(
-                topic=self.topic, widget_type=WidgetType.TEXT, language_code="en"
-            ).count(),
-            2,
-        )
+    def test_widget_type_choices_cover_defaults(self):
+        default_types = {definition["type"] for definition in DEFAULT_WIDGETS}
+        available_types = set(dict(WidgetType.choices))
 
-    def test_primary_flag_unique_per_topic_and_type(self):
-        TopicWidget.objects.create(
-            topic=self.topic,
-            widget_type=WidgetType.IMAGES,
-            language_code="en",
-            is_primary_language=True,
-        )
-        with self.assertRaises(ValidationError):
-            TopicWidget.objects.create(
-                topic=self.topic,
-                widget_type=WidgetType.IMAGES,
-                language_code="en",
-                is_primary_language=True,
-            )
+        self.assertTrue(default_types.issubset(available_types))
