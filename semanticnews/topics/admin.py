@@ -1,6 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, RelatedTopic, RelatedEntity, RelatedEvent
+from .models import Topic, TopicRecap, RelatedTopic, RelatedEntity, RelatedEvent
 from .recaps import admin as recaps_admin  # noqa: F401
 from ..widgets.text import admin as text_admin  # noqa: F401
 from ..widgets.webcontent import admin as webcontent_admin  # noqa: F401
@@ -30,3 +30,13 @@ class TopicAdmin(admin.ModelAdmin):
             # Display the result to the admin user
             self.message_user(request, f"Extracted entity graph for '{topic}'")
 
+
+@admin.register(TopicRecap)
+class TopicRecapAdmin(admin.ModelAdmin):
+    list_display = ("topic", "created_at", "short_recap", "status")
+    search_fields = ("topic__title", "recap")
+    readonly_fields = ("created_at",)
+
+    def short_recap(self, obj):
+        return obj.recap[:50] + ("..." if len(obj.recap) > 50 else "")
+    short_recap.short_description = "recap"

@@ -663,6 +663,18 @@ class TopicRecap(models.Model):
 
 
 #
+# Topic widget content sections
+#
+
+class TopicSection(models.Model):
+    topic = models.ForeignKey(Topic, related_name="sections", on_delete=models.CASCADE)
+    widget = models.ForeignKey('widgets.Widget', related_name="sections", on_delete=models.CASCADE)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    content = models.JSONField(blank=True, null=True)
+
+
+
+#
 # Linked content models
 #
 
