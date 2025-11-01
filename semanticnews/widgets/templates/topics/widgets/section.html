@@ -1,0 +1,25 @@
+{% load i18n %}
+<div
+    class="topic-widget-entry"
+    data-topic-widget-entry
+    data-topic-section-id="{{ renderable.section.id|default:'' }}"
+    data-topic-widget-key="{{ renderable.key }}"
+>
+    <section class="topic-section card border-light shadow-sm">
+        <div class="card-header d-flex align-items-center gap-2">
+            <h2 class="fs-5 mb-0">
+                {{ renderable.widget.name|default:_("Topic section") }}
+            </h2>
+            {% if renderable.section.published_at %}
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">
+                    {% trans "Published" %}
+                </span>
+            {% elif edit_mode %}
+                <span class="badge bg-warning text-dark">{% trans "Draft" %}</span>
+            {% endif %}
+        </div>
+        <div class="card-body d-flex flex-column gap-3">
+            {% include renderable.template_path with renderable=renderable edit_mode=edit_mode %}
+        </div>
+    </section>
+</div>

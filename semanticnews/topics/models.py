@@ -258,9 +258,26 @@ class Topic(models.Model):
     def active_recaps(self):
         return self.recaps.filter(is_deleted=False)
 
-    @property
-    def active_texts(self):
-        return self.texts.filter(is_deleted=False)
+    @cached_property
+    def sections_ordered(self):
+        """Return an ordered list of all sections attached to the topic."""
+
+        cache = getattr(self, "_prefetched_objects_cache", {})
+        prefetched = cache.get("sections")
+        if prefetched is not None:
+            return list(prefetched)
+
+        return list(self.sections.select_related("widget"))
+
+    @cached_property
+    def active_sections(self):
+        """Return an ordered list of published, non-deleted sections."""
+
+        return [
+            section
+            for section in self.sections_ordered
+            if not section.is_deleted and section.published_at is not None and section.status == "finished"
+        ]
 
     @property
     def active_related_entities(self):
@@ -270,38 +287,6 @@ class Topic(models.Model):
     @property
     def active_entity_relations(self):
         return self.active_related_entities
-
-    @property
-    def active_images(self):
-        return self.images.filter(is_deleted=False)
-
-    @property
-    def active_documents(self):
-        return self.documents.filter(is_deleted=False)
-
-    @property
-    def active_webpages(self):
-        return self.webpages.filter(is_deleted=False)
-
-    @property
-    def active_datas(self):
-        return self.datas.filter(is_deleted=False)
-
-    @property
-    def active_data_insights(self):
-        return self.data_insights.filter(is_deleted=False)
-
-    @property
-    def active_data_visualizations(self):
-        return self.data_visualizations.filter(is_deleted=False)
-
-    @property
-    def active_youtube_videos(self):
-        return self.youtube_videos.filter(is_deleted=False)
-
-    @property
-    def active_tweets(self):
-        return self.tweets.filter(is_deleted=False)
 
     @property
     def active_related_topic_links(self):

@@ -46,22 +46,6 @@
         {% with hero=topic.thumbnail %}
             {% if hero %}
                 <img src="{{ hero.url }}" alt="{{ topic.display_title }}" class="img-fluid rounded mb-2 float-start me-3 w-50">
-            {% else %}
-                {% with first_visualization=topic.active_data_visualizations.all|first %}
-                    {% if first_visualization %}
-                        <div
-                            class="chart-container rounded border mb-2 float-start me-3 w-50 bg-body"
-                            data-visualization-preview="{{ first_visualization.id }}"
-                        >
-                            <canvas
-                                id="dataVisualizationChart{{ first_visualization.id }}"
-                                class="data-visualization-chart w-100"
-                                data-chart-type="{{ first_visualization.chart_type }}"
-                                data-chart="{{ first_visualization.chart_data|jsonify }}"
-                            ></canvas>
-                        </div>
-                    {% endif %}
-                {% endwith %}
             {% endif %}
         {% endwith %}
 

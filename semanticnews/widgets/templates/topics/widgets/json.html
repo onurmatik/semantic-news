@@ -1,0 +1,8 @@
+{% load i18n json_extras %}
+{% with payload=renderable.content %}
+    {% if payload %}
+        <pre class="bg-body-tertiary border rounded p-3 small text-break">{{ payload|jsonify }}</pre>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "This section has not provided structured data yet." %}</p>
+    {% endif %}
+{% endwith %}

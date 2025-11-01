@@ -4,7 +4,6 @@ from types import SimpleNamespace
 import tempfile
 import shutil
 import json
-import html
 import re
 
 from django.test import TestCase
@@ -1215,32 +1214,58 @@ class TopicCloneTests(TestCase):
         self.assertContains(response, clone_url)
 
 
-class VisualizationCardTemplateTests(TestCase):
-    """Ensure visualization data is serialized as JSON for the topic detail view."""
+class TopicSectionRenderingTests(TestCase):
+    """Ensure topic sections are rendered via the unified widget templates."""
 
-    @patch("semanticnews.topics.models.Topic.get_embedding", return_value=[0.0] * 1536)
-    def test_chart_data_serialized_as_json(self, _mock_topic_embedding):
-        User = get_user_model()
-        user = User.objects.create_user("user", "user@example.com", "password")
-        self.client.force_login(user)
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            "author", "author@example.com", "password"
+        )
+        self.client.force_login(self.user)
+        self.widget = Widget.objects.create(
+            name="Summary",
+            type=WidgetType.TEXT,
+            response_format={"type": "markdown", "sections": ["summary"]},
+        )
 
-        topic = Topic.objects.create(title="My Topic", created_by=user)
-        insight = TopicDataInsight.objects.create(topic=topic, insight="Insight")
-        TopicDataVisualization.objects.create(
+    def test_detail_view_renders_section_content(self):
+        topic = Topic.objects.create(
+            title="My Topic", created_by=self.user, status="published"
+        )
+        TopicSection.objects.create(
             topic=topic,
-            insight=insight,
-            chart_type="bar",
-            chart_data={"labels": ["A"], "datasets": [{"label": "Values", "data": [1]}]},
+            widget=self.widget,
+            content={"summary": "**Key finding**"},
+            status="finished",
+            published_at=timezone.now(),
         )
 
         response = self.client.get(topic.get_absolute_url())
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Key finding")
 
-        html_content = response.content.decode()
-        match = re.search(r'data-chart="([^"]+)"', html_content)
-        self.assertIsNotNone(match)
-        chart_value = html.unescape(match.group(1))
-        json.loads(chart_value)
+    def test_edit_view_shows_unpublished_sections(self):
+        topic = Topic.objects.create(title="Draft", created_by=self.user)
+        TopicSection.objects.create(
+            topic=topic,
+            widget=self.widget,
+            content={"summary": "Draft block"},
+            status="in_progress",
+        )
+
+        response = self.client.get(
+            reverse(
+                "topics_detail_edit",
+                kwargs={
+                    "username": self.user.username,
+                    "topic_uuid": topic.uuid,
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Draft block")
 
 
 class TopicEmbeddingUpdateTests(TestCase):

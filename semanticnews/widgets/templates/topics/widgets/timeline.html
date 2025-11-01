@@ -1,0 +1,21 @@
+{% load i18n %}
+{% with events=renderable.content %}
+    {% if events %}
+        <ol class="timeline list-unstyled d-flex flex-column gap-3">
+            {% for event in events %}
+                <li class="border-start ps-3">
+                    {% if event.date %}
+                        <div class="text-secondary fw-semibold small text-uppercase">{{ event.date }}</div>
+                    {% endif %}
+                    {% if event.summary %}
+                        <p class="mb-0">{{ event.summary }}</p>
+                    {% elif event.title %}
+                        <p class="mb-0">{{ event.title }}</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ol>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "No timeline entries available yet." %}</p>
+    {% endif %}
+{% endwith %}

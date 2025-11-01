@@ -1,0 +1,21 @@
+{% load i18n %}
+{% with images=renderable.content %}
+    {% if images %}
+        <div class="row g-3">
+            {% for image in images %}
+                <div class="col-sm-6">
+                    <div class="border rounded overflow-hidden h-100">
+                        {% if image.url %}
+                            <img src="{{ image.url }}" alt="{{ image.caption|default:_('Suggested image') }}" class="img-fluid w-100">
+                        {% endif %}
+                        {% if image.caption %}
+                            <div class="p-3 small">{{ image.caption }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-secondary fst-italic mb-0">{% trans "No image suggestions available." %}</p>
+    {% endif %}
+{% endwith %}
