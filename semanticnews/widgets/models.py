@@ -7,11 +7,10 @@ from django.utils.translation import gettext_lazy as _
 class WidgetType(models.TextChoices):
     """All supported widget shells within a topic."""
 
-    IMAGES = "images", _("Images")
+    IMAGE = "image", _("Image block")
     TEXT = "text", _("Text block")
     DATA = "data", _("Data block")
-    TIMELINE = "timeline", _("Timeline")
-    WEBCONTENT = "webcontents", _("Web content")
+    WEBCONTENT = "webcontent", _("Web content")
 
 
 class TopicWidgetQuerySet(models.QuerySet):
