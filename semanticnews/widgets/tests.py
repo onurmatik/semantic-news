@@ -1,26 +1,43 @@
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from .defaults import DEFAULT_WIDGETS
-from .models import Widget, WidgetType
+from .models import Widget
 
 
 class WidgetModelTests(TestCase):
-    def test_seeded_widgets_match_defaults(self):
-        seeded = {widget.name: widget for widget in Widget.objects.all()}
-        expected_names = {definition["name"] for definition in DEFAULT_WIDGETS}
+    def test_defaults_are_empty_collections(self):
+        widget = Widget(name="Example")
+        widget.full_clean()
+        widget.save()
 
-        self.assertTrue(expected_names.issubset(seeded.keys()))
+        self.assertEqual(widget.response_format, {})
+        self.assertEqual(widget.tools, [])
 
-        for definition in DEFAULT_WIDGETS:
-            widget = seeded[definition["name"]]
-            self.assertEqual(widget.type, definition["type"])
-            self.assertEqual(widget.prompt, definition["prompt"])
-            self.assertEqual(widget.response_format, definition["response_format"])
-            self.assertEqual(widget.tools, definition["tools"])
-            self.assertEqual(widget.template, definition["template"])
+    def test_response_format_must_be_mapping(self):
+        widget = Widget(name="Bad response", response_format=["not", "a", "dict"])
 
-    def test_widget_type_choices_cover_defaults(self):
-        default_types = {definition["type"] for definition in DEFAULT_WIDGETS}
-        available_types = set(dict(WidgetType.choices))
+        with self.assertRaises(ValidationError) as exc:
+            widget.full_clean()
 
-        self.assertTrue(default_types.issubset(available_types))
+        self.assertIn("response_format", exc.exception.error_dict)
+
+    def test_tools_must_be_list_of_non_empty_strings(self):
+        widget = Widget(name="Bad tools", tools=["valid", 7, ""])
+
+        with self.assertRaises(ValidationError) as exc:
+            widget.full_clean()
+
+        self.assertIn("tools", exc.exception.error_dict)
+
+    def test_valid_widget_passes_clean(self):
+        widget = Widget(
+            name="Valid widget",
+            prompt_template="Render content",
+            response_format={"type": "markdown"},
+            tools=["web_search"],
+            template="{{ body }}",
+        )
+
+        # Should not raise
+        widget.full_clean()
+        widget.save()

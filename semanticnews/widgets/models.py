@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -31,7 +32,26 @@ class Widget(models.Model):
         return self.name
 
     def clean(self):
-        """Validate
-            - response format schema
-            - tools schema
-        """
+        """Validate widget JSON metadata."""
+
+        super().clean()
+
+        errors = {}
+
+        if self.response_format in (None, ""):
+            # Normalise falsy values into an empty object so downstream code has a dict.
+            self.response_format = {}
+        if not isinstance(self.response_format, dict):
+            errors["response_format"] = _("Response format must be a JSON object.")
+
+        if self.tools in (None, ""):
+            self.tools = []
+        if not isinstance(self.tools, list):
+            errors["tools"] = _("Tools must be provided as a list of strings.")
+        else:
+            invalid_tools = [tool for tool in self.tools if not isinstance(tool, str) or not tool.strip()]
+            if invalid_tools:
+                errors["tools"] = _("Each tool identifier must be a non-empty string.")
+
+        if errors:
+            raise ValidationError(errors)
