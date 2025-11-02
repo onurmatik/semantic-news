@@ -1,4 +1,8 @@
 (function () {
+  const CATALOG_SCRIPT_ID = 'widget-catalog-data';
+  const DEFINITIONS_ENDPOINT = '/api/topics/widget/definitions';
+  const registry = () => window.TopicWidgetRegistry;
+
   function ready(callback) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', callback, { once: true });
@@ -7,19 +11,148 @@
     }
   }
 
-  ready(() => {
-    const toolbar = document.querySelector('[data-content-toolbar]');
+  function parseCatalogScript() {
+    const script = document.getElementById(CATALOG_SCRIPT_ID);
+    if (!script) {
+      return null;
+    }
+    try {
+      const data = JSON.parse(script.textContent || '[]');
+      return Array.isArray(data) ? data : null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to parse widget catalog bootstrap', error);
+    }
+    return null;
+  }
+
+  async function fetchCatalog() {
+    const bootstrap = parseCatalogScript();
+    if (bootstrap && bootstrap.length) {
+      return bootstrap;
+    }
+
+    try {
+      const response = await fetch(DEFINITIONS_ENDPOINT, { credentials: 'same-origin' });
+      if (!response.ok) {
+        throw new Error('Unable to load widget definitions');
+      }
+      const payload = await response.json();
+      const items = payload && Array.isArray(payload.items) ? payload.items : [];
+      return items;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(error);
+      return [];
+    }
+  }
+
+  function buildTemplateMap(container) {
+    const map = new Map();
+    if (!container) {
+      return map;
+    }
+    container.querySelectorAll('template[data-widget-panel]').forEach((template) => {
+      const key = template.dataset.widgetPanel;
+      if (key) {
+        map.set(key, template);
+      }
+    });
+    return map;
+  }
+
+  function deriveKey(definition) {
+    if (!definition) {
+      return '';
+    }
+    if (definition.key) {
+      return definition.key;
+    }
+    const source = definition.name || '';
+    const slug = source
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    if (slug) {
+      return slug;
+    }
+    if (definition.id) {
+      return `widget-${definition.id}`;
+    }
+    return `widget-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function createEntry(widget, template, widgetList) {
+    if (!template || !widgetList) {
+      return null;
+    }
+
+    const fragment = template.content.cloneNode(true);
+    if (!fragment) {
+      return null;
+    }
+
+    const card = fragment.querySelector('[data-topic-widget]');
+    if (!card) {
+      return null;
+    }
+
+    const entry = document.createElement('div');
+    entry.className = 'topic-widget-entry';
+    entry.dataset.topicWidgetEntry = '';
+    entry.dataset.topicWidgetKey = deriveKey(widget);
+    entry.dataset.widgetDefinitionId = widget.id ? String(widget.id) : '';
+
+    const actions = card.querySelector('[data-topic-module-header-actions]');
+    if (actions) {
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'btn btn-outline-secondary btn-sm';
+      closeBtn.innerHTML = '<span class="visually-hidden">Close</span><i class="bi bi-x" aria-hidden="true"></i>';
+      closeBtn.title = 'Close editor';
+      closeBtn.setAttribute('aria-label', 'Close editor');
+      closeBtn.addEventListener('click', () => {
+        entry.dispatchEvent(new CustomEvent('widget-editor:destroy', { detail: { widget }, bubbles: true }));
+        entry.remove();
+      });
+      actions.prepend(closeBtn);
+    }
+
+    entry.appendChild(fragment);
+    widgetList.appendChild(entry);
+    return entry;
+  }
+
+  function resolveTopicUuid() {
+    const container = document.querySelector('[data-topic-uuid]');
+    if (!container) {
+      return null;
+    }
+    return container.getAttribute('data-topic-uuid') || container.dataset.topicUuid || null;
+  }
+
+  function notifyInit(entry, widget, topicUuid) {
+    if (!entry) {
+      return;
+    }
+    const controller = registry();
+    const detail = {
+      element: entry.querySelector('[data-topic-widget]'),
+      entry,
+      definition: Object.assign({}, widget, { key: deriveKey(widget) }),
+      topicUuid,
+    };
+    if (controller) {
+      controller.init(widget.key, detail);
+    }
+    entry.dispatchEvent(new CustomEvent('widget-editor:init', { detail, bubbles: true }));
+  }
+
+  ready(async () => {
+    const toolbar = document.querySelector('[data-widget-toolbar]');
     if (!toolbar) {
-      return;
-    }
-
-    const panelsContainer = toolbar.querySelector('[data-toolbar-panels]');
-    if (!panelsContainer) {
-      return;
-    }
-
-    const panels = Array.from(panelsContainer.querySelectorAll('[data-content-editor]'));
-    if (!panels.length) {
       return;
     }
 
@@ -28,86 +161,51 @@
       return;
     }
 
-    const panelMap = new Map();
-    const entryMap = new Map();
+    const panelsContainer = toolbar.querySelector('[data-toolbar-panels]');
+    const templateMap = buildTemplateMap(panelsContainer);
+    const buttonsContainer = toolbar.querySelector('[data-toolbar-buttons]');
+    if (!buttonsContainer) {
+      return;
+    }
 
-    panels.forEach((panel) => {
-      const key = panel.dataset.contentEditor;
-      if (!key) {
+    const topicUuid = resolveTopicUuid();
+    const catalog = await fetchCatalog();
+    const catalogMap = new Map();
+    catalog.forEach((item) => {
+      if (!item) {
         return;
       }
-      panelMap.set(key, panel);
-      panel.classList.add('d-none');
+      const key = deriveKey(item);
+      if (key) {
+        const enhanced = Object.assign({}, item, { key });
+        catalogMap.set(key, enhanced);
+      }
     });
 
-    const createEntryForPanel = (panel) => {
-      if (!panel) return;
-      if (entryMap.has(panel)) {
-        const existingEntry = entryMap.get(panel);
-        if (existingEntry && typeof existingEntry.scrollIntoView === 'function') {
-          existingEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        panel.dispatchEvent(new CustomEvent('content-toolbar:show', { bubbles: true }));
-        return;
-      }
-
-      const entry = document.createElement('div');
-      entry.className = 'topic-widget-entry';
-      entry.dataset.topicWidgetEntry = '';
-      entry.dataset.topicWidget = panel.dataset.contentEditor || '';
-      entry.dataset.topicWidgetKey = '';
-
-      panel.classList.remove('d-none');
-      entry.appendChild(panel);
-      widgetList.appendChild(entry);
-      entryMap.set(panel, entry);
-
-      panel.dispatchEvent(new CustomEvent('content-toolbar:show', { bubbles: true }));
-
-      if (typeof entry.scrollIntoView === 'function') {
-        entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    };
-
-    const dismissPanel = (panel) => {
-      if (!panel) return;
-      const entry = entryMap.get(panel);
-      if (!entry) {
-        return;
-      }
-      panel.dispatchEvent(new CustomEvent('content-toolbar:hide', { bubbles: true }));
-      panel.classList.add('d-none');
-      panelsContainer.appendChild(panel);
-      entry.remove();
-      entryMap.delete(panel);
-    };
-
-    toolbar.addEventListener('click', (event) => {
+    buttonsContainer.addEventListener('click', (event) => {
       const button = event.target.closest('[data-toolbar-button]');
-      if (button) {
-        const key = button.dataset.toolbarButton;
-        if (key && panelMap.has(key)) {
-          event.preventDefault();
-          createEntryForPanel(panelMap.get(key));
-        }
-      }
-    });
-
-    document.addEventListener('click', (event) => {
-      const dismiss = event.target.closest('[data-toolbar-dismiss]');
-      if (!dismiss) {
+      if (!button) {
         return;
       }
-      const key = dismiss.dataset.toolbarDismiss;
+      const key = button.getAttribute('data-toolbar-button');
       if (!key) {
         return;
       }
-      const panel = panelMap.get(key);
-      if (!panel) {
+
+      const definition = catalogMap.get(key);
+      const template = templateMap.get(key);
+      if (!definition || !template) {
         return;
       }
+
       event.preventDefault();
-      dismissPanel(panel);
+      const entry = createEntry(definition, template, widgetList);
+      if (entry) {
+        notifyInit(entry, definition, topicUuid);
+        if (typeof entry.scrollIntoView === 'function') {
+          entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
     });
   });
 }());

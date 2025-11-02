@@ -125,18 +125,21 @@
 
 <div class="row g-4" data-topic-columns>
     <div class="col-lg-8 col-xl-9">
-        <div class="d-flex flex-column gap-3" data-topic-primary-column>
-            {% include "topics/images/card.html" %}
-            {% include "topics/recaps/card.html" with edit_mode=True %}
-            <div class="d-flex flex-column gap-3" data-topic-primary-widgets>
-                {% for renderable in sections %}
-                    {% include "widgets/topics/widgets/section.html" with renderable=renderable edit_mode=edit_mode %}
-                {% empty %}
-                    <p class="text-secondary fst-italic mb-0">{% trans "This topic does not yet have any sections. Use the tools below to add the first block." %}</p>
-                {% endfor %}
+            <div class="d-flex flex-column gap-3" data-topic-primary-column>
+                {% include "topics/images/card.html" %}
+                {% include "topics/recaps/card.html" with edit_mode=True %}
+                <div class="d-flex flex-column gap-3" data-topic-primary-widgets>
+                    {% for renderable in sections %}
+                        {% include "widgets/topics/widgets/section.html" with renderable=renderable edit_mode=edit_mode %}
+                    {% empty %}
+                        <p class="text-secondary fst-italic mb-0">{% trans "This topic does not yet have any sections. Use the tools below to add the first block." %}</p>
+                    {% endfor %}
+                </div>
+                {% include "topics/content/toolbar.html" with edit_mode=True %}
+                {% if widget_catalog %}
+                    {{ widget_catalog|json_script:"widget-catalog-data" }}
+                {% endif %}
             </div>
-            {% include "topics/content/toolbar.html" with edit_mode=True %}
-        </div>
     </div>
     <div class="col-lg-4 col-xl-3">
         <div class="d-flex flex-column gap-3" data-topic-sidebar>
@@ -168,8 +171,12 @@
     <script src="{% static 'topics/generation_button.js' %}"></script>
     <script src="{% static 'topics/related_topics.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
+    <script src="{% static 'topics/widgets/registry.js' %}"></script>
     <script src="{% static 'topics/content/toolbar.js' %}"></script>
     <script src="{% static 'topics/content/external_content.js' %}"></script>
+    <script src="{% static 'topics/widgets/text.js' %}"></script>
+    <script src="{% static 'topics/widgets/data.js' %}"></script>
+    <script src="{% static 'topics/widgets/url.js' %}"></script>
     {% include "topics/text/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}

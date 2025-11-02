@@ -16,11 +16,15 @@ from ninja.errors import HttpError
 from pydantic import Field, ValidationError, create_model, validator
 
 from semanticnews.topics.models import Topic, TopicSection
-from semanticnews.topics.views import SECTION_TEMPLATE_MAP, _normalize_section_content
 from semanticnews.widgets.models import Widget, WidgetAPIExecution
 from semanticnews.widgets.services import (
     WidgetResponseValidationError,
     _validate_against_schema,
+)
+from semanticnews.widgets.rendering import (
+    build_renderable_section,
+    normalize_widget_content,
+    resolve_widget_template,
 )
 from semanticnews.widgets.tasks import execute_widget
 
@@ -228,6 +232,7 @@ def _serialize_widget(widget: Widget) -> WidgetDefinition:
 def _serialize_section(section: TopicSection) -> WidgetSectionResponse:
     widget = section.widget
     content = _validate_section_content(widget, section.content, raise_http_error=False)
+    normalized_content = normalize_widget_content(widget, content)
     published_at = section.published_at
     return WidgetSectionResponse(
         id=section.id,
@@ -239,7 +244,7 @@ def _serialize_section(section: TopicSection) -> WidgetSectionResponse:
         status=section.status,
         error_message=section.error_message,
         error_code=section.error_code,
-        content=content,
+        content=normalized_content,
         published_at=make_naive(published_at).isoformat() if published_at else None,
     )
 
@@ -262,26 +267,9 @@ def _serialize_execution(execution: WidgetAPIExecution) -> WidgetExecutionStatus
     )
 
 
-def _build_renderable_section(section: TopicSection) -> SimpleNamespace:
-    widget = section.widget
-    response_format = getattr(widget, "response_format", None) or {}
-    response_type = response_format.get("type")
-    template_path = SECTION_TEMPLATE_MAP.get(
-        response_type, "widgets/topics/widgets/fallback.html"
-    )
-    normalized_content = _normalize_section_content(
-        section, response_type, response_format
-    )
-    descriptor = SimpleNamespace(
-        section=section,
-        widget=widget,
-        template_path=template_path,
-        response_type=response_type,
-        content=normalized_content,
-        format=response_format,
-    )
+def _build_renderable_section_descriptor(section: TopicSection) -> SimpleNamespace:
+    descriptor = build_renderable_section(section, edit_mode=False)
     descriptor.key = f"section:{section.id}"
-    descriptor.edit_mode = False
     return descriptor
 
 
@@ -435,7 +423,7 @@ def get_execution_status(request, execution_id: int, topic_uuid: str):
 def download_section(request, section_id: int, topic_uuid: str):
     topic = _get_owned_topic(request, topic_uuid)
     section = _get_section_for_topic(topic, section_id)
-    descriptor = _build_renderable_section(section)
+    descriptor = _build_renderable_section_descriptor(section)
     html = render_to_string(
         "widgets/topics/widgets/section.html",
         {"renderable": descriptor, "edit_mode": False},

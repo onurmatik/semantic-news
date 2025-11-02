@@ -1,46 +1,42 @@
 {% load i18n %}
 {% if edit_mode %}
-<div class="my-3" data-content-toolbar>
-    <div class="mb-3" data-toolbar-panels>
-        {% include "topics/content/text_editor_card.html" %}
-        {% include "topics/content/data_editor_card.html" %}
-        {% include "topics/content/url_editor_card.html" %}
-    </div>
+<div class="my-3" data-content-toolbar data-widget-toolbar>
+    {% if widget_catalog %}
+        <div class="mb-3" data-toolbar-panels>
+            {% for widget in widget_catalog %}
+                <template data-widget-panel="{{ widget.key }}">
+                    {% include "topics/widgets/editor_card.html" with
+                        widget_key=widget.key
+                        widget_definition_id=widget.id
+                        widget_id="widget-editor-"|add:widget.key
+                        title=widget.name
+                        validation_template="topics/widgets/validation_state.html"
+                        validation_id="widgetValidation-"|add:widget.key
+                        validation_variant="info"
+                        content_template="topics/widgets/editors/shell_content.html"
+                    %}
+                </template>
+            {% endfor %}
+        </div>
+    {% endif %}
     <div class="card border-light">
         <div class="card-body py-2">
-            <div class="d-flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    data-toolbar-button="text"
-                    data-action="create-text"
-                    {% if topic.status == 'archived' %}disabled{% endif %}
-                >
-                    <i class="bi bi-type me-1" aria-hidden="true"></i>
-                    {% trans "Text" %}
-                </button>
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    id="dataButton"
-                    data-toolbar-button="data"
-                    data-status="{{ data_button_status|default:'finished' }}"
-                    {% if topic.status == 'archived' %}disabled{% endif %}
-                >
-                    <span id="dataSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
-                    <i id="dataErrorIcon" class="bi bi-exclamation-triangle me-1 text-danger d-none" aria-hidden="true"></i>
-                    <i id="dataSuccessIcon" class="bi bi-check-circle me-1 text-success d-none" aria-hidden="true"></i>
-                    {% trans "Data" %}
-                </button>
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    data-toolbar-button="url"
-                    {% if topic.status == 'archived' %}disabled{% endif %}
-                >
-                    <i class="bi bi-link-45deg me-1" aria-hidden="true"></i>
-                    {% trans "External content" %}
-                </button>
+            <div class="d-flex flex-wrap gap-2" data-toolbar-buttons>
+                {% if widget_catalog %}
+                    {% for widget in widget_catalog %}
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-toolbar-button="{{ widget.key }}"
+                            data-widget-definition-id="{{ widget.id }}"
+                            {% if topic.status == 'archived' %}disabled{% endif %}
+                        >
+                            {{ widget.name }}
+                        </button>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-secondary small mb-0">{% trans "No widgets available." %}</p>
+                {% endif %}
             </div>
         </div>
     </div>

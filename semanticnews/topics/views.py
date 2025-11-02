@@ -1,6 +1,4 @@
 import json
-from collections import OrderedDict
-from types import SimpleNamespace
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
@@ -9,7 +7,7 @@ from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils.html import strip_tags
-from django.utils.text import Truncator
+from django.utils.text import Truncator, slugify
 from django.utils.translation import gettext as _
 from pgvector.django import L2Distance
 
@@ -19,6 +17,8 @@ from semanticnews.agenda.localities import (
 )
 from semanticnews.agenda.models import Event
 from semanticnews.widgets.mcps.models import MCPServer
+from semanticnews.widgets.models import Widget
+from semanticnews.widgets.rendering import build_renderable_section
 
 from .models import RelatedEntity, RelatedEvent, RelatedTopic, Source, Topic
 
@@ -32,67 +32,6 @@ RELATED_ENTITIES_PREFETCH = Prefetch(
 )
 
 
-SECTION_TEMPLATE_MAP = {
-    "markdown": "widgets/topics/widgets/markdown.html",
-    "bulleted_metrics": "widgets/topics/widgets/metrics.html",
-    "timeline": "widgets/topics/widgets/timeline.html",
-    "link_list": "widgets/topics/widgets/links.html",
-    "image_list": "widgets/topics/widgets/images.html",
-    "json_object": "widgets/topics/widgets/json.html",
-}
-
-
-def _normalize_section_content(section, response_type, response_format):
-    """Normalize stored section content for template rendering."""
-
-    payload = section.content
-
-    if response_type == "markdown":
-        if isinstance(payload, dict):
-            required_order = response_format.get("sections") or []
-            if required_order:
-                ordered = OrderedDict()
-                for key in required_order:
-                    if key in payload:
-                        ordered[key] = payload[key]
-                for key, value in payload.items():
-                    if key not in ordered:
-                        ordered[key] = value
-                return ordered
-            return payload
-        return {}
-
-    if response_type in {"bulleted_metrics", "timeline", "link_list", "image_list"}:
-        return payload if isinstance(payload, list) else []
-
-    if response_type == "json_object":
-        return payload if isinstance(payload, dict) else {}
-
-    return payload
-
-
-def _resolve_section_template(section):
-    widget = getattr(section, "widget", None)
-    response_format = getattr(widget, "response_format", None) or {}
-    response_type = response_format.get("type")
-    template_path = SECTION_TEMPLATE_MAP.get(
-        response_type, "widgets/topics/widgets/fallback.html"
-    )
-
-    normalized_content = _normalize_section_content(
-        section, response_type, response_format
-    )
-
-    return SimpleNamespace(
-        section=section,
-        widget=widget,
-        template_path=template_path,
-        response_type=response_type,
-        content=normalized_content,
-        format=response_format,
-    )
-
-
 def _build_renderable_sections(topic, *, edit_mode=False):
     """Return section descriptors prepared for template rendering."""
 
@@ -100,9 +39,8 @@ def _build_renderable_sections(topic, *, edit_mode=False):
 
     renderables = []
     for index, section in enumerate(sections, start=1):
-        descriptor = _resolve_section_template(section)
+        descriptor = build_renderable_section(section, edit_mode=edit_mode)
         descriptor.key = f"section:{getattr(section, 'id', None) or index}"
-        descriptor.edit_mode = edit_mode
         renderables.append(descriptor)
 
     return renderables
@@ -288,6 +226,25 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False):
 def _build_topic_page_context(topic, user=None, *, edit_mode=False):
     context = _build_topic_module_context(topic, user, edit_mode=edit_mode)
     context["edit_mode"] = edit_mode
+
+    if edit_mode:
+        widgets = list(Widget.objects.all().order_by("name"))
+        catalog: list[dict[str, object]] = []
+        for widget in widgets:
+            key = slugify(widget.name or "")
+            if not key:
+                key = f"widget-{widget.pk or len(catalog) + 1}"
+            catalog.append(
+                {
+                    "id": widget.id,
+                    "name": widget.name,
+                    "key": key,
+                    "template": widget.template or "",
+                    "response_format": widget.response_format or {},
+                    "tools": widget.tools or [],
+                }
+            )
+        context["widget_catalog"] = catalog
     return context
 
 
