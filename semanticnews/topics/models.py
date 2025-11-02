@@ -680,6 +680,13 @@ class TopicSection(models.Model):
     content = models.JSONField(blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_deleted = models.BooleanField(default=False)
+    language_code = models.CharField(max_length=12, blank=True, null=True, db_index=True)
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.USER,
+        blank=True,
+    )
     status = models.CharField(
         max_length=20,
         choices=[
@@ -689,13 +696,8 @@ class TopicSection(models.Model):
         ],
         default="in_progress",
     )
-    language_code = models.CharField(max_length=12, blank=True, null=True, db_index=True)
-    source = models.CharField(
-        max_length=20,
-        choices=Source.choices,
-        default=Source.USER,
-        blank=True,
-    )
+    error_message = models.TextField(blank=True, null=True)
+    error_code = models.CharField(blank=True, null=True, max_length=20)
 
     objects = TopicSectionQuerySet.as_manager()
 

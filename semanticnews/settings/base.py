@@ -55,11 +55,13 @@ INSTALLED_APPS = [
     # User topics and widget apps
     'semanticnews.widgets',
     'semanticnews.topics',
-    'semanticnews.widgets.text',
-    'semanticnews.widgets.mcps',
-    'semanticnews.widgets.images',
-    'semanticnews.widgets.data',
-    'semanticnews.widgets.webcontent',
+
+    # TODO: Remove after refactoring
+    # 'semanticnews.widgets.text',
+    # 'semanticnews.widgets.mcps',
+    # 'semanticnews.widgets.images',
+    # 'semanticnews.widgets.data',
+    # 'semanticnews.widgets.webcontent',
 ]
 
 MIDDLEWARE = [

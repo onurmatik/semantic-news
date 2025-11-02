@@ -2,21 +2,11 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class WidgetType(models.TextChoices):
-    """Supported widget shells available to topics."""
-
-    IMAGE = "image", _("Image block")
-    TEXT = "text", _("Text block")
-    DATA = "data", _("Data block")
-    WEBCONTENT = "webcontent", _("Web content")
-
-
 class Widget(models.Model):
     """Reusable widget definition that can be attached to topic sections."""
 
     name = models.CharField(max_length=150, unique=True)
-    type = models.CharField(max_length=50, choices=WidgetType.choices)
-    prompt = models.TextField(blank=True, help_text=_("Prompt sent to the LLM for this widget."))
+    prompt_template = models.TextField(blank=True, help_text=_("Prompt sent to the LLM for this widget."))
     response_format = models.JSONField(
         blank=True,
         default=dict,
@@ -37,5 +27,11 @@ class Widget(models.Model):
     class Meta:
         ordering = ("name",)
 
-    def __str__(self) -> str:  # pragma: no cover - trivial
+    def __str__(self) -> str:
         return self.name
+
+    def clean(self):
+        """Validate
+            - response format schema
+            - tools schema
+        """
