@@ -29,7 +29,7 @@ from .models import (
 from semanticnews.entities.models import Entity
 from semanticnews.keywords.models import Keyword
 from semanticnews.widgets.images.models import TopicImage
-from semanticnews.widgets.models import Widget, WidgetType
+from semanticnews.widgets.models import Widget
 from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.data.models import TopicData, TopicDataInsight, TopicDataVisualization
 from .publishing import publish_topic
@@ -1225,7 +1225,6 @@ class TopicSectionRenderingTests(TestCase):
         self.client.force_login(self.user)
         self.widget = Widget.objects.create(
             name="Summary",
-            type=WidgetType.TEXT,
             response_format={"type": "markdown", "sections": ["summary"]},
         )
 
@@ -1402,7 +1401,6 @@ class TopicSectionModelTests(TestCase):
         self.topic = Topic.objects.create(title="Primary", created_by=self.owner)
         self.widget = Widget.objects.create(
             name="Summary",
-            type=WidgetType.TEXT,
             response_format={"type": "markdown", "sections": ["summary"]},
         )
 
@@ -1442,7 +1440,6 @@ class TopicSectionModelTests(TestCase):
     def test_validation_enforces_max_items(self):
         widget = Widget.objects.create(
             name="Links",
-            type=WidgetType.WEBCONTENT,
             response_format={"type": "link_list", "max_items": 1},
         )
         section = TopicSection(
@@ -1466,7 +1463,6 @@ class TopicSectionPublishTests(TestCase):
         )
         self.widget = Widget.objects.create(
             name="Summary",
-            type=WidgetType.TEXT,
             response_format={"type": "markdown", "sections": ["summary"]},
         )
 
