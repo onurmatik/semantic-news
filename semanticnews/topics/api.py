@@ -31,11 +31,7 @@ from .models import (
 )
 from .publishing import publish_topic
 from .recaps.api import router as recaps_router
-from semanticnews.widgets.mcps.api import router as mcps_router
-from semanticnews.widgets.images.api import router as images_router
-from semanticnews.widgets.data.api import router as data_router
-from semanticnews.widgets.text.api import router as text_router
-from semanticnews.widgets.webcontent.api import router as webcontent_router
+from semanticnews.widgets.api import router as widget_router
 from semanticnews.widgets.data.models import (
     TopicDataRequest,
     TopicDataAnalysisRequest,
@@ -45,12 +41,8 @@ from semanticnews.widgets.data.models import (
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 relation_router = Router()
 api.add_router("/recap", recaps_router)
-api.add_router("/text", text_router)
-api.add_router("/mcp", mcps_router)
-api.add_router("/image", images_router)
 api.add_router("/relation", relation_router)
-api.add_router("/data", data_router)
-api.add_router("/webcontent", webcontent_router)
+api.add_router("/widget", widget_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
 
