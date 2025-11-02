@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -185,3 +186,103 @@ class ExecuteWidgetTaskTests(TestCase):
         # Should not raise
         widget.full_clean()
         widget.save()
+
+
+class WidgetAPITests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user("user", "user@example.com", "pass")
+        self.topic = Topic.objects.create(title="API Topic", created_by=self.user)
+        self.widget = Widget.objects.create(
+            name="API Widget",
+            response_format={
+                "type": "object",
+                "properties": {"summary": {"type": "string"}},
+                "required": ["summary"],
+            },
+        )
+        self.client.force_login(self.user)
+
+    def _post_json(self, path: str, payload: dict[str, object]):
+        return self.client.post(
+            path,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_list_widgets_returns_definitions(self):
+        response = self.client.get("/api/topics/widget/definitions")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["items"][0]["id"], self.widget.id)
+        self.assertEqual(data["items"][0]["name"], self.widget.name)
+
+    def test_create_section_enforces_widget_schema(self):
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "content": {"summary": "Hello"},
+        }
+
+        response = self._post_json("/api/topics/widget/sections", payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["content"], {"summary": "Hello"})
+        section = TopicSection.objects.get(pk=data["id"])
+        self.assertEqual(section.content, {"summary": "Hello"})
+
+        invalid_payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "content": {},
+        }
+
+        response = self._post_json("/api/topics/widget/sections", invalid_payload)
+        self.assertEqual(response.status_code, 400)
+
+    @patch("semanticnews.widgets.api.execute_widget.delay")
+    def test_trigger_execution_creates_record(self, mock_delay):
+        section = TopicSection.objects.create(
+            topic=self.topic,
+            widget=self.widget,
+            display_order=1,
+            content={"summary": "Draft"},
+            status="finished",
+        )
+
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "section_id": section.id,
+        }
+
+        response = self._post_json("/api/topics/widget/executions", payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        execution = WidgetAPIExecution.objects.get(pk=data["id"])
+        self.assertEqual(execution.section_id, section.id)
+        self.assertEqual(execution.topic_id, self.topic.id)
+        mock_delay.assert_called_once_with(execution_id=execution.id)
+
+        section.refresh_from_db()
+        self.assertEqual(section.status, "in_progress")
+
+    def test_download_section_returns_rendered_html(self):
+        section = TopicSection.objects.create(
+            topic=self.topic,
+            widget=self.widget,
+            display_order=1,
+            content={"summary": "Hello"},
+            status="finished",
+        )
+
+        response = self.client.get(
+            f"/api/topics/widget/sections/{section.id}/download",
+            {"topic_uuid": str(self.topic.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response["Content-Type"])
+        self.assertIn(self.widget.name, response.content.decode())
