@@ -717,11 +717,6 @@ class TopicSection(models.Model):
         else:
             self.language_code = normalized_language
 
-        try:
-            self.validate_content_against_widget()
-        except ValidationError as exc:
-            errors.setdefault("content", []).extend(exc.messages)
-
         if errors:
             raise ValidationError(errors)
 
@@ -743,92 +738,6 @@ class TopicSection(models.Model):
 
         # Fall back to lower-casing when languages are not configured.
         return language_code.lower()
-
-    def validate_content_against_widget(self):
-        """Ensure the stored content matches the widget's response format."""
-
-        if not self.widget_id:
-            return
-
-        response_format = getattr(self.widget, "response_format", None) or {}
-        if not response_format:
-            return
-
-        errors = []
-        content = self.content
-
-        expected_type = response_format.get("type")
-        expected_python = {
-            "markdown": dict,
-            "bulleted_metrics": list,
-            "timeline": list,
-            "link_list": list,
-            "image_list": list,
-            "json_object": dict,
-        }.get(expected_type)
-
-        if content is None:
-            return
-
-        if expected_python and not isinstance(content, expected_python):
-            errors.append(
-                gettext("Expected %(type)s content for the %(widget)s widget.")
-                % {
-                    "type": expected_python.__name__,
-                    "widget": expected_type or "unknown",
-                }
-            )
-        elif expected_type == "markdown":
-            errors.extend(self._validate_markdown_content(response_format, content))
-        elif expected_type in {"bulleted_metrics", "timeline", "link_list", "image_list"}:
-            errors.extend(self._validate_list_content(response_format, content))
-        elif response_format.get("json_schema") and not isinstance(content, dict):
-            errors.append(gettext("Content must be a JSON object."))
-
-        if errors:
-            raise ValidationError(errors)
-
-    def _validate_markdown_content(self, response_format, content):
-        errors = []
-        if not isinstance(content, dict):
-            errors.append(gettext("Markdown content must be a mapping of sections to text."))
-            return errors
-
-        sections = response_format.get("sections") or []
-        missing = [section for section in sections if section not in content]
-        if missing:
-            errors.append(
-                gettext("Missing required sections: %(sections)s")
-                % {"sections": ", ".join(sorted(missing))}
-            )
-
-        non_strings = [
-            key for key, value in content.items() if value is not None and not isinstance(value, str)
-        ]
-        if non_strings:
-            errors.append(
-                gettext("Section values must be strings: %(sections)s")
-                % {"sections": ", ".join(sorted(non_strings))}
-            )
-        return errors
-
-    def _validate_list_content(self, response_format, content):
-        errors = []
-        if not isinstance(content, list):
-            errors.append(gettext("Content must be provided as a list."))
-            return errors
-
-        max_items = response_format.get("max_items")
-        if max_items is not None and len(content) > max_items:
-            errors.append(
-                gettext("A maximum of %(max)s items are allowed.") % {"max": max_items}
-            )
-
-        if any(not isinstance(item, dict) for item in content):
-            errors.append(gettext("Each list item must be a JSON object."))
-
-        return errors
-
 
 
 #
