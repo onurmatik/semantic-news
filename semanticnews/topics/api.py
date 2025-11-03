@@ -1023,7 +1023,7 @@ def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:
         source=link.source,
         is_deleted=link.is_deleted,
         created_at=link.created_at,
-        published_at=link.published_at,
+        published_at=getattr(related_topic, "last_published_at", None),
     )
 
 
@@ -1031,7 +1031,7 @@ def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:
 def list_related_topics(request, topic_uuid: str):
     topic = _require_owned_topic(request, topic_uuid)
     links = (
-        RelatedTopic.objects.filter(topic=topic)
+        RelatedTopic.objects.filter(topic=topic, is_deleted=False)
         .select_related("related_topic__created_by")
         .order_by("-created_at")
     )
@@ -1056,10 +1056,16 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
     )
 
     if query:
-        qs = qs.filter(
-            Q(title__icontains=query)
-            | Q(created_by__username__icontains=query)
-        )
+        trimmed_query = query.strip()
+        if trimmed_query:
+            title_filter = Q(
+                titles__published_at__isnull=False,
+                titles__title__icontains=trimmed_query,
+            ) | Q(
+                titles__published_at__isnull=False,
+                titles__slug__icontains=trimmed_query,
+            )
+            qs = qs.filter(title_filter | Q(created_by__username__icontains=trimmed_query)).distinct()
 
     qs = (
         qs.annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
@@ -1103,8 +1109,7 @@ def add_related_topic(
         topic=topic,
         related_topic=related_topic,
         defaults={
-            "source": RelatedTopic.Source.MANUAL,
-            "created_by": request.user,
+            "source": Source.USER,
         },
     )
 
@@ -1114,12 +1119,9 @@ def add_related_topic(
 
         update_fields = ["is_deleted"]
         link.is_deleted = False
-        if link.source != RelatedTopic.Source.MANUAL:
-            link.source = RelatedTopic.Source.MANUAL
+        if link.source != Source.USER:
+            link.source = Source.USER
             update_fields.append("source")
-        if link.created_by_id != request.user.id:
-            link.created_by = request.user
-            update_fields.append("created_by")
         link.save(update_fields=update_fields)
 
     return _serialize_related_topic_link(link)
