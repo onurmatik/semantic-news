@@ -247,13 +247,13 @@ def extract_related_entities(request, payload: TopicRelatedEntityCreateRequest):
     source: str
     if payload.entities is not None:
         entries = _normalize_inputs(payload.entities)
-        source = RelatedEntity.Source.USER
+        source = Source.USER
     else:
         try:
             entries = _normalize_inputs(_suggest_related_entities(topic))
         except Exception as exc:  # pragma: no cover - surfaced to API consumer
             raise HttpError(500, str(exc))
-        source = RelatedEntity.Source.AGENT
+        source = Source.AGENT
 
     with transaction.atomic():
         created = _save_related_entities(topic=topic, entries=entries, source=source)
