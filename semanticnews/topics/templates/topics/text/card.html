@@ -1,0 +1,135 @@
+{% load i18n markdown_extras %}
+{% with text=module.text %}
+<div
+    class="my-3{% if edit_mode %} topic-widget card border-light{% endif %}"
+    data-text-card
+    data-text-id="{{ text.id|default:'' }}"
+    data-module-key="{{ module.module_key }}"
+    {% if text %}data-text-raw="{{ text.content|default:''|escape }}"{% endif %}
+    {% if edit_mode %}data-reorder-error-message="{% trans 'Unable to reorder text cards. Please try again.' %}"{% endif %}
+>
+    {% if edit_mode %}
+        <div class="card-header d-flex flex-column gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h6 class="fs-5 mb-0">{% trans "Text" %}</h6>
+                <div
+                    class="d-flex align-items-center gap-2 flex-wrap ms-auto"
+                    data-topic-module-header-actions
+                >
+                    <div
+                        class="d-flex align-items-center gap-2 small text-secondary text-nowrap me-auto"
+                        data-text-status
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <span class="spinner-border spinner-border-sm d-none" data-text-status-spinner aria-hidden="true"></span>
+                        <span
+                            data-text-status-text
+                            data-saved-label="{% trans "Saved" %}"
+                            data-saving-label="{% trans "Saving…" %}"
+                            data-error-label="{% trans "Unable to save" %}"
+                            data-dirty-label="{% trans "Unsaved changes" %}"
+                            data-error-message="{% trans "Unable to save changes. Please try again." %}"
+                        >
+                            {% trans "Saved" %}
+                        </span>
+                    </div>
+                    <div class="btn-group" role="group" aria-label="{% trans 'Reorder text card' %}">
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-action="move-text-up"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Move text card up' %}"
+                            aria-label="{% trans 'Move text card up' %}"
+                        >
+                            <i class="bi bi-arrow-up" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Move up" %}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-action="move-text-down"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Move text card down' %}"
+                            aria-label="{% trans 'Move text card down' %}"
+                        >
+                            <i class="bi bi-arrow-down" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Move down" %}</span>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="revise"
+                            data-loading-label="{% trans 'Revising…' %}"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Revise text' %}"
+                            aria-label="{% trans 'Revise text' %}"
+                        >
+                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Revise" %}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="shorten"
+                            data-loading-label="{% trans 'Shortening…' %}"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Shorten text' %}"
+                            aria-label="{% trans 'Shorten text' %}"
+                        >
+                            <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Shorten" %}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-text-transform="expand"
+                            data-loading-label="{% trans 'Expanding…' %}"
+                            data-bs-toggle="tooltip"
+                            title="{% trans 'Expand text' %}"
+                            aria-label="{% trans 'Expand text' %}"
+                        >
+                            <i class="bi bi-arrows-expand" aria-hidden="true"></i>
+                            <span class="visually-hidden">{% trans "Expand" %}</span>
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        data-action="delete-text"
+                        data-text-id="{{ text.id|default:'' }}"
+                        data-bs-toggle="tooltip"
+                        title="{% trans 'Remove text card' %}"
+                        aria-label="{% trans 'Remove text card' %}"
+                    >
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                        <span class="visually-hidden">{% trans "Remove" %}</span>
+                        <span class="visually-hidden">{% trans "Text" %}</span>
+                    </button>
+                </div>
+            </div>
+            <div class="alert alert-danger d-none mb-0" role="alert" data-text-error></div>
+        </div>
+        <div class="card-body">
+            <textarea
+                class="form-control"
+                data-text-editor
+                rows="8"
+            >{% if text %}{{ text.content|default_if_none:'' }}{% endif %}</textarea>
+        </div>
+    {% else %}
+        {% if text and text.content %}
+            <div class="text-body" data-text-content>
+                {{ text.content|markdownify }}
+            </div>
+        {% elif text %}
+            <p class="text-secondary fst-italic mb-0">{% trans "This text block is empty." %}</p>
+        {% else %}
+            <p class="text-secondary fst-italic mb-0">{% trans "This text block could not be found." %}</p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endwith %}
