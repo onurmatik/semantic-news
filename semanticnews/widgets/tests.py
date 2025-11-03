@@ -17,6 +17,7 @@ from .services import (
     WidgetRegistryLookupError,
 )
 from .tasks import execute_widget
+from . import helpers
 
 
 class WidgetModelTests(TestCase):
@@ -24,6 +25,36 @@ class WidgetModelTests(TestCase):
         widget = Widget(name="Example")
         widget.full_clean()
         widget.save()
+
+
+class WidgetHelperTests(TestCase):
+    def test_append_extra_instructions_combines_sources(self):
+        base = "Base instruction"
+        resolved = helpers.append_extra_instructions(
+            base,
+            "Additional",
+            "Additional",
+            metadata={"extra_instructions": ["Meta", "Additional"]},
+        )
+        self.assertEqual(
+            resolved,
+            "Base instruction\n\nAdditional\n\nMeta",
+        )
+
+    def test_build_topic_context_snippet_respects_limit(self):
+        class _Topic:
+            def __init__(self):
+                self.calls = 0
+
+            def build_context(self):
+                self.calls += 1
+                return "Context" * 100
+
+        topic = _Topic()
+        snippet = helpers.build_topic_context_snippet(topic, metadata={"context_limit": 10})
+        self.assertTrue(snippet.endswith("…"))
+        self.assertLessEqual(len(snippet), 10)
+        self.assertEqual(topic.calls, 1)
 
 
 class WidgetAPIExecutionModelTests(TestCase):
@@ -217,6 +248,29 @@ class WidgetAPITests(TestCase):
         self.assertEqual(data["total"], 1)
         self.assertEqual(data["items"][0]["id"], self.widget.id)
         self.assertEqual(data["items"][0]["name"], self.widget.name)
+
+    def test_manual_execution_updates_section_and_logs(self):
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "mode": "manual",
+            "content": {"summary": "Manual update"},
+        }
+
+        response = self._post_json("/api/topics/widget/executions", payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "manual")
+
+        section = TopicSection.objects.get(pk=data["section_id"])
+        self.assertEqual(section.content, {"summary": "Manual update"})
+        self.assertEqual(section.status, "finished")
+
+        execution = WidgetAPIExecution.objects.get(pk=data["id"])
+        self.assertEqual(execution.status, WidgetAPIExecution.Status.MANUAL)
+        self.assertEqual(execution.parsed_response, {"summary": "Manual update"})
+        self.assertEqual(execution.metadata.get("mode"), "manual")
+        self.assertIsNotNone(execution.completed_at)
 
     def test_create_section_enforces_widget_schema(self):
         payload = {

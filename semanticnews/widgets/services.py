@@ -14,6 +14,12 @@ from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 from semanticnews.topics.models import TopicSection
 
+from .helpers import (
+    append_extra_instructions,
+    build_topic_context_snippet,
+    fetch_external_assets,
+    resolve_postprocessors,
+)
 from .models import Widget, WidgetAPIExecution
 
 logger = logging.getLogger(__name__)
@@ -67,6 +73,15 @@ def _default_context_builder(state: "WidgetExecutionState") -> dict[str, Any]:
         "history": state.history,
         "metadata": state.execution.metadata or {},
     }
+
+    metadata = state.execution.metadata or {}
+
+    snippet = build_topic_context_snippet(topic, metadata=metadata)
+    if snippet:
+        context["topic"]["context_snippet"] = snippet
+
+    if metadata.get("resolved_assets"):
+        context["assets"] = metadata["resolved_assets"]
 
     if section:
         context["section"] = {
@@ -131,19 +146,24 @@ class WidgetExecutionStrategy:
         extra_instructions: str | Callable[[WidgetExecutionState], str | None] | None = None,
         response_schema: Any | None = None,
         preprocess: Callable[[WidgetExecutionState], None] | None = None,
-        postprocess: Callable[[WidgetExecutionState], Any] | None = None,
+        postprocess: Callable[[WidgetExecutionState], Any] | str | None = None,
     ) -> None:
         self.context_builder = context_builder or _default_context_builder
         self.prompt_renderer = prompt_renderer or _default_prompt_renderer
         self.extra_instructions_hook = extra_instructions
         self.response_schema = response_schema
         self.preprocess_hook = preprocess
-        self.postprocess_hook = postprocess or _default_postprocess
+        self.postprocess_hook = self._resolve_postprocess(postprocess)
 
     def execute(self, state: WidgetExecutionState) -> WidgetExecutionState:
         state.context = dict(self.context_builder(state))
         state.rendered_prompt = self.prompt_renderer(state, state.context)
-        state.extra_instructions = self._resolve_extra_instructions(state) or ""
+        resolved_extra = self._resolve_extra_instructions(state) or ""
+        state.extra_instructions = append_extra_instructions(
+            state.execution.extra_instructions or "",
+            resolved_extra,
+            metadata=state.execution.metadata,
+        )
         self._run_preprocess(state)
         state.final_prompt = self._combine_prompt(state.rendered_prompt, state.extra_instructions)
         state.raw_response, state.parsed_response = self.call_model(state)
@@ -151,6 +171,10 @@ class WidgetExecutionStrategy:
         postprocessed = self.postprocess_hook(state)
         if postprocessed is not None:
             state.parsed_response = postprocessed
+        for hook in resolve_postprocessors((state.execution.metadata or {}).get("postprocess")):
+            result = hook(state)
+            if result is not None:
+                state.parsed_response = result
         return state
 
     def call_model(self, state: WidgetExecutionState) -> tuple[Any, Any]:
@@ -184,6 +208,19 @@ class WidgetExecutionStrategy:
         if callable(hook):
             return hook(state) or None
         return hook
+
+    @staticmethod
+    def _resolve_postprocess(
+        hook: Callable[[WidgetExecutionState], Any] | str | None,
+    ) -> Callable[[WidgetExecutionState], Any]:
+        if isinstance(hook, str):
+            postprocess = resolve_postprocessors([hook])
+            if postprocess:
+                return postprocess[0]
+            return _default_postprocess
+        if callable(hook):
+            return hook
+        return _default_postprocess
 
     def _run_preprocess(self, state: WidgetExecutionState) -> None:
         if self.preprocess_hook:
@@ -236,6 +273,10 @@ class WidgetExecutionService:
         strategy = self.registry.get(widget_type)
 
         history = self._build_history(section or None)
+
+        metadata = dict(execution.metadata or {})
+        fetch_external_assets(widget, metadata)
+        execution.metadata = metadata
 
         state = WidgetExecutionState(
             execution=execution,

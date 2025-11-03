@@ -67,6 +67,7 @@ class WidgetAPIExecution(models.Model):
         RUNNING = "running", _("Running")
         SUCCESS = "success", _("Success")
         FAILURE = "failure", _("Failure")
+        MANUAL = "manual", _("Manual")
 
     topic = models.ForeignKey(
         "topics.Topic",

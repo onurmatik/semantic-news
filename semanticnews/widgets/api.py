@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Mapping, Optional, Literal
 
 from django.db import transaction
 from django.db.models import Max
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
@@ -16,6 +17,7 @@ from ninja.errors import HttpError
 from pydantic import Field, ValidationError, create_model, validator
 
 from semanticnews.topics.models import Topic, TopicSection
+from semanticnews.widgets.helpers import build_topic_context_snippet, fetch_external_assets
 from semanticnews.widgets.models import Widget, WidgetAPIExecution
 from semanticnews.widgets.services import (
     WidgetResponseValidationError,
@@ -91,6 +93,8 @@ class WidgetExecutionCreateRequest(Schema):
     model_name: Optional[str] = None
     extra_instructions: Optional[str] = None
     language_code: Optional[str] = None
+    mode: Literal["ai", "manual"] = "ai"
+    content: Any = None
 
 
 class WidgetExecutionStatusResponse(Schema):
@@ -273,6 +277,88 @@ def _build_renderable_section_descriptor(section: TopicSection) -> SimpleNamespa
     return descriptor
 
 
+def _build_manual_prompt_context(topic, metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    metadata = metadata or {}
+    context = {
+        "topic": {
+            "id": topic.id,
+            "uuid": str(topic.uuid),
+            "title": topic.title,
+        }
+    }
+    snippet = build_topic_context_snippet(topic, metadata=metadata)
+    if snippet:
+        context["topic"]["context_snippet"] = snippet
+    if metadata.get("resolved_assets"):
+        context["assets"] = metadata["resolved_assets"]
+    return context
+
+
+def _perform_manual_execution(
+    request,
+    payload: WidgetExecutionCreateRequest,
+    *,
+    topic: Topic,
+    widget: Widget,
+    metadata: Dict[str, Any],
+) -> WidgetAPIExecution:
+    if payload.content is None:
+        raise HttpError(400, "Content is required for manual submissions")
+
+    validated_content = _validate_section_content(widget, payload.content)
+    status = _determine_status_from_content(validated_content)
+
+    metadata.setdefault("mode", "manual")
+    fetch_external_assets(widget, metadata)
+
+    user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
+
+    if payload.section_id is not None:
+        section = _get_section_for_topic(topic, payload.section_id)
+        if section.widget_id != widget.id:
+            raise HttpError(400, "Section widget mismatch")
+        updates = ["content", "status", "error_message", "error_code"]
+        section.content = validated_content
+        section.status = status
+        section.error_message = None
+        section.error_code = None
+        if payload.language_code:
+            section.language_code = payload.language_code
+            updates.append("language_code")
+        section.save(update_fields=list(dict.fromkeys(updates)))
+    else:
+        section = _create_topic_section(
+            topic=topic,
+            widget=widget,
+            language_code=payload.language_code,
+            content=validated_content,
+            status=status,
+        )
+
+    now = timezone.now()
+
+    execution = WidgetAPIExecution.objects.create(
+        topic=topic,
+        section=section,
+        widget=widget,
+        user=user,
+        widget_type=payload.widget_type or widget.name,
+        metadata=metadata,
+        model_name=payload.model_name or "",
+        extra_instructions=payload.extra_instructions or "",
+        status=WidgetAPIExecution.Status.MANUAL,
+        prompt_template=widget.prompt_template or "",
+        prompt_context=_build_manual_prompt_context(topic, metadata),
+        prompt_text="",
+        parsed_response=validated_content,
+        raw_response=None,
+        started_at=now,
+        completed_at=now,
+    )
+
+    return execution
+
+
 @router.get("/definitions", response=WidgetDefinitionListResponse)
 def list_widgets(request):
     widgets = Widget.objects.all().order_by("name")
@@ -360,6 +446,16 @@ def trigger_execution(request, payload: WidgetExecutionCreateRequest):
         payload.metadata = {}
 
     metadata = dict(payload.metadata)
+
+    if payload.mode == "manual":
+        execution = _perform_manual_execution(
+            request,
+            payload,
+            topic=topic,
+            widget=widget,
+            metadata=metadata,
+        )
+        return _serialize_execution(execution)
 
     section = None
     created_section = False
