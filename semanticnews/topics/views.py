@@ -188,14 +188,15 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False):
         link for link in related_topic_links if not link.is_deleted
     ]
     is_authenticated = getattr(user, "is_authenticated", False)
-    for link in active_related_topic_links:
-        link.is_owned_by_topic_creator = (
+    is_topic_owner = (
             topic.created_by_id is not None
-            and link.created_by_id == topic.created_by_id
-        )
-        link.is_owned_by_user = (
-            bool(is_authenticated) and link.created_by_id == getattr(user, "id", None)
-        )
+            and bool(is_authenticated)
+            and getattr(user, "id", None) == topic.created_by_id
+    )
+    for link in active_related_topic_links:
+        # The topic owner can manage all related-topic links.
+        link.is_owned_by_topic_creator = is_topic_owner
+        link.is_owned_by_user = is_topic_owner
     related_topics = [link.related_topic for link in active_related_topic_links]
 
     if topic.embedding is not None:
