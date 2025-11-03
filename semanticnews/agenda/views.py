@@ -40,7 +40,7 @@ def recent_event_list(request):
         Topic.objects.filter(status="published")
         .select_related("created_by")
         .prefetch_related("recaps", "images", visualizations_prefetch)
-        .order_by("-updated_at", "-created_at")[:5]
+        .order_by("-last_published_at", "-created_at")[:5]
     )
 
     context = {
@@ -96,8 +96,8 @@ def event_detail(request, year, month, day, slug):
 
     related_topics = (
         Topic.objects.filter(
-            relatedevent__event=obj,
-            relatedevent__is_deleted=False,
+            related_event_links__event=obj,
+            related_event_links__is_deleted=False,
             status="published",
         )
         .prefetch_related(
@@ -110,7 +110,7 @@ def event_detail(request, year, month, day, slug):
                 to_attr="prefetched_recaps",
             )
         )
-        .order_by("-last_published_at", "-updated_at", "-created_at")
+        .order_by("-last_published_at", "-created_at")
         .distinct()[:10]
     )
 
@@ -237,8 +237,8 @@ def event_list(request, year, month=None, day=None):
     if events.object_list:
         related_topics = (
             Topic.objects.filter(
-                relatedevent__event__in=events.object_list,
-                relatedevent__is_deleted=False,
+                related_event_links__event__in=events.object_list,
+                related_event_links__is_deleted=False,
                 status="published",
             )
             .prefetch_related(
@@ -251,7 +251,7 @@ def event_list(request, year, month=None, day=None):
                     to_attr="prefetched_recaps",
                 )
             )
-            .order_by("-last_published_at", "-updated_at", "-created_at")
+            .order_by("-last_published_at", "-created_at")
             .distinct()[:10]
         )
 
