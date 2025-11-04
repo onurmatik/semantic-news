@@ -240,9 +240,12 @@ def publish_topic(topic: Topic, user=None) -> TopicPublication:
 
     published_at = timezone.now()
 
+    embedding = topic.get_embedding(force=True)
+
     topic.status = "published"
     topic.last_published_at = published_at
-    topic.save(update_fields=["status", "last_published_at"])
+    topic.embedding = embedding
+    topic.save(update_fields=["status", "last_published_at", "embedding"])
 
     _publish_title(topic, published_at)
     published_recap = _publish_recaps(topic, published_at)
