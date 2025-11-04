@@ -640,7 +640,9 @@ class TopicSection(models.Model):
     topic = models.ForeignKey(Topic, related_name="sections", on_delete=models.CASCADE)
     widget = models.ForeignKey('widgets.Widget', related_name="sections", on_delete=models.CASCADE)
     display_order = models.PositiveSmallIntegerField(default=0)
+
     content = models.JSONField(blank=True, null=True)
+
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_deleted = models.BooleanField(default=False)
     language_code = models.CharField(max_length=12, blank=True, null=True, db_index=True)

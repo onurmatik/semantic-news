@@ -24,9 +24,9 @@ class Widget(models.Model):
         default=[{"type": "text", "required": True}],
         help_text=_("List of input field definitions."),
     )
-    response_format = models.JSONField(
+    context_structure = models.JSONField(
         blank=True, default=dict,
-        help_text=_("Response format definition."),
+        help_text=_("The context parameters to be passed to the template."),
     )
 
     template = models.TextField(
@@ -38,6 +38,9 @@ class Widget(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def get_response_format(self):
+        """Create the response format definition to be fed to the LLM based on the context attribute."""
 
 
 class WidgetAction(models.Model):
