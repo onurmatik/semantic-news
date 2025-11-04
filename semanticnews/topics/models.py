@@ -13,10 +13,6 @@ from slugify import slugify
 from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
 
-from ..widgets.text.models import TopicText
-from ..widgets.images.models import TopicImage
-from ..widgets.webcontent.models import TopicDocument, TopicWebpage
-
 
 class Source(models.TextChoices):
     USER = "user", "User"
@@ -302,12 +298,8 @@ class Topic(models.Model):
 
     @cached_property
     def hero_image(self):
-        return (
-            self.images
-            .filter(status="finished", is_deleted=False, is_hero=True)
-            .order_by("-created_at")
-            .first()
-        )
+        # FIXME: Return the first section with a widget type IMAGE
+        return
 
     @cached_property
     def image(self):
@@ -544,42 +536,13 @@ class Topic(models.Model):
             TopicRecap.objects.create(
                 topic=cloned, recap=recap.recap, status="finished"
             )
-        for text in self.texts.filter(is_deleted=False):
-            TopicText.objects.create(
-                topic=cloned, content=text.content, status="finished"
-            )
+
         for relation in self.related_entities.filter(is_deleted=False):
             RelatedEntity.objects.create(
                 topic=cloned,
                 entity=relation.entity,
                 role=relation.role,
                 source=relation.source,
-            )
-        for image in self.images.filter(is_deleted=False):
-            TopicImage.objects.create(
-                topic=cloned,
-                image=image.image,
-                thumbnail=image.thumbnail,
-                is_hero=image.is_hero,
-            )
-
-        for document in self.documents.filter(is_deleted=False):
-            TopicDocument.objects.create(
-                topic=cloned,
-                title=document.title,
-                url=document.url,
-                description=document.description,
-                document_type=document.document_type,
-                created_by=user,
-            )
-
-        for webpage in self.webpages.filter(is_deleted=False):
-            TopicWebpage.objects.create(
-                topic=cloned,
-                title=webpage.title,
-                url=webpage.url,
-                description=webpage.description,
-                created_by=user,
             )
 
         for link in self.topic_related_topics.filter(is_deleted=False):

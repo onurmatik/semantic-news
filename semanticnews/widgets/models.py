@@ -40,25 +40,8 @@ class Widget(models.Model):
         return self.name
 
 
-class WidgetFormField(models.TextField):
-    class InputFieldType(models.TextChoices):
-        TEXT = "text", _("Text")
-        CHAR = "char", _("Char")
-        MARKDOWN = "markdown", _("Markdown")
-        URL = "url", _("URL")
-        IMAGE = "img", _("Image")
-        DOC = "doc", _("Document")
-
-    widget = models.ForeignKey(Widget, on_delete=models.CASCADE)
-    type = models.CharField(
-        max_length=20,
-        choices=InputFieldType.choices,
-        default=InputFieldType.TEXT,
-    )
-
-
 class WidgetAction(models.Model):
-    widget = models.ForeignKey(Widget, on_delete=models.CASCADE)
+    widget = models.ForeignKey(Widget, on_delete=models.CASCADE, related_name="actions")
     name = models.CharField(max_length=150, unique=True)
     icon = models.CharField(max_length=150, blank=True)
     prompt_template = models.TextField(blank=True)

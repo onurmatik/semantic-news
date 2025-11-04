@@ -16,7 +16,6 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 from semanticnews.agenda.models import Event
-from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.models import Widget
 from semanticnews.widgets.rendering import build_renderable_section
 
@@ -241,7 +240,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     "key": key,
                     "template": widget.template or "",
                     "response_format": widget.response_format or {},
-                    "tools": widget.tools or [],
+                    "actions": [w.name for w in widget.actions.all()],
                 }
             )
         context["widget_catalog"] = catalog
@@ -344,20 +343,7 @@ def _build_topic_metadata(request, topic, context):
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related(
-            "events",
-            "recaps",
-            "images",
-            "sections__widget",
-            RELATED_ENTITIES_PREFETCH,
-            Prefetch(
-                "topic_related_topics",
-                queryset=RelatedTopic.objects.select_related(
-                    "related_topic__created_by"
-                ).order_by("-created_at"),
-                to_attr="prefetched_related_topic_links",
-            ),
-        ),
+        Topic,
         uuid=topic_uuid,
         created_by__username=username,
     )
@@ -366,8 +352,6 @@ def topics_detail_edit(request, topic_uuid, username):
         return HttpResponseForbidden()
 
     context = _build_topic_page_context(topic, request.user, edit_mode=True)
-    mcp_servers = MCPServer.objects.filter(active=True)
-    context["mcp_servers"] = mcp_servers
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid

@@ -29,14 +29,8 @@ from .models import (
     RelatedEvent,
     Source,
 )
-from .publishing import publish_topic
 from .recaps.api import router as recaps_router
 from semanticnews.widgets.api import router as widget_router
-from semanticnews.widgets.data.models import (
-    TopicDataRequest,
-    TopicDataAnalysisRequest,
-    TopicDataVisualizationRequest,
-)
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 relation_router = Router()
@@ -328,19 +322,11 @@ def generation_status(request, topic_uuid: str):
         )
         return row or None
 
-    data_status_map = {
-        TopicDataRequest.Status.PENDING: "in_progress",
-        TopicDataRequest.Status.STARTED: "in_progress",
-        TopicDataRequest.Status.SUCCESS: "finished",
-        TopicDataRequest.Status.FAILURE: "error",
-        TopicDataAnalysisRequest.Status.PENDING: "in_progress",
-        TopicDataAnalysisRequest.Status.STARTED: "in_progress",
-        TopicDataAnalysisRequest.Status.SUCCESS: "finished",
-        TopicDataAnalysisRequest.Status.FAILURE: "error",
-        TopicDataVisualizationRequest.Status.PENDING: "in_progress",
-        TopicDataVisualizationRequest.Status.STARTED: "in_progress",
-        TopicDataVisualizationRequest.Status.SUCCESS: "finished",
-        TopicDataVisualizationRequest.Status.FAILURE: "error",
+    status_map = {
+        Status.PENDING: "in_progress",
+        Status.STARTED: "in_progress",
+        Status.SUCCESS: "finished",
+        Status.FAILURE: "error",
     }
 
     def latest_data_status(qs):
@@ -352,7 +338,7 @@ def generation_status(request, topic_uuid: str):
         )
         if not row:
             return None
-        mapped = data_status_map.get(row.get("status"))
+        mapped = status_map.get(row.get("status"))
         if not mapped:
             return None
         timestamp = row.get("updated_at") or row.get("created_at")

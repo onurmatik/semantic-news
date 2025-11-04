@@ -1,8 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
 from .models import Topic, TopicRecap, RelatedTopic, RelatedEntity, RelatedEvent
-from ..widgets.text import admin as text_admin  # noqa: F401
-from ..widgets.webcontent import admin as webcontent_admin  # noqa: F401
 
 
 @admin.register(Topic)
