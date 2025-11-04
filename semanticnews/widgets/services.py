@@ -20,7 +20,7 @@ from .helpers import (
     fetch_external_assets,
     resolve_postprocessors,
 )
-from .models import Widget, WidgetAPIExecution
+from .models import Widget, WidgetActionExecution
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def _validate_against_schema(data: Any, schema: Mapping[str, Any] | None) -> Non
 class WidgetExecutionState:
     """Mutable execution state shared across the strategy pipeline."""
 
-    execution: WidgetAPIExecution
+    execution: WidgetActionExecution
     section: TopicSection | None
     widget: Widget
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -266,7 +266,7 @@ class WidgetExecutionService:
     def __init__(self, registry: WidgetExecutionRegistry | None = None) -> None:
         self.registry = registry or widget_registry
 
-    def execute(self, execution: WidgetAPIExecution) -> WidgetExecutionState:
+    def execute(self, execution: WidgetActionExecution) -> WidgetExecutionState:
         section = execution.section
         widget = execution.widget
         widget_type = execution.widget_type or widget.name
@@ -331,7 +331,7 @@ class WidgetExecutionService:
 
     @staticmethod
     def _apply_state(
-        execution: WidgetAPIExecution, state: WidgetExecutionState, history_count: int
+        execution: WidgetActionExecution, state: WidgetExecutionState, history_count: int
     ) -> None:
         execution.prompt_context = state.context
         execution.prompt_text = state.final_prompt or state.rendered_prompt
