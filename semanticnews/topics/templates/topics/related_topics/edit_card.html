@@ -10,6 +10,10 @@
       <input type="search" class="form-control" id="relatedTopicSearch" data-related-topic-search-input placeholder="{% trans 'Search published topics…' %}" autocomplete="off">
       <div class="form-text">{% trans "Search for published topics to relate. Automatic suggestions may appear after publishing." %}</div>
       <div class="list-group mt-2 d-none" data-related-topic-search-results></div>
+      <div class="mt-3 d-none" data-related-topic-suggestions-section>
+        <div class="fw-semibold small mb-2">{% trans "Suggested topics" %}</div>
+        <div class="list-group" data-related-topic-suggestions-list></div>
+      </div>
     </div>
     <div data-related-topic-list data-empty-message="{% trans 'No related topics yet.' %}">
       {% if related_topic_links %}

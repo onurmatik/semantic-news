@@ -13,6 +13,8 @@
   const itemsContainer = card.querySelector('[data-related-topic-items]');
   const searchInput = card.querySelector('[data-related-topic-search-input]');
   const searchResults = card.querySelector('[data-related-topic-search-results]');
+  const suggestionSection = card.querySelector('[data-related-topic-suggestions-section]');
+  const suggestionList = card.querySelector('[data-related-topic-suggestions-list]');
 
   async function request(url, options = {}) {
     const response = await fetch(url, options);
@@ -122,6 +124,7 @@
       const data = await request(`/api/topics/${topicUuid}/related-topics`);
       if (Array.isArray(data)) {
         renderLinks(data);
+        await fetchSuggestions();
       }
     } catch (err) {
       console.error(err);
@@ -148,23 +151,64 @@
         return;
       }
       data.forEach((result) => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-        item.dataset.topicUuid = result.uuid;
-        item.disabled = Boolean(result.is_already_linked);
-        item.textContent = result.title || gettext('Untitled topic');
-        const meta = document.createElement('span');
-        meta.className = 'small text-secondary';
-        meta.textContent = result.is_already_linked
-          ? gettext('Already linked')
-          : (result.username || '');
-        item.appendChild(meta);
+        const item = buildTopicButton(result);
         searchResults.appendChild(item);
       });
       searchResults.classList.remove('d-none');
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  function buildTopicButton(result, options = {}) {
+    const opts = { showSimilarity: false, ...options };
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+    item.dataset.topicUuid = result.uuid;
+    item.disabled = Boolean(result.is_already_linked);
+    item.textContent = result.title || gettext('Untitled topic');
+
+    const meta = document.createElement('span');
+    meta.className = 'small text-secondary ms-2';
+
+    if (result.is_already_linked) {
+      meta.textContent = gettext('Already linked');
+    } else {
+      const pieces = [];
+      if (result.username) {
+        pieces.push(result.username);
+      }
+      if (opts.showSimilarity && typeof result.similarity === 'number') {
+        const similarityPercent = Math.round(result.similarity * 100);
+        if (!Number.isNaN(similarityPercent)) {
+          pieces.push(`${similarityPercent}%`);
+        }
+      }
+      meta.textContent = pieces.join(' · ');
+    }
+
+    item.appendChild(meta);
+    return item;
+  }
+
+  async function fetchSuggestions() {
+    if (!suggestionSection || !suggestionList) return;
+    try {
+      const data = await request(`/api/topics/${topicUuid}/related-topics/suggest`);
+      suggestionList.innerHTML = '';
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        suggestionSection.classList.add('d-none');
+        return;
+      }
+      data.forEach((result) => {
+        const item = buildTopicButton(result, { showSimilarity: true });
+        suggestionList.appendChild(item);
+      });
+      suggestionSection.classList.remove('d-none');
+    } catch (err) {
+      console.error(err);
+      suggestionSection.classList.add('d-none');
     }
   }
 
@@ -223,6 +267,27 @@
             method: 'POST'
           });
         }
+        await refreshLinks();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
+  if (suggestionList) {
+    suggestionList.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-topic-uuid]');
+      if (!button || button.disabled) return;
+      const targetUuid = button.dataset.topicUuid;
+      button.disabled = true;
+      try {
+        await request(`/api/topics/${topicUuid}/related-topics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ related_topic_uuid: targetUuid })
+        });
         await refreshLinks();
       } catch (err) {
         console.error(err);

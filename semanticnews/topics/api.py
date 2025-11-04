@@ -983,6 +983,10 @@ class RelatedTopicSearchResult(Schema):
     is_already_linked: bool = False
 
 
+class RelatedTopicSuggestion(RelatedTopicSearchResult):
+    similarity: Optional[float] = None
+
+
 class RelatedTopicCreateRequest(Schema):
     related_topic_uuid: str
 
@@ -1086,6 +1090,62 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
         )
 
     return results
+
+
+TOPIC_RELATED_SUGGESTION_THRESHOLD = 0.15
+TOPIC_RELATED_SUGGESTION_LIMIT = 5
+
+@api.get(
+    "/{topic_uuid}/related-topics/suggest",
+    response=List[RelatedTopicSuggestion],
+)
+def suggest_related_topics(request, topic_uuid: str):
+    topic = _require_owned_topic(request, topic_uuid)
+
+    if not topic.title or topic.embedding is None:
+        return []
+
+    existing_links = {
+        link.related_topic_id: link
+        for link in RelatedTopic.objects.filter(topic=topic)
+    }
+
+    threshold = TOPIC_RELATED_SUGGESTION_THRESHOLD
+    limit = TOPIC_RELATED_SUGGESTION_LIMIT
+
+    queryset = (
+        Topic.objects.filter(status="published")
+        .exclude(uuid=topic.uuid)
+        .exclude(embedding__isnull=True)
+        .annotate(distance=CosineDistance("embedding", topic.embedding))
+        .annotate(similarity=Value(1.0) - F("distance"))
+        .filter(similarity__gte=threshold)
+        .select_related("created_by")
+        .order_by("-similarity")[: limit * 2]
+    )
+
+    suggestions: List[RelatedTopicSuggestion] = []
+    for candidate in queryset:
+        link = existing_links.get(candidate.id)
+        is_linked = link is not None and not link.is_deleted
+        if is_linked:
+            continue
+
+        suggestions.append(
+            RelatedTopicSuggestion(
+                uuid=str(candidate.uuid),
+                title=candidate.title,
+                slug=candidate.slug,
+                username=getattr(candidate.created_by, "username", None),
+                similarity=getattr(candidate, "similarity", None),
+                is_already_linked=is_linked,
+            )
+        )
+        if len(suggestions) >= limit:
+            break
+
+    return suggestions
+
 
 
 @api.post(
