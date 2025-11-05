@@ -73,6 +73,21 @@ class WidgetActionExecution(models.Model):
         on_delete=models.SET_NULL,
         blank=True, null=True,
     )
+    widget_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=_("Registry type identifier used to resolve execution strategy."),
+    )
+    prompt_template = models.TextField(blank=True)
+    prompt_context = models.JSONField(blank=True, default=dict)
+    prompt_text = models.TextField(blank=True)
+    extra_instructions = models.TextField(blank=True)
+    model_name = models.CharField(max_length=150, blank=True)
+    tools = models.JSONField(blank=True, default=list)
+    metadata = models.JSONField(blank=True, default=dict)
+    response_schema = models.JSONField(blank=True, null=True)
+    raw_response = models.JSONField(blank=True, null=True)
+    parsed_response = models.JSONField(blank=True, null=True)
     response = models.JSONField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
@@ -88,6 +103,24 @@ class WidgetActionExecution(models.Model):
 
     class Meta:
         ordering = ("-created_at", "-id")
+
+    @property
+    def widget(self) -> Widget:
+        """Convenience accessor to the related widget definition."""
+
+        return self.action.widget
+
+    @property
+    def topic(self):
+        """Return the topic associated with this execution."""
+
+        if self.section:
+            return self.section.topic
+        return getattr(self, "_topic", None)
+
+    @topic.setter
+    def topic(self, value):
+        self._topic = value
 
     def mark_running(self) -> None:
         """Update the execution to indicate it has started."""

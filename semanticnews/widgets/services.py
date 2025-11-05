@@ -20,7 +20,7 @@ from .helpers import (
     fetch_external_assets,
     resolve_postprocessors,
 )
-from .models import Widget, WidgetActionExecution
+from .models import Widget, WidgetAction, WidgetActionExecution
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def _default_context_builder(state: "WidgetExecutionState") -> dict[str, Any]:
 
 
 def _default_prompt_renderer(state: "WidgetExecutionState", context: Mapping[str, Any]) -> str:
-    template = Template(state.widget.prompt_template or "")
+    template = Template(state.execution.prompt_template or state.action.prompt_template or "")
     return template.render(Context(context))
 
 
@@ -123,6 +123,7 @@ class WidgetExecutionState:
     execution: WidgetActionExecution
     section: TopicSection | None
     widget: Widget
+    action: WidgetAction
     history: list[dict[str, Any]] = field(default_factory=list)
     context: MutableMapping[str, Any] = field(default_factory=dict)
     rendered_prompt: str = ""
@@ -167,7 +168,7 @@ class WidgetExecutionStrategy:
         self._run_preprocess(state)
         state.final_prompt = self._combine_prompt(state.rendered_prompt, state.extra_instructions)
         state.raw_response, state.parsed_response = self.call_model(state)
-        _validate_against_schema(state.parsed_response, state.widget.response_format)
+        _validate_against_schema(state.parsed_response, state.response_schema)
         postprocessed = self.postprocess_hook(state)
         if postprocessed is not None:
             state.parsed_response = postprocessed
@@ -268,6 +269,7 @@ class WidgetExecutionService:
 
     def execute(self, execution: WidgetActionExecution) -> WidgetExecutionState:
         section = execution.section
+        action = execution.action
         widget = execution.widget
         widget_type = execution.widget_type or widget.name
         strategy = self.registry.get(widget_type)
@@ -282,17 +284,28 @@ class WidgetExecutionService:
             execution=execution,
             section=section,
             widget=widget,
+            action=action,
             history=history,
         )
 
-        state.model_name = execution.model_name or execution.metadata.get("model") or settings.DEFAULT_AI_MODEL
-        state.tools = execution.tools or _build_tool_definitions(widget.tools)
-        state.response_schema = strategy.response_schema
+        state.model_name = (
+            execution.model_name
+            or execution.metadata.get("model")
+            or settings.DEFAULT_AI_MODEL
+        )
+        tools = execution.tools or action.tools
+        state.tools = _build_tool_definitions(tools)
+        state.response_schema = (
+            execution.response_schema
+            or execution.metadata.get("response_schema")
+            or strategy.response_schema
+        )
 
-        execution.prompt_template = widget.prompt_template or ""
+        execution.prompt_template = execution.prompt_template or action.prompt_template or ""
         execution.tools = state.tools
         execution.model_name = state.model_name
         execution.widget_type = widget_type
+        execution.response_schema = state.response_schema
         execution.prompt_context = {}
         execution.metadata = execution.metadata or {}
 
