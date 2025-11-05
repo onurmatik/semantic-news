@@ -1,0 +1,9 @@
+<div
+    class="alert alert-{% if validation_variant %}{{ validation_variant }}{% else %}info{% endif %} d-none small mb-0"
+    {% if validation_id %}id="{{ validation_id }}"{% endif %}
+    role="status"
+    aria-live="polite"
+    data-widget-validation
+>
+    {{ validation_message|default_if_none:'' }}
+</div>

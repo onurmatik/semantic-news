@@ -192,7 +192,18 @@
         return;
       }
 
-      const definition = catalogMap.get(key);
+      let definition = catalogMap.get(key);
+      if (!definition) {
+        const name = button.textContent ? button.textContent.trim() : '';
+        const idAttr = button.getAttribute('data-widget-definition-id');
+        const id = idAttr ? parseInt(idAttr, 10) : null;
+        definition = {
+          id: Number.isFinite(id) ? id : null,
+          key,
+          name,
+        };
+        catalogMap.set(key, definition);
+      }
       const template = templateMap.get(key);
       if (!definition || !template) {
         return;
