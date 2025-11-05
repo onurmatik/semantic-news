@@ -1,9 +1,11 @@
 """API endpoints for managing topic widgets and executions."""
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
@@ -113,8 +115,13 @@ def execute_widget_action(request, payload: WidgetActionExecutionCreateRequest):
         raise HttpError(401, "Unauthorized")
 
     try:
-        topic = Topic.objects.get(uuid=payload.topic_uuid)
-    except Topic.DoesNotExist:
+        topic_uuid = uuid.UUID(str(payload.topic_uuid))
+    except (ValueError, TypeError):
+        raise HttpError(400, "Invalid topic UUID")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except (Topic.DoesNotExist, ValidationError):
         raise HttpError(404, "Topic not found")
 
     if topic.created_by_id != user.id:
@@ -174,8 +181,13 @@ def get_execution_status(request, execution_id: int, topic_uuid: str):
         raise HttpError(401, "Unauthorized")
 
     try:
-        topic = Topic.objects.get(uuid=topic_uuid)
-    except Topic.DoesNotExist:
+        topic_uuid_obj = uuid.UUID(str(topic_uuid))
+    except (ValueError, TypeError):
+        raise HttpError(400, "Invalid topic UUID")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid_obj)
+    except (Topic.DoesNotExist, ValidationError):
         raise HttpError(404, "Topic not found")
 
     if topic.created_by_id != user.id:
