@@ -60,7 +60,7 @@ class WidgetAction(models.Model):
 class WidgetActionExecution(models.Model):
     """Track LLM executions performed for widgets."""
 
-    class Status(models.TextChoices):
+    class ActionExecutionStatus(models.TextChoices):
         PENDING = "pending", _("Pending")
         RUNNING = "running", _("Running")
         SUCCESS = "success", _("Success")
@@ -91,8 +91,8 @@ class WidgetActionExecution(models.Model):
     response = models.JSONField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
+        choices=ActionExecutionStatus.choices,
+        default=ActionExecutionStatus.PENDING,
     )
     error_message = models.TextField(blank=True, null=True)
     error_code = models.CharField(max_length=50, blank=True, null=True)

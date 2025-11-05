@@ -239,7 +239,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     "name": widget.name,
                     "key": key,
                     "template": widget.template or "",
-                    "response_format": widget.response_format or {},
+                    "response_format": widget.context_structure or {},
                     "actions": [w.name for w in widget.actions.all()],
                 }
             )
