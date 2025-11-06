@@ -97,16 +97,27 @@
 
   function createEntry(widget, template, widgetList) {
     if (!template || !widgetList) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: missing template or widget list', {
+        hasTemplate: Boolean(template),
+        hasWidgetList: Boolean(widgetList),
+      });
       return null;
     }
 
     const fragment = template.content.cloneNode(true);
     if (!fragment) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: template fragment missing');
       return null;
     }
 
     const card = fragment.querySelector('[data-topic-widget]');
     if (!card) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: no [data-topic-widget] found in template', {
+        templateHtml: template.innerHTML ? template.innerHTML.slice(0, 200) : null,
+      });
       return null;
     }
 
@@ -133,6 +144,11 @@
 
     entry.appendChild(fragment);
     widgetList.appendChild(entry);
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Created widget entry', {
+      widgetKey: entry.dataset.topicWidgetKey,
+      definitionId: entry.dataset.widgetDefinitionId,
+    });
     return entry;
   }
 
@@ -174,13 +190,31 @@
 
     const panelsContainer = toolbar.querySelector('[data-toolbar-panels]');
     const templateMap = buildTemplateMap(panelsContainer);
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Initialised template map', {
+      keys: Array.from(templateMap.keys()),
+      panelCount: templateMap.size,
+    });
     const buttonsContainer = toolbar.querySelector('[data-toolbar-buttons]');
     if (!buttonsContainer) {
       return;
     }
 
+    const buttons = Array.from(buttonsContainer.querySelectorAll('[data-toolbar-button]'));
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Discovered widget toolbar buttons', {
+      total: buttons.length,
+      disabled: buttons.filter((button) => button.disabled).map((button) => button.getAttribute('data-toolbar-button')),
+      keys: buttons.map((button) => button.getAttribute('data-toolbar-button')),
+    });
+
     const topicUuid = resolveTopicUuid();
     const catalog = await fetchCatalog();
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Loaded widget catalog', {
+      fromBootstrap: Boolean(parseCatalogScript()),
+      count: Array.isArray(catalog) ? catalog.length : 0,
+    });
     const catalogMap = new Map();
     catalog.forEach((item) => {
       if (!item) {
@@ -193,16 +227,26 @@
       }
     });
 
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Catalog map ready', {
+      keys: Array.from(catalogMap.keys()),
+    });
     buttonsContainer.addEventListener('click', (event) => {
       const button = event.target.closest('[data-toolbar-button]');
       if (!button) {
         return;
       }
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Widget toolbar button click', {
+        buttonKey: button.getAttribute('data-toolbar-button'),
+        buttonDisabled: button.disabled,
+      });
       const key = button.getAttribute('data-toolbar-button');
       if (!key) {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicWidgets][Toolbar] Clicked widget button without key', { button });
         return;
       }
-
       let definition = catalogMap.get(key);
       if (!definition) {
         const name = button.textContent ? button.textContent.trim() : '';
@@ -216,12 +260,32 @@
         catalogMap.set(key, definition);
       }
       const template = templateMap.get(key);
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Resolved widget definition', {
+        key,
+        hasDefinition: Boolean(definition),
+        hasTemplate: Boolean(template),
+        definition,
+      });
       if (!definition || !template) {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicWidgets][Toolbar] Missing definition or template for key', {
+          key,
+          hasDefinition: Boolean(definition),
+          hasTemplate: Boolean(template),
+        });
         return;
       }
 
       event.preventDefault();
       const entry = createEntry(definition, template, widgetList);
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Entry creation result', {
+        key,
+        entryCreated: Boolean(entry),
+        widgetDefinitionId: definition.id,
+        widgetKey: definition.key,
+      });
       if (entry) {
         notifyInit(entry, definition, topicUuid);
         if (typeof entry.scrollIntoView === 'function') {

@@ -5,6 +5,7 @@ from django.db.models import Prefetch
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from django.utils.text import Truncator, slugify
@@ -233,6 +234,16 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
             key = slugify(widget.name or "")
             if not key:
                 key = f"widget-{widget.pk or len(catalog) + 1}"
+            panel_context = {
+                "widget_key": key,
+                "widget_definition_id": widget.id,
+                "widget_id": f"widget-editor-{key}",
+                "title": widget.name,
+                "validation_template": "topics/widgets/validation_state.html",
+                "validation_id": f"widgetValidation-{key}",
+                "validation_variant": "info",
+                "content_template": "topics/widgets/editors/shell_content.html",
+            }
             catalog.append(
                 {
                     "id": widget.id,
@@ -241,6 +252,10 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     "template": widget.template or "",
                     "response_format": widget.context_structure or {},
                     "actions": [w.name for w in widget.actions.all()],
+                    "panel_html": render_to_string(
+                        "topics/widgets/editor_card.html",
+                        panel_context,
+                    ),
                 }
             )
         context["widget_catalog"] = catalog

@@ -5,16 +5,7 @@
         <div class="mb-3" data-toolbar-panels>
             {% for widget in widget_catalog %}
                 <template data-widget-panel="{{ widget.key }}">
-                    {% include "topics/widgets/editor_card.html" with
-                        widget_key=widget.key
-                        widget_definition_id=widget.id
-                        widget_id="widget-editor-"|add:widget.key
-                        title=widget.name
-                        validation_template="topics/widgets/validation_state.html"
-                        validation_id="widgetValidation-"|add:widget.key
-                        validation_variant="info"
-                        content_template="topics/widgets/editors/shell_content.html"
-                    %}
+                    {{ widget.panel_html|safe }}
                 </template>
             {% endfor %}
         </div>
