@@ -4,65 +4,32 @@
     <h6 class="fs-5 mb-0">{% trans "Link topics" %}</h6>
     <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
   </div>
+
   <div class="card-body">
     <div class="mb-3">
       <label class="form-label" for="relatedTopicSearch">{% trans "Add related topic" %}</label>
-      <input type="search" class="form-control" id="relatedTopicSearch" data-related-topic-search-input placeholder="{% trans 'Search published topics…' %}" autocomplete="off">
-      <div class="form-text">{% trans "Search for published topics to relate. Automatic suggestions may appear after publishing." %}</div>
+      <input
+        type="search"
+        class="form-control"
+        id="relatedTopicSearch"
+        data-related-topic-search-input
+        placeholder="{% trans 'Search published topics…' %}"
+        autocomplete="off"
+      >
+      <div class="form-text">
+        {% trans "Search for published topics to relate. Suggestions may appear after publishing." %}
+      </div>
+
       <div class="list-group mt-2 d-none" data-related-topic-search-results></div>
+
       <div class="mt-3 d-none" data-related-topic-suggestions-section>
         <div class="fw-semibold small mb-2">{% trans "Suggested topics" %}</div>
         <div class="list-group" data-related-topic-suggestions-list></div>
       </div>
     </div>
+
     <div data-related-topic-list data-empty-message="{% trans 'No related topics yet.' %}">
-      {% if related_topic_links %}
-        <ul class="list-unstyled mb-0" data-related-topic-items>
-          {% for link in related_topic_links %}
-            {% with topic_obj=link.related_topic %}
-            <li class="border rounded p-2 mb-2" data-related-topic-link data-link-id="{{ link.id }}" data-source="{{ link.source }}" data-owned-by-user="{{ link.is_owned_by_user|yesno:'true,false' }}">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-semibold">
-                    {% if topic_obj.slug and topic_obj.created_by and topic_obj.created_by.username %}
-                      <a href="{% url 'topics_detail' slug=topic_obj.slug username=topic_obj.created_by.username %}" class="text-decoration-none">{{ topic_obj.title|default:_('Untitled topic') }}</a>
-                    {% else %}
-                      {{ topic_obj.title|default:_('Untitled topic') }}
-                    {% endif %}
-                  </div>
-                  <div class="text-secondary small">
-                    {% if topic_obj.created_by and topic_obj.created_by.username %}
-                      {% blocktrans with username=topic_obj.created_by.username %}By {{ username }}{% endblocktrans %}
-                    {% endif %}
-                    {% if link.source %}
-                      <span class="badge bg-light text-dark border ms-1">
-                        {% if link.source == 'auto' %}
-                          {% trans "Automatic" %}
-                        {% elif link.source == 'manual' %}
-                          {% trans "Manual" %}
-                        {% else %}
-                          {{ link.source|capfirst }}
-                        {% endif %}
-                      </span>
-                    {% endif %}
-                    {% if link.is_owned_by_user %}
-                      <span class="badge bg-primary-subtle text-primary ms-1">{% trans "You added this" %}</span>
-                    {% elif link.is_owned_by_topic_creator %}
-                      <span class="badge bg-secondary-subtle text-secondary ms-1">{% trans "Owner link" %}</span>
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="btn-group">
-                  <button type="button" class="btn btn-outline-danger btn-sm" data-remove-related-topic>{% trans "Remove" %}</button>
-                </div>
-              </div>
-            </li>
-            {% endwith %}
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-secondary small mb-0">{% trans "No related topics yet." %}</p>
-      {% endif %}
+      <ul class="list-unstyled mb-0" data-related-topic-items></ul>
     </div>
   </div>
 </div>

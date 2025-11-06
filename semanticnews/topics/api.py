@@ -1017,6 +1017,7 @@ def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:
             display_name = created_by.get_full_name() or None
         if not display_name:
             display_name = str(created_by)
+
     return RelatedTopicLinkSchema(
         id=link.id,
         topic_uuid=str(getattr(related_topic, "uuid", "")),

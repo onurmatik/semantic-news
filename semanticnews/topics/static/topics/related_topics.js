@@ -2,300 +2,270 @@
   const card = document.querySelector('[data-related-topics-card][data-topic-uuid]');
   if (!card) return;
 
-  const gettext = window.gettext || ((s) => s);
-  const interpolate = window.interpolate || ((fmt, args) => {
-    if (!args || !args.length) return fmt;
-    return fmt.replace('%s', args[0]);
-  });
-
+  const _ = window.gettext || (s => s);
   const topicUuid = card.getAttribute('data-topic-uuid');
-  const listContainer = card.querySelector('[data-related-topic-list]');
-  const itemsContainer = card.querySelector('[data-related-topic-items]');
+
+  const listWrap = card.querySelector('[data-related-topic-list]');
+  const itemsEl = card.querySelector('[data-related-topic-items]');
   const searchInput = card.querySelector('[data-related-topic-search-input]');
   const searchResults = card.querySelector('[data-related-topic-search-results]');
-  const suggestionSection = card.querySelector('[data-related-topic-suggestions-section]');
-  const suggestionList = card.querySelector('[data-related-topic-suggestions-list]');
+  const suggSection = card.querySelector('[data-related-topic-suggestions-section]');
+  const suggList = card.querySelector('[data-related-topic-suggestions-list]');
 
-  async function request(url, options = {}) {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      let message = `Request failed: ${response.status}`;
+  // --- helpers
+  async function api(url, options = {}) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
       try {
-        const data = await response.json();
-        if (data && data.detail) message = data.detail;
-      } catch (_) {
-        /* ignore parse errors */
-      }
-      throw new Error(message);
+        const data = await res.json();
+        if (data?.detail) msg = data.detail;
+      } catch {}
+      throw new Error(msg);
     }
-    if (response.status === 204) return null;
-    try {
-      return await response.json();
-    } catch (_) {
-      return null;
+    if (res.status === 204) return null;
+    try { return await res.json(); } catch { return null; }
+  }
+
+  function emptyState(count) {
+    const msg = listWrap.getAttribute('data-empty-message') || '';
+    let el = listWrap.querySelector('.empty-msg');
+    if (count === 0) {
+      if (!el) {
+        el = document.createElement('p');
+        el.className = 'text-secondary small mb-0 empty-msg';
+        el.textContent = msg;
+        listWrap.appendChild(el);
+      }
+    } else if (el) {
+      el.remove();
     }
   }
 
-  function renderEmptyState(activeCount) {
-    if (!listContainer) return;
-    const message = listContainer.getAttribute('data-empty-message') || '';
-    let emptyEl = listContainer.querySelector('.empty-msg');
-    if (activeCount === 0) {
-      if (!emptyEl) {
-        emptyEl = document.createElement('p');
-        emptyEl.className = 'text-secondary small mb-0 empty-msg';
-        emptyEl.textContent = message;
-        listContainer.appendChild(emptyEl);
-      }
-    } else if (emptyEl) {
-      emptyEl.remove();
+  function sourceLabel(src) {
+    if (!src) return '';
+    // Only user | agent are valid
+    if (src === 'user') return _('User');
+    if (src === 'agent') return _('Agent');
+    // fallback, just in case
+    return String(src).charAt(0).toUpperCase() + String(src).slice(1);
     }
-  }
 
   function renderLinks(links) {
-    if (!itemsContainer) return;
-    itemsContainer.innerHTML = '';
-    let activeCount = 0;
-    links.forEach((link) => {
-      const topicTitle = link.title || gettext('Untitled topic');
+    itemsEl.innerHTML = '';
+    let active = 0;
+
+    links.forEach(link => {
       const li = document.createElement('li');
-      li.className = 'border rounded p-2 mb-2 d-flex justify-content-between align-items-start';
-      li.dataset.linkId = link.id;
-      li.dataset.source = link.source || '';
-      if (link.is_deleted) {
-        li.classList.add('opacity-50');
-      } else {
-        activeCount += 1;
-      }
+      li.className = 'border rounded p-2 mb-2';
+      if (link.is_deleted) li.classList.add('opacity-50');
 
+      // left side
       const left = document.createElement('div');
-      left.className = 'me-3';
+      const title = document.createElement('div');
+      title.className = 'fw-semibold';
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'fw-semibold';
+      const displayTitle = link.title || _('Untitled topic');
       if (link.slug && link.username) {
-        const anchor = document.createElement('a');
-        anchor.href = `/${link.username}/${link.slug}/`;
-        anchor.className = 'text-decoration-none';
-        anchor.textContent = topicTitle;
-        titleEl.appendChild(anchor);
+        const a = document.createElement('a');
+        a.href = `/${link.username}/${link.slug}/`;
+        a.className = 'text-decoration-none';
+        a.textContent = displayTitle;
+        title.appendChild(a);
       } else {
-        titleEl.textContent = topicTitle;
+        title.textContent = displayTitle;
       }
-      left.appendChild(titleEl);
 
       const meta = document.createElement('div');
       meta.className = 'text-secondary small';
-      const pieces = [];
-      if (link.username) {
-        pieces.push(interpolate(gettext('By %s'), [link.username]));
-      }
-      if (link.source) {
-        const sourceLabel = link.source === 'auto'
-          ? gettext('Automatic')
-          : (link.source === 'manual' ? gettext('Manual') : link.source);
-        pieces.push(sourceLabel);
-      }
-      if (pieces.length) {
-        meta.textContent = pieces.join(' · ');
-      }
+      const bits = [];
+      if (link.username) bits.push(_('By %s').replace('%s', link.username));
+      if (link.source) bits.push(sourceLabel(link.source));
+      if (bits.length) meta.textContent = bits.join(' · ');
+
+      left.appendChild(title);
       left.appendChild(meta);
 
+      // right side
       const right = document.createElement('div');
       right.className = 'btn-group';
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = link.is_deleted
-        ? 'btn btn-outline-secondary btn-sm'
-        : 'btn btn-outline-danger btn-sm';
-      button.textContent = link.is_deleted ? gettext('Restore') : gettext('Remove');
-      button.dataset.action = link.is_deleted ? 'restore' : 'remove';
-      right.appendChild(button);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = link.is_deleted ? 'btn btn-outline-secondary btn-sm' : 'btn btn-outline-danger btn-sm';
+      btn.textContent = link.is_deleted ? _('Restore') : _('Remove');
+      btn.dataset.action = link.is_deleted ? 'restore' : 'remove';
+      btn.dataset.linkId = link.id;
+      right.appendChild(btn);
 
-      li.appendChild(left);
-      li.appendChild(right);
-      itemsContainer.appendChild(li);
+      // row
+      const row = document.createElement('div');
+      row.className = 'd-flex justify-content-between align-items-start';
+      row.appendChild(left);
+      row.appendChild(right);
+      li.appendChild(row);
+      itemsEl.appendChild(li);
+
+      if (!link.is_deleted) active += 1;
     });
-    renderEmptyState(activeCount);
+
+    emptyState(active);
   }
 
-  async function refreshLinks() {
+  async function refresh() {
     try {
-      const data = await request(`/api/topics/${topicUuid}/related-topics`);
-      if (Array.isArray(data)) {
-        renderLinks(data);
-        await fetchSuggestions();
-      }
-    } catch (err) {
-      console.error(err);
+      const data = await api(`/api/topics/${topicUuid}/related-topics`);
+      renderLinks(Array.isArray(data) ? data : []);
+      await loadSuggestions();
+    } catch (e) {
+      // keep silent in UI
+      console.error(e);
     }
   }
 
-  let searchTimeout = null;
-  async function performSearch(term) {
-    if (!searchResults) return;
-    if (!term) {
+  // --- search
+  let t = null;
+  async function runSearch(q) {
+    if (!q) {
       searchResults.classList.add('d-none');
       searchResults.innerHTML = '';
       return;
     }
     try {
-      const data = await request(`/api/topics/${topicUuid}/related-topics/search?query=${encodeURIComponent(term)}`);
+      const results = await api(`/api/topics/${topicUuid}/related-topics/search?query=${encodeURIComponent(q)}`);
       searchResults.innerHTML = '';
-      if (!data || data.length === 0) {
+      if (!results || results.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'list-group-item text-secondary small';
-        empty.textContent = gettext('No matches found.');
+        empty.textContent = _('No matches found.');
         searchResults.appendChild(empty);
-        searchResults.classList.remove('d-none');
-        return;
+      } else {
+        results.forEach(r => searchResults.appendChild(buildResultButton(r)));
       }
-      data.forEach((result) => {
-        const item = buildTopicButton(result);
-        searchResults.appendChild(item);
-      });
       searchResults.classList.remove('d-none');
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  function buildTopicButton(result, options = {}) {
-    const opts = { showSimilarity: false, ...options };
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-    item.dataset.topicUuid = result.uuid;
-    item.disabled = Boolean(result.is_already_linked);
-    item.textContent = result.title || gettext('Untitled topic');
+  function buildResultButton(r, { showSimilarity = false } = {}) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+    btn.dataset.topicUuid = r.uuid;
+    btn.disabled = !!r.is_already_linked;
+    btn.textContent = r.title || _('Untitled topic');
 
     const meta = document.createElement('span');
     meta.className = 'small text-secondary ms-2';
-
-    if (result.is_already_linked) {
-      meta.textContent = gettext('Already linked');
+    if (r.is_already_linked) {
+      meta.textContent = _('Already linked');
     } else {
-      const pieces = [];
-      if (result.username) {
-        pieces.push(result.username);
+      const bits = [];
+      if (r.username) bits.push(r.username);
+      if (showSimilarity && typeof r.similarity === 'number') {
+        const pct = Math.round(r.similarity * 100);
+        if (!Number.isNaN(pct)) bits.push(`${pct}%`);
       }
-      if (opts.showSimilarity && typeof result.similarity === 'number') {
-        const similarityPercent = Math.round(result.similarity * 100);
-        if (!Number.isNaN(similarityPercent)) {
-          pieces.push(`${similarityPercent}%`);
-        }
-      }
-      meta.textContent = pieces.join(' · ');
+      meta.textContent = bits.join(' · ');
     }
-
-    item.appendChild(meta);
-    return item;
+    btn.appendChild(meta);
+    return btn;
   }
 
-  async function fetchSuggestions() {
-    if (!suggestionSection || !suggestionList) return;
+  // --- suggestions
+  async function loadSuggestions() {
+    if (!suggSection || !suggList) return;
     try {
-      const data = await request(`/api/topics/${topicUuid}/related-topics/suggest`);
-      suggestionList.innerHTML = '';
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        suggestionSection.classList.add('d-none');
+      const data = await api(`/api/topics/${topicUuid}/related-topics/suggest`);
+      suggList.innerHTML = '';
+      if (!Array.isArray(data) || data.length === 0) {
+        suggSection.classList.add('d-none');
         return;
       }
-      data.forEach((result) => {
-        const item = buildTopicButton(result, { showSimilarity: true });
-        suggestionList.appendChild(item);
-      });
-      suggestionSection.classList.remove('d-none');
-    } catch (err) {
-      console.error(err);
-      suggestionSection.classList.add('d-none');
+      data.forEach(r => suggList.appendChild(buildResultButton(r, { showSimilarity: true })));
+      suggSection.classList.remove('d-none');
+    } catch (e) {
+      console.error(e);
+      suggSection.classList.add('d-none');
     }
   }
 
+  // --- events
   if (searchInput) {
-    searchInput.addEventListener('input', (event) => {
-      const value = event.target.value.trim();
-      if (searchTimeout) clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => performSearch(value), value.length >= 2 ? 200 : 0);
-      if (!value) {
-        if (searchResults) {
-          searchResults.classList.add('d-none');
-          searchResults.innerHTML = '';
-        }
+    searchInput.addEventListener('input', (ev) => {
+      const v = ev.target.value.trim();
+      if (t) clearTimeout(t);
+      t = setTimeout(() => runSearch(v), v.length >= 2 ? 200 : 0);
+      if (!v) {
+        searchResults.classList.add('d-none');
+        searchResults.innerHTML = '';
       }
     });
   }
 
   if (searchResults) {
-    searchResults.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-topic-uuid]');
-      if (!button || button.disabled) return;
-      const targetUuid = button.dataset.topicUuid;
-      button.disabled = true;
+    searchResults.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-topic-uuid]');
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
       try {
-        await request(`/api/topics/${topicUuid}/related-topics`, {
+        await api(`/api/topics/${topicUuid}/related-topics`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ related_topic_uuid: targetUuid })
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ related_topic_uuid: btn.dataset.topicUuid })
         });
-        searchInput.value = '';
+        if (searchInput) searchInput.value = '';
         searchResults.classList.add('d-none');
         searchResults.innerHTML = '';
-        await refreshLinks();
-      } catch (err) {
-        console.error(err);
-        button.disabled = false;
+        await refresh();
+      } catch (e) {
+        console.error(e);
+        btn.disabled = false;
       }
     });
   }
 
-  if (itemsContainer) {
-    itemsContainer.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-action]');
-      if (!button) return;
-      const li = button.closest('[data-link-id]');
-      if (!li) return;
-      const linkId = li.dataset.linkId;
-      button.disabled = true;
+  if (itemsEl) {
+    itemsEl.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-action][data-link-id]');
+      if (!btn) return;
+      btn.disabled = true;
+      const linkId = btn.dataset.linkId;
       try {
-        if (button.dataset.action === 'remove') {
-          await request(`/api/topics/${topicUuid}/related-topics/${linkId}`, {
-            method: 'DELETE'
-          });
+        if (btn.dataset.action === 'remove') {
+          await api(`/api/topics/${topicUuid}/related-topics/${linkId}`, { method: 'DELETE' });
         } else {
-          await request(`/api/topics/${topicUuid}/related-topics/${linkId}/restore`, {
-            method: 'POST'
-          });
+          await api(`/api/topics/${topicUuid}/related-topics/${linkId}/restore`, { method: 'POST' });
         }
-        await refreshLinks();
-      } catch (err) {
-        console.error(err);
+        await refresh();
+      } catch (e) {
+        console.error(e);
       } finally {
-        button.disabled = false;
+        btn.disabled = false;
       }
     });
   }
 
-  if (suggestionList) {
-    suggestionList.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-topic-uuid]');
-      if (!button || button.disabled) return;
-      const targetUuid = button.dataset.topicUuid;
-      button.disabled = true;
+  if (suggList) {
+    suggList.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-topic-uuid]');
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
       try {
-        await request(`/api/topics/${topicUuid}/related-topics`, {
+        await api(`/api/topics/${topicUuid}/related-topics`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ related_topic_uuid: targetUuid })
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ related_topic_uuid: btn.dataset.topicUuid })
         });
-        await refreshLinks();
-      } catch (err) {
-        console.error(err);
+        await refresh();
+      } catch (e) {
+        console.error(e);
       } finally {
-        button.disabled = false;
+        btn.disabled = false;
       }
     });
   }
 
-  refreshLinks();
+  // bootstrap
+  refresh();
 })();
