@@ -21,6 +21,13 @@
 
     body.innerHTML = '';
 
+    const widgetIdentifier = definition.id != null && !Number.isNaN(definition.id)
+      ? String(definition.id)
+      : (definition.key || '');
+    const sectionsEndpoint = widgetIdentifier
+      ? `/api/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
+      : '/api/widgets/sections';
+
     const textarea = document.createElement('textarea');
     textarea.className = 'form-control';
     textarea.rows = 10;
@@ -49,7 +56,7 @@
       saving = true;
       setValidationState(status, 'Saving…', 'info');
       try {
-        const response = await fetch('/api/widgets/sections', {
+        const response = await fetch(sectionsEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -86,7 +93,10 @@
       saving = true;
       setValidationState(status, 'Saving…', 'info');
       try {
-        const response = await fetch(`/api/widgets/sections/${sectionId}`, {
+        const target = widgetIdentifier
+          ? `${sectionsEndpoint}/${sectionId}`
+          : `/api/widgets/sections/${sectionId}`;
+        const response = await fetch(target, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
