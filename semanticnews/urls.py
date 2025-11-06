@@ -8,9 +8,10 @@ from django.contrib.auth.views import LoginView, LogoutView
 from . import views as core_views
 from .profiles import views as profiles_views
 from .topics import views as topics_views
-from .topics.api import api as topics_api
 from .agenda import views as agenda_views
 from .agenda.api import api as agenda_api
+from .topics.api import api as topics_api
+from .widgets.api import widgets_api
 
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
     path('api/agenda/', agenda_api.urls),
     path('api/topics/', topics_api.urls),
+    path('api/widgets/', widgets_api.urls),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

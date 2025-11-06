@@ -8,9 +8,10 @@ from typing import Any, Dict, List, Optional
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.timezone import make_naive
-from ninja import Router, Schema
+from ninja import NinjaAPI, Router, Schema
 from ninja.errors import HttpError
 
+from slugify import slugify
 from semanticnews.topics.models import Topic, TopicSection
 from semanticnews.widgets.models import Widget, WidgetAction, WidgetActionExecution
 from semanticnews.widgets.tasks import (
@@ -20,16 +21,36 @@ from semanticnews.widgets.tasks import (
 logger = logging.getLogger(__name__)
 
 router = Router()
+widgets_api = NinjaAPI(title="Widgets API", urls_namespace="widgets")
+widgets_api.add_router("", router)
 
 
 class WidgetDefinition(Schema):
     id: int
     name: str
+    key: str
+
+
+class WidgetActionDefinition(Schema):
+    id: int
+    name: str
+    icon: Optional[str] = None
 
 
 class WidgetDefinitionListResponse(Schema):
     total: int
     items: List[WidgetDefinition]
+
+
+class WidgetDetailResponse(Schema):
+    id: int
+    name: str
+    key: str
+    description: Optional[str]
+    template: str
+    response_format: Dict[str, Any]
+    input_format: List[Dict[str, Any]]
+    actions: List[WidgetActionDefinition]
 
 
 class WidgetActionExecutionCreateRequest(Schema):
@@ -64,7 +85,19 @@ class WidgetActionExecutionStatusResponse(Schema):
 
 
 def _serialize_widget(widget: Widget) -> WidgetDefinition:
-    return WidgetDefinition(id=widget.id, name=widget.name)
+    return WidgetDefinition(
+        id=widget.id,
+        name=widget.name,
+        key=_derive_widget_key(widget),
+    )
+
+
+def _derive_widget_key(widget: Widget) -> str:
+    name = widget.name or ""
+    slug = slugify(name)
+    if slug:
+        return slug
+    return f"widget-{widget.pk or uuid.uuid4().hex[:8]}"
 
 
 def _serialize_datetime(value: Optional[datetime]) -> Optional[datetime]:
@@ -99,11 +132,60 @@ def _serialize_execution(execution: WidgetActionExecution) -> WidgetActionExecut
     )
 
 
-@router.get("", response=WidgetDefinitionListResponse)
+@router.get("/definitions", response=WidgetDefinitionListResponse)
 def list_widgets(request):
     widgets = Widget.objects.all().order_by("name")
     items = [_serialize_widget(widget) for widget in widgets]
     return WidgetDefinitionListResponse(total=len(items), items=items)
+
+
+@router.get("/{identifier}/details", response=WidgetDetailResponse)
+def widget_details(request, identifier: str):
+    try:
+        widget = _resolve_widget(identifier)
+    except Widget.DoesNotExist:
+        raise HttpError(404, "Widget not found")
+
+    actions = [
+        WidgetActionDefinition(id=action.id, name=action.name, icon=action.icon or None)
+        for action in widget.actions.all()
+    ]
+
+    return WidgetDetailResponse(
+        id=widget.id,
+        name=widget.name,
+        key=_derive_widget_key(widget),
+        description=widget.description or None,
+        template=(widget.template or "").strip(),
+        response_format=widget.context_structure or {},
+        input_format=list(widget.input_format or []),
+        actions=actions,
+    )
+
+
+def _resolve_widget(identifier: str) -> Widget:
+    queryset = Widget.objects.all()
+
+    try:
+        widget_id = int(identifier)
+    except (TypeError, ValueError):
+        widget_id = None
+
+    if widget_id is not None:
+        try:
+            return queryset.get(id=widget_id)
+        except Widget.DoesNotExist:
+            pass
+
+    normalized = slugify(str(identifier or ""))
+    if not normalized:
+        raise Widget.DoesNotExist()
+
+    for widget in queryset:
+        if slugify(widget.name or "") == normalized:
+            return widget
+
+    raise Widget.DoesNotExist()
 
 
 @router.post("/execute", response=WidgetActionExecutionStatusResponse)

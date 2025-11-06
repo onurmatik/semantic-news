@@ -85,8 +85,49 @@ class WidgetActionAPITests(TestCase):
         self.client.force_login(self.user)
         self.topic = Topic.objects.create(created_by=self.user)
         TopicTitle.objects.create(topic=self.topic, title="Sample Topic")
-        self.widget = Widget.objects.create(name="summary")
-        self.action = WidgetAction.objects.create(widget=self.widget, name="summary.generate")
+        self.widget = Widget.objects.create(
+            name="summary",
+            description="Generate a topic summary",
+            template="widgets/topics/widgets/summary.html",
+            context_structure={"type": "markdown", "sections": ["summary"]},
+            input_format=[{"type": "text", "required": True}],
+        )
+        self.action = WidgetAction.objects.create(
+            widget=self.widget,
+            name="summary.generate",
+            icon="sparkles",
+        )
+
+    def test_widget_definitions_list_includes_key(self):
+        response = self.client.get("/api/widgets/definitions")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        item = payload["items"][0]
+        self.assertEqual(item["id"], self.widget.id)
+        self.assertEqual(item["name"], self.widget.name)
+        self.assertEqual(item["key"], "summary")
+
+    def test_widget_details_returns_metadata(self):
+        response = self.client.get(f"/api/widgets/{self.widget.id}/details")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["id"], self.widget.id)
+        self.assertEqual(data["name"], self.widget.name)
+        self.assertEqual(data["key"], "summary")
+        self.assertEqual(data["template"], self.widget.template)
+        self.assertEqual(data["response_format"], self.widget.context_structure)
+        self.assertEqual(data["input_format"], self.widget.input_format)
+        self.assertEqual(data["description"], self.widget.description)
+        self.assertEqual(len(data["actions"]), 1)
+        action = data["actions"][0]
+        self.assertEqual(action["id"], self.action.id)
+        self.assertEqual(action["name"], self.action.name)
+        self.assertEqual(action["icon"], self.action.icon)
+
+        slug_response = self.client.get("/api/widgets/summary/details")
+        self.assertEqual(slug_response.status_code, 200)
+        self.assertEqual(slug_response.json()["id"], self.widget.id)
 
     def test_execute_widget_action_creates_execution_and_section(self):
         payload = {
@@ -99,7 +140,7 @@ class WidgetActionAPITests(TestCase):
 
         with patch("semanticnews.widgets.api.execute_widget_action_task.delay") as mock_delay:
             response = self.client.post(
-                "/api/topics/widget/execute",
+                "/api/widgets/execute",
                 payload,
                 content_type="application/json",
             )
@@ -130,7 +171,7 @@ class WidgetActionAPITests(TestCase):
 
         with patch("semanticnews.widgets.api.execute_widget_action_task.delay") as mock_delay:
             response = self.client.post(
-                "/api/topics/widget/execute",
+                "/api/widgets/execute",
                 payload,
                 content_type="application/json",
             )
@@ -152,7 +193,7 @@ class WidgetActionAPITests(TestCase):
         }
 
         response = self.client.post(
-            "/api/topics/widget/execute",
+            "/api/widgets/execute",
             payload,
             content_type="application/json",
         )
@@ -169,7 +210,7 @@ class WidgetActionAPITests(TestCase):
         }
 
         response = self.client.post(
-            "/api/topics/widget/execute",
+            "/api/widgets/execute",
             payload,
             content_type="application/json",
         )
@@ -182,7 +223,7 @@ class WidgetActionAPITests(TestCase):
         execution = WidgetActionExecution.objects.create(action=self.action, section=section)
 
         response = self.client.get(
-            f"/api/topics/widget/executions/{execution.id}",
+            f"/api/widgets/executions/{execution.id}",
             {"topic_uuid": str(self.topic.uuid)},
         )
 
@@ -198,7 +239,7 @@ class WidgetActionAPITests(TestCase):
         other_topic = Topic.objects.create()
 
         response = self.client.get(
-            f"/api/topics/widget/executions/{execution.id}",
+            f"/api/widgets/executions/{execution.id}",
             {"topic_uuid": str(other_topic.uuid)},
         )
 

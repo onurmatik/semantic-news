@@ -49,7 +49,7 @@
       saving = true;
       setValidationState(status, 'Saving…', 'info');
       try {
-        const response = await fetch('/api/topics/widget/sections', {
+        const response = await fetch('/api/widgets/sections', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -86,7 +86,7 @@
       saving = true;
       setValidationState(status, 'Saving…', 'info');
       try {
-        const response = await fetch(`/api/topics/widget/sections/${sectionId}`, {
+        const response = await fetch(`/api/widgets/sections/${sectionId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

@@ -72,8 +72,8 @@
       };
 
       const url = sectionId
-        ? `/api/topics/widget/sections/${sectionId}`
-        : '/api/topics/widget/sections';
+        ? `/api/widgets/sections/${sectionId}`
+        : '/api/widgets/sections';
       const method = sectionId ? 'PUT' : 'POST';
 
       const payload = {
