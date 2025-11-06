@@ -1092,8 +1092,8 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
     return results
 
 
-TOPIC_RELATED_SUGGESTION_THRESHOLD = 0.15
-TOPIC_RELATED_SUGGESTION_LIMIT = 5
+TOPIC_RELATED_SUGGESTION_THRESHOLD = 0.85
+TOPIC_RELATED_SUGGESTION_LIMIT = 2
 
 @api.get(
     "/{topic_uuid}/related-topics/suggest",
