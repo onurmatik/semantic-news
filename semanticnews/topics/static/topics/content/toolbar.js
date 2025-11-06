@@ -1,6 +1,6 @@
 (function () {
   const CATALOG_SCRIPT_ID = 'widget-catalog-data';
-  const DEFINITIONS_ENDPOINT = '/api/widgets/definitions';
+  const DEFINITIONS_ENDPOINT = '/api/widgets';
   const registry = () => window.TopicWidgetRegistry;
 
   function ready(callback) {
@@ -38,8 +38,19 @@
         throw new Error('Unable to load widget definitions');
       }
       const payload = await response.json();
-      const items = payload && Array.isArray(payload.items) ? payload.items : [];
-      return items;
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+      if (payload && Array.isArray(payload.items)) {
+        return payload.items;
+      }
+      if (payload && Array.isArray(payload.results)) {
+        return payload.results;
+      }
+      if (payload && payload.data && Array.isArray(payload.data)) {
+        return payload.data;
+      }
+      return [];
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(error);
