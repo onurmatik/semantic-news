@@ -129,17 +129,77 @@
 
     const actions = card.querySelector('[data-topic-module-header-actions]');
     if (actions) {
+      const createActionButtons = () => {
+        const buttons = [];
+        const availableActions = Array.isArray(widget.actions) ? widget.actions : [];
+        availableActions.forEach((action) => {
+          if (!action) {
+            return;
+          }
+          const label = typeof action.name === 'string' ? action.name.trim() : '';
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn btn-outline-primary btn-sm';
+          if (action.id != null) {
+            button.dataset.widgetActionId = String(action.id);
+          }
+          if (label) {
+            button.dataset.widgetActionName = label;
+          }
+          if (label) {
+            button.title = label;
+            button.setAttribute('aria-label', label);
+          } else {
+            button.setAttribute('aria-label', 'Widget action');
+          }
+
+          const iconClass = typeof action.icon === 'string' && action.icon.trim()
+            ? action.icon.trim()
+            : 'bi bi-stars';
+          const icon = document.createElement('i');
+          icon.className = iconClass;
+          icon.setAttribute('aria-hidden', 'true');
+          button.appendChild(icon);
+
+          if (label) {
+            const srText = document.createElement('span');
+            srText.className = 'visually-hidden';
+            srText.textContent = label;
+            button.appendChild(srText);
+          }
+
+          buttons.push(button);
+        });
+        return buttons;
+      };
+
+      const actionButtons = createActionButtons();
+      actionButtons.forEach((button) => {
+        actions.appendChild(button);
+      });
+
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'btn btn-outline-secondary btn-sm';
-      closeBtn.innerHTML = '<span class="visually-hidden">Close</span><i class="bi bi-x" aria-hidden="true"></i>';
       closeBtn.title = 'Close editor';
       closeBtn.setAttribute('aria-label', 'Close editor');
+
+      const closeIcon = document.createElement('i');
+      closeIcon.className = 'bi bi-x';
+      closeIcon.setAttribute('aria-hidden', 'true');
+      closeBtn.appendChild(closeIcon);
+
+      const closeText = document.createElement('span');
+      closeText.className = 'visually-hidden';
+      closeText.textContent = 'Close editor';
+      closeBtn.appendChild(closeText);
+
       closeBtn.addEventListener('click', () => {
         entry.dispatchEvent(new CustomEvent('widget-editor:destroy', { detail: { widget }, bubbles: true }));
         entry.remove();
       });
-      actions.prepend(closeBtn);
+
+      actions.appendChild(closeBtn);
     }
 
     entry.appendChild(fragment);
