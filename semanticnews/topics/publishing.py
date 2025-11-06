@@ -251,7 +251,7 @@ def publish_topic(topic: Topic, user=None) -> TopicPublication:
     published_recap = _publish_recaps(topic, published_at)
     sections = _publish_sections(topic, published_at)
     images = _publish_images(topic, published_at)
-    _publish_related_topics(topic, user, published_at)
+    # _publish_related_topics(topic, user, published_at)
 
     _clear_topic_caches(topic)
 
