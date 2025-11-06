@@ -228,12 +228,24 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
     context["edit_mode"] = edit_mode
 
     if edit_mode:
-        widgets = list(Widget.objects.all().order_by("name"))
+        widgets = list(
+            Widget.objects.all()
+            .order_by("name")
+            .prefetch_related("actions")
+        )
         catalog: list[dict[str, object]] = []
         for widget in widgets:
             key = slugify(widget.name or "")
             if not key:
                 key = f"widget-{widget.pk or len(catalog) + 1}"
+            actions = [
+                {
+                    "id": action.id,
+                    "name": action.name,
+                    "icon": action.icon or "",
+                }
+                for action in widget.actions.all()
+            ]
             panel_context = {
                 "widget_key": key,
                 "widget_definition_id": widget.id,
@@ -251,7 +263,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     "key": key,
                     "template": widget.template or "",
                     "response_format": widget.context_structure or {},
-                    "actions": [w.name for w in widget.actions.all()],
+                    "actions": actions,
                     "panel_html": render_to_string(
                         "topics/widgets/editor_card.html",
                         panel_context,
