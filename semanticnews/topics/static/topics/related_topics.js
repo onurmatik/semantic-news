@@ -75,7 +75,7 @@
       titleEl.className = 'fw-semibold';
       if (link.slug && link.username) {
         const anchor = document.createElement('a');
-        anchor.href = `/topics/${link.username}/${link.slug}/`;
+        anchor.href = `/${link.username}/${link.slug}/`;
         anchor.className = 'text-decoration-none';
         anchor.textContent = topicTitle;
         titleEl.appendChild(anchor);
