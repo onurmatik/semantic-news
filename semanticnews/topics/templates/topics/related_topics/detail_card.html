@@ -28,17 +28,6 @@
                 {% if topic_obj.created_by and topic_obj.created_by.username %}
                   {% blocktrans with username=topic_obj.created_by.username %}By {{ username }}{% endblocktrans %}
                 {% endif %}
-                {% if link.source %}
-                  <span class="badge bg-light text-dark border ms-1">
-                    {% if link.source == 'auto' %}
-                      {% trans "Automatic" %}
-                    {% elif link.source == 'manual' %}
-                      {% trans "Manual" %}
-                    {% else %}
-                      {{ link.source|capfirst }}
-                    {% endif %}
-                  </span>
-                {% endif %}
               </div>
             </div>
           </div>
