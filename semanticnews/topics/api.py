@@ -30,6 +30,7 @@ from .models import (
     RelatedEvent,
     Source,
 )
+from .publishing import publish_topic
 from .recaps.api import router as recaps_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")

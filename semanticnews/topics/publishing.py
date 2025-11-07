@@ -12,7 +12,6 @@ from .models import (
     Source,
     RelatedTopic,
     Topic,
-    TopicImage,
     TopicRecap,
     TopicSection,
     TopicTitle,
