@@ -6,7 +6,8 @@ from django.utils import timezone
 from django.utils.timezone import make_naive
 from django.urls import reverse
 from django.db import transaction
-from django.db.models import F, Q, Value
+from django.db.models import Case, F, Q, Value, When
+from django.db.models.fields import FloatField
 from django.db.models.functions import Coalesce
 
 from slugify import slugify
@@ -726,60 +727,174 @@ class TimelineEventList(Schema):
     events: List[TimelineSuggestedEvent] = []
 
 
-class TimelineRelatedEvent(Schema):
+class TimelineRelatedEventLinkSchema(Schema):
     """Schema for an existing event related to the topic."""
 
+    id: int
+    event_uuid: str
+    title: Optional[str]
+    slug: Optional[str]
+    date: Optional[date]
+    source: str
+    is_deleted: bool
+    created_at: datetime
+
+
+class TimelineRelatedEventSearchResult(Schema):
+    """Schema for timeline event search results."""
+
     uuid: str
-    title: str
-    date: date
-    similarity: float
+    title: Optional[str]
+    date: Optional[date]
+    similarity: Optional[float] = None
+    is_already_linked: bool
 
 
-class TimelineRelatedRequest(Schema):
-    """Request body for retrieving existing events related to a topic."""
+class TimelineRelatedEventSuggestion(TimelineRelatedEventSearchResult):
+    """Schema for suggested timeline events."""
 
-    topic_uuid: str
-    threshold: float = 0.5
-    limit: int = 10
+    similarity: Optional[float] = None
 
 
-@api.post("/timeline/related", response=List[TimelineRelatedEvent])
-def list_related_events(request, payload: TimelineRelatedRequest):
-    """List existing agenda events related to the topic by embedding similarity."""
+def _serialize_related_event_link(
+    link: RelatedEvent,
+) -> TimelineRelatedEventLinkSchema:
+    event = link.event
+    return TimelineRelatedEventLinkSchema(
+        id=link.id,
+        event_uuid=str(getattr(event, "uuid", "")),
+        title=getattr(event, "title", None),
+        slug=getattr(event, "slug", None),
+        date=getattr(event, "date", None),
+        source=link.source,
+        is_deleted=link.is_deleted,
+        created_at=link.created_at,
+    )
 
-    user = getattr(request, "user", None)
-    if not user or not user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
 
-    try:
-        topic = Topic.objects.get(uuid=payload.topic_uuid)
-    except Topic.DoesNotExist:
-        raise HttpError(404, "Topic not found")
+TIMELINE_RELATED_EVENTS_SUGGESTION_THRESHOLD = 0.6
+TIMELINE_RELATED_EVENTS_SUGGESTION_LIMIT = 2
+TIMELINE_RELATED_EVENTS_SEARCH_LIMIT = 5
+
+
+@api.get(
+    "/{topic_uuid}/timeline/related-events",
+    response=List[TimelineRelatedEventLinkSchema],
+)
+def list_related_events(request, topic_uuid: str):
+    """Return the existing timeline events linked to a topic."""
+
+    topic = _require_owned_topic(request, topic_uuid)
+
+    links = (
+        RelatedEvent.objects.filter(topic=topic, is_deleted=False)
+        .select_related("event")
+        .order_by("-created_at")
+    )
+    return [_serialize_related_event_link(link) for link in links]
+
+
+@api.get(
+    "/{topic_uuid}/timeline/related-events/search",
+    response=List[TimelineRelatedEventSearchResult],
+)
+def search_related_events(request, topic_uuid: str, query: Optional[str] = None):
+    """Search for timeline events to relate to a topic."""
+
+    topic = _require_owned_topic(request, topic_uuid)
+
+    trimmed_query = (query or "").strip()
+    if not trimmed_query:
+        return []
+
+    existing_links = {
+        link.event_id: link for link in RelatedEvent.objects.filter(topic=topic)
+    }
+
+    queryset = Event.objects.filter(status="published", title__icontains=trimmed_query)
+
+    if topic.embedding is not None:
+        queryset = queryset.annotate(
+            similarity=Case(
+                When(
+                    embedding__isnull=False,
+                    then=Value(1.0) - CosineDistance("embedding", topic.embedding),
+                ),
+                default=Value(None),
+                output_field=FloatField(),
+            )
+        ).order_by("-similarity", "-date")
+    else:
+        queryset = queryset.order_by("-date")
+
+    queryset = queryset[:TIMELINE_RELATED_EVENTS_SEARCH_LIMIT]
+
+    results: List[TimelineRelatedEventSearchResult] = []
+    for event in queryset:
+        link = existing_links.get(event.id)
+        is_linked = link is not None and not link.is_deleted
+        results.append(
+            TimelineRelatedEventSearchResult(
+                uuid=str(event.uuid),
+                title=event.title,
+                date=event.date,
+                similarity=getattr(event, "similarity", None),
+                is_already_linked=is_linked,
+            )
+        )
+
+    return results
+
+
+@api.get(
+    "/{topic_uuid}/timeline/related-events/suggest",
+    response=List[TimelineRelatedEventSuggestion],
+)
+def suggest_related_events(request, topic_uuid: str):
+    """Suggest new timeline events based on embeddings."""
+
+    topic = _require_owned_topic(request, topic_uuid)
 
     if topic.embedding is None:
         return []
 
+    existing_links = {
+        link.event_id: link for link in RelatedEvent.objects.filter(topic=topic)
+    }
+
+    threshold = TIMELINE_RELATED_EVENTS_SUGGESTION_THRESHOLD
+    limit = TIMELINE_RELATED_EVENTS_SUGGESTION_LIMIT
+
     queryset = (
-        Event.objects.exclude(embedding__isnull=True)
-        .exclude(
-            relatedevent__topic=topic,
-            relatedevent__is_deleted=False,
-        )
+        Event.objects.filter(status="published")
+        .exclude(embedding__isnull=True)
         .annotate(distance=CosineDistance("embedding", topic.embedding))
         .annotate(similarity=Value(1.0) - F("distance"))
-        .filter(similarity__gte=payload.threshold)
-        .order_by("-similarity")[: payload.limit]
+        .filter(similarity__gte=threshold)
+        .order_by("-similarity")[: limit * 2]
     )
 
-    return [
-        TimelineRelatedEvent(
-            uuid=str(ev.uuid),
-            title=ev.title,
-            date=ev.date,
-            similarity=ev.similarity,
+    suggestions: List[TimelineRelatedEventSuggestion] = []
+    for candidate in queryset:
+        link = existing_links.get(candidate.id)
+        is_linked = link is not None and not link.is_deleted
+        if is_linked:
+            continue
+
+        suggestions.append(
+            TimelineRelatedEventSuggestion(
+                uuid=str(candidate.uuid),
+                title=getattr(candidate, "title", None),
+                date=getattr(candidate, "date", None),
+                similarity=getattr(candidate, "similarity", None),
+                is_already_linked=is_linked,
+            )
         )
-        for ev in queryset
-    ]
+
+        if len(suggestions) >= limit:
+            break
+
+    return suggestions
 
 
 class TimelineSuggestRequest(Schema):
@@ -1032,6 +1147,11 @@ def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:
     )
 
 
+RELATED_TOPICS_SUGGESTION_THRESHOLD = 0.85
+RELATED_TOPICS_SUGGESTION_LIMIT = 2
+RELATED_TOPICS_SEARCH_LIMIT = 5
+
+
 @api.get("/{topic_uuid}/related-topics", response=List[RelatedTopicLinkSchema])
 def list_related_topics(request, topic_uuid: str):
     topic = _require_owned_topic(request, topic_uuid)
@@ -1074,7 +1194,7 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
 
     qs = (
         qs.annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
-        .order_by("-ordering_activity", "-created_at")[:10]
+        .order_by("-ordering_activity", "-created_at")[:RELATED_TOPICS_SEARCH_LIMIT]
     )
 
     results: List[RelatedTopicSearchResult] = []
@@ -1093,9 +1213,6 @@ def search_related_topics(request, topic_uuid: str, query: Optional[str] = None)
     return results
 
 
-TOPIC_RELATED_SUGGESTION_THRESHOLD = 0.85
-TOPIC_RELATED_SUGGESTION_LIMIT = 2
-
 @api.get(
     "/{topic_uuid}/related-topics/suggest",
     response=List[RelatedTopicSuggestion],
@@ -1111,8 +1228,8 @@ def suggest_related_topics(request, topic_uuid: str):
         for link in RelatedTopic.objects.filter(topic=topic)
     }
 
-    threshold = TOPIC_RELATED_SUGGESTION_THRESHOLD
-    limit = TOPIC_RELATED_SUGGESTION_LIMIT
+    threshold = RELATED_TOPICS_SUGGESTION_THRESHOLD
+    limit = RELATED_TOPICS_SUGGESTION_LIMIT
 
     queryset = (
         Topic.objects.filter(status="published")

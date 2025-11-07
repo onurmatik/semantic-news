@@ -1,6 +1,10 @@
 {% load i18n %}
-{% if related_events %}
-<div class="mt-3{% if edit_mode %} card{% endif %}" data-related-events-card>
+{% if related_events or edit_mode %}
+  <div
+    class="mt-3{% if edit_mode %} card border-light{% endif %}"
+    data-related-events-card
+    data-topic-uuid="{{ topic.uuid }}"
+  >
   {% if edit_mode %}
   <div class="card-header d-flex align-items-center">
       <h6 class="fs-5 mb-0">
@@ -9,10 +13,42 @@
       <div class="d-flex align-items-center gap-2 ms-auto" data-topic-module-header-actions></div>
   </div>
   {% endif %}
-  <div{% if edit_mode %} class="card-body"{% endif %} id="relatedEventsContainer" data-empty-message="{% trans 'No related events' %}">
-    {% for event in related_events %}
-        {% include "agenda/event_list_item.html" with event=event show_remove=edit_mode show_add=False %}
-    {% endfor %}
+
+  <div{% if edit_mode %} class="card-body"{% endif %}>
+    {% if edit_mode %}
+      <div class="mb-3">
+        <label class="form-label" for="relatedEventSearch">{% trans "Add timeline event" %}</label>
+        <input
+          type="search"
+          class="form-control"
+          id="relatedEventSearch"
+          data-related-event-search-input
+          placeholder="{% trans 'Search for related events…' %}"
+          autocomplete="off"
+        >
+        <div class="form-text">
+          {% trans "Search published agenda events to add to this topic's timeline." %}
+        </div>
+
+        <div class="list-group mt-2 d-none" data-related-event-search-results></div>
+
+        <div class="mt-3 d-none" data-related-event-suggestions-section>
+          <div class="fw-semibold small mb-2">{% trans "Suggested events" %}</div>
+          <div class="list-group" data-related-event-suggestions-list></div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div data-related-event-list data-empty-message="{% trans 'No related events yet.' %}">
+      <div data-related-event-items>
+        {% for event in related_events %}
+            {% include "agenda/event_list_item.html" with event=event show_remove=edit_mode show_add=False %}
+        {% endfor %}
+      </div>
+      {% if not related_events %}
+        <p class="text-secondary small mb-0 empty-msg">{% trans "No related events yet." %}</p>
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endif %}
