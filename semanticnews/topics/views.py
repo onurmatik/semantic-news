@@ -394,24 +394,11 @@ def topics_detail_edit(request, topic_uuid, username):
 
 @login_required
 def topics_detail_preview(request, topic_uuid, username):
-    topic = get_object_or_404(
-        Topic.objects.prefetch_related(
-            "events",
-            "recaps",
-            "texts",
-            "images",
-            "documents",
-            "webpages",
-            "youtube_videos",
-            "tweets",
-            RELATED_ENTITIES_PREFETCH,
-            "datas",
-            "data_insights__sources",
-            "data_visualizations__insight",
-        ),
+    queryset = Topic.objects.filter(
         uuid=topic_uuid,
         created_by__username=username,
     )
+    topic = get_object_or_404(queryset)
 
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
