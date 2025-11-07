@@ -21,7 +21,7 @@ class Widget(models.Model):
     description = models.TextField(blank=True)
 
     input_format = models.JSONField(
-        default=[{"type": "text", "required": True}],
+        default=lambda: [{"type": "text", "required": True}],
         help_text=_("List of input field definitions."),
     )
     context_structure = models.JSONField(
