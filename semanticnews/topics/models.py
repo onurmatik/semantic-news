@@ -655,39 +655,17 @@ class TopicSection(models.Model):
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.topic_id}:{self.widget_id}:{self.display_order}"
 
-    def clean(self):
-        super().clean()
+    def render(self):
+        """Renders the content with the widget.template"""
+        from django.template import Template, Context
 
-        errors = {}
-
-        try:
-            normalized_language = self.normalize_language_code(self.language_code)
-        except ValidationError as exc:  # pragma: no cover - exercised indirectly
-            errors["language_code"] = exc.messages
-        else:
-            self.language_code = normalized_language
-
-        if errors:
-            raise ValidationError(errors)
-
-    def normalize_language_code(self, language_code: Optional[str]) -> Optional[str]:
-        """Return a normalized, supported language code."""
-
-        if not language_code:
-            return None
-
-        try:
-            return get_supported_language_variant(language_code)
-        except LookupError as exc:
-            available = {code for code, _ in getattr(settings, "LANGUAGES", [])}
-            if available:
-                raise ValidationError(
-                    gettext("Unsupported language code: %(code)s"),
-                    params={"code": language_code},
-                ) from exc
-
-        # Fall back to lower-casing when languages are not configured.
-        return language_code.lower()
+        template = Template(self.widget.template)
+        context = Context({
+            'content': self.content,
+            'section': self,
+            'widget': self.widget,
+        })
+        return template.render(context)
 
 
 #
