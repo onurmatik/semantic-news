@@ -638,7 +638,7 @@ class TopicSectionQuerySet(models.QuerySet):
 
 class TopicSection(models.Model):
     topic = models.ForeignKey(Topic, related_name="sections", on_delete=models.CASCADE)
-    widget = models.ForeignKey('widgets.Widget', related_name="sections", on_delete=models.CASCADE)
+    widget_name = models.CharField(max_length=100, db_index=True)
     display_order = models.PositiveSmallIntegerField(default=0)
 
     content = models.JSONField(blank=True, null=True)
@@ -654,6 +654,13 @@ class TopicSection(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.topic_id}:{self.widget_id}:{self.display_order}"
+
+    @property
+    def widget(self):
+        """Retrieve the Widget instance from the code registry"""
+        from widgets import get_widget
+
+        return get_widget(self.widget_name)
 
     def render(self):
         """Renders the content with the widget.template"""
