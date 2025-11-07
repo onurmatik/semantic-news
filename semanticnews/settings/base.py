@@ -52,14 +52,8 @@ INSTALLED_APPS = [
     'semanticnews.profiles',
     'semanticnews.agenda',
     'semanticnews.entities',
-    # User topics and widget apps
-    'semanticnews.widgets',
-    'semanticnews.widgets.images',
-    'semanticnews.widgets.text',
-    'semanticnews.widgets.mcps',
-    'semanticnews.widgets.data',
-    'semanticnews.widgets.webcontent',
     'semanticnews.topics',
+    'semanticnews.widgets',
 ]
 
 MIDDLEWARE = [

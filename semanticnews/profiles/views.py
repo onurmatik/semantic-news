@@ -12,7 +12,6 @@ from django.utils.translation import gettext as _
 from .forms import DisplayNameForm
 from .models import Profile
 from ..topics.models import Topic
-from ..widgets.data.models import TopicDataVisualization
 
 
 def user_list(request):
@@ -59,16 +58,10 @@ def user_list(request):
         .order_by("-last_activity", "username")
     )
 
-    visualizations_prefetch = Prefetch(
-        "data_visualizations",
-        queryset=TopicDataVisualization.objects.order_by("-created_at"),
-    )
-
     recent_topics = (
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by")
-        .prefetch_related("recaps", "images", visualizations_prefetch)
         .order_by("-ordering_activity", "-created_at")[:5]
     )
 
@@ -82,16 +75,10 @@ def user_list(request):
 
 def user_profile(request, username):
     user = get_object_or_404(User, username=username)
-    visualizations_prefetch = Prefetch(
-        "data_visualizations",
-        queryset=TopicDataVisualization.objects.order_by("-created_at"),
-    )
-
     topics = (
         Topic.objects
         .filter(created_by=user)
         .select_related("created_by")
-        .prefetch_related("recaps", "images", visualizations_prefetch)
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .distinct()
         .order_by('-ordering_activity', '-created_at')

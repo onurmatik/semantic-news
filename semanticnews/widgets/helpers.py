@@ -1,5 +1,4 @@
 """Helper utilities for widget execution and post-processing."""
-from __future__ import annotations
 
 import logging
 import mimetypes

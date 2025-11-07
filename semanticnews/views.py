@@ -4,22 +4,16 @@ from pgvector.django import L2Distance
 
 from .agenda.models import Event
 from .topics.models import Topic
-from .widgets.data.models import TopicDataVisualization
 from .openai import OpenAI
 
 
 def home(request):
     recent_events = Event.objects.filter(status='published').order_by('-date')[:5]
-    visualizations_prefetch = Prefetch(
-        "data_visualizations",
-        queryset=TopicDataVisualization.objects.order_by("-created_at"),
-    )
     context = {
         'events': recent_events,
         'topics': (
             Topic.objects.filter(status='published')
             .select_related('created_by')
-            .prefetch_related('recaps', 'images', visualizations_prefetch)
         ),
     }
     if request.user.is_authenticated:
@@ -45,16 +39,10 @@ def search_results(request):
                 .embedding
             )
 
-        visualizations_prefetch = Prefetch(
-            "data_visualizations",
-            queryset=TopicDataVisualization.objects.order_by("-created_at"),
-        )
-
         topics = (
             Topic.objects.filter(status="published")
             .exclude(embedding__isnull=True)
         .select_related("created_by")
-            .prefetch_related("recaps", "images", visualizations_prefetch)
             .annotate(distance=L2Distance("embedding", embedding))
             .order_by("distance")[:5]
         )

@@ -5,6 +5,7 @@ from django.db.models import Prefetch
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from django.utils.text import Truncator, slugify
@@ -16,7 +17,6 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 from semanticnews.agenda.models import Event
-from semanticnews.widgets.mcps.models import MCPServer
 from semanticnews.widgets.models import Widget
 from semanticnews.widgets.rendering import build_renderable_section
 
@@ -229,20 +229,46 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
     context["edit_mode"] = edit_mode
 
     if edit_mode:
-        widgets = list(Widget.objects.all().order_by("name"))
+        widgets = list(
+            Widget.objects.all()
+            .order_by("name")
+            .prefetch_related("actions")
+        )
         catalog: list[dict[str, object]] = []
         for widget in widgets:
             key = slugify(widget.name or "")
             if not key:
                 key = f"widget-{widget.pk or len(catalog) + 1}"
+            actions = [
+                {
+                    "id": action.id,
+                    "name": action.name,
+                    "icon": action.icon or "",
+                }
+                for action in widget.actions.all()
+            ]
+            panel_context = {
+                "widget_key": key,
+                "widget_definition_id": widget.id,
+                "widget_id": f"widget-editor-{key}",
+                "title": widget.name,
+                "validation_template": "topics/widgets/validation_state.html",
+                "validation_id": f"widgetValidation-{key}",
+                "validation_variant": "info",
+                "content_template": "topics/widgets/editors/shell_content.html",
+            }
             catalog.append(
                 {
                     "id": widget.id,
                     "name": widget.name,
                     "key": key,
                     "template": widget.template or "",
-                    "response_format": widget.response_format or {},
-                    "tools": widget.tools or [],
+                    "response_format": widget.context_structure or {},
+                    "actions": actions,
+                    "panel_html": render_to_string(
+                        "topics/widgets/editor_card.html",
+                        panel_context,
+                    ),
                 }
             )
         context["widget_catalog"] = catalog
@@ -345,20 +371,7 @@ def _build_topic_metadata(request, topic, context):
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related(
-            "events",
-            "recaps",
-            "images",
-            "sections__widget",
-            RELATED_ENTITIES_PREFETCH,
-            Prefetch(
-                "topic_related_topics",
-                queryset=RelatedTopic.objects.select_related(
-                    "related_topic__created_by"
-                ).order_by("-created_at"),
-                to_attr="prefetched_related_topic_links",
-            ),
-        ),
+        Topic,
         uuid=topic_uuid,
         created_by__username=username,
     )
@@ -367,8 +380,6 @@ def topics_detail_edit(request, topic_uuid, username):
         return HttpResponseForbidden()
 
     context = _build_topic_page_context(topic, request.user, edit_mode=True)
-    mcp_servers = MCPServer.objects.filter(active=True)
-    context["mcp_servers"] = mcp_servers
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid

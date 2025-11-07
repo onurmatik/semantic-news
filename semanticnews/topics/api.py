@@ -30,20 +30,12 @@ from .models import (
     RelatedEvent,
     Source,
 )
-from .publishing import publish_topic
 from .recaps.api import router as recaps_router
-from semanticnews.widgets.api import router as widget_router
-from semanticnews.widgets.data.models import (
-    TopicDataRequest,
-    TopicDataAnalysisRequest,
-    TopicDataVisualizationRequest,
-)
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 relation_router = Router()
 api.add_router("/recap", recaps_router)
 api.add_router("/relation", relation_router)
-api.add_router("/widget", widget_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
 
@@ -329,59 +321,10 @@ def generation_status(request, topic_uuid: str):
         )
         return row or None
 
-    data_status_map = {
-        TopicDataRequest.Status.PENDING: "in_progress",
-        TopicDataRequest.Status.STARTED: "in_progress",
-        TopicDataRequest.Status.SUCCESS: "finished",
-        TopicDataRequest.Status.FAILURE: "error",
-        TopicDataAnalysisRequest.Status.PENDING: "in_progress",
-        TopicDataAnalysisRequest.Status.STARTED: "in_progress",
-        TopicDataAnalysisRequest.Status.SUCCESS: "finished",
-        TopicDataAnalysisRequest.Status.FAILURE: "error",
-        TopicDataVisualizationRequest.Status.PENDING: "in_progress",
-        TopicDataVisualizationRequest.Status.STARTED: "in_progress",
-        TopicDataVisualizationRequest.Status.SUCCESS: "finished",
-        TopicDataVisualizationRequest.Status.FAILURE: "error",
-    }
-
-    def latest_data_status(qs):
-        row = (
-            qs.filter(user_id=user.id)
-              .order_by("-updated_at")
-              .values("status", "error_message", "created_at", "updated_at")
-              .first()
-        )
-        if not row:
-            return None
-        mapped = data_status_map.get(row.get("status"))
-        if not mapped:
-            return None
-        timestamp = row.get("updated_at") or row.get("created_at")
-        return {
-            "status": mapped,
-            "error_message": row.get("error_message"),
-            "created_at": timestamp,
-        }
-
-    data_statuses = {
-        "add": latest_data_status(topic.data_requests),
-        "analyze": latest_data_status(topic.data_analysis_requests),
-        "visualize": latest_data_status(topic.data_visualization_requests),
-    }
-
-    data_payload = (
-        DataGenerationStatuses(**data_statuses)
-        if any(data_statuses.values())
-        else None
-    )
-
     return GenerationStatusResponse(
         current=timezone.now(),
         recap=latest(topic.recaps.filter(is_deleted=False)),
-        text=latest(topic.texts.filter(is_deleted=False)),
         relation=None,
-        image=latest(topic.images.filter(is_deleted=False)),
-        data=data_payload,
     )
 
 

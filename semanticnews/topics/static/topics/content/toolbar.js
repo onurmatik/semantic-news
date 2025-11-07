@@ -1,6 +1,6 @@
 (function () {
   const CATALOG_SCRIPT_ID = 'widget-catalog-data';
-  const DEFINITIONS_ENDPOINT = '/api/topics/widget/definitions';
+  const DEFINITIONS_ENDPOINT = '/api/widgets';
   const registry = () => window.TopicWidgetRegistry;
 
   function ready(callback) {
@@ -38,8 +38,19 @@
         throw new Error('Unable to load widget definitions');
       }
       const payload = await response.json();
-      const items = payload && Array.isArray(payload.items) ? payload.items : [];
-      return items;
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+      if (payload && Array.isArray(payload.items)) {
+        return payload.items;
+      }
+      if (payload && Array.isArray(payload.results)) {
+        return payload.results;
+      }
+      if (payload && payload.data && Array.isArray(payload.data)) {
+        return payload.data;
+      }
+      return [];
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(error);
@@ -86,16 +97,27 @@
 
   function createEntry(widget, template, widgetList) {
     if (!template || !widgetList) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: missing template or widget list', {
+        hasTemplate: Boolean(template),
+        hasWidgetList: Boolean(widgetList),
+      });
       return null;
     }
 
     const fragment = template.content.cloneNode(true);
     if (!fragment) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: template fragment missing');
       return null;
     }
 
     const card = fragment.querySelector('[data-topic-widget]');
     if (!card) {
+      // eslint-disable-next-line no-console
+      console.warn('[TopicWidgets][Toolbar] Unable to create entry: no [data-topic-widget] found in template', {
+        templateHtml: template.innerHTML ? template.innerHTML.slice(0, 200) : null,
+      });
       return null;
     }
 
@@ -107,21 +129,86 @@
 
     const actions = card.querySelector('[data-topic-module-header-actions]');
     if (actions) {
+      const createActionButtons = () => {
+        const buttons = [];
+        const availableActions = Array.isArray(widget.actions) ? widget.actions : [];
+        availableActions.forEach((action) => {
+          if (!action) {
+            return;
+          }
+          const label = typeof action.name === 'string' ? action.name.trim() : '';
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn btn-outline-primary btn-sm';
+          if (action.id != null) {
+            button.dataset.widgetActionId = String(action.id);
+          }
+          if (label) {
+            button.dataset.widgetActionName = label;
+          }
+          if (label) {
+            button.title = label;
+            button.setAttribute('aria-label', label);
+          } else {
+            button.setAttribute('aria-label', 'Widget action');
+          }
+
+          const iconClass = typeof action.icon === 'string' && action.icon.trim()
+            ? action.icon.trim()
+            : 'bi bi-stars';
+          const icon = document.createElement('i');
+          icon.className = iconClass;
+          icon.setAttribute('aria-hidden', 'true');
+          button.appendChild(icon);
+
+          if (label) {
+            const srText = document.createElement('span');
+            srText.className = 'visually-hidden';
+            srText.textContent = label;
+            button.appendChild(srText);
+          }
+
+          buttons.push(button);
+        });
+        return buttons;
+      };
+
+      const actionButtons = createActionButtons();
+      actionButtons.forEach((button) => {
+        actions.appendChild(button);
+      });
+
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'btn btn-outline-secondary btn-sm';
-      closeBtn.innerHTML = '<span class="visually-hidden">Close</span><i class="bi bi-x" aria-hidden="true"></i>';
       closeBtn.title = 'Close editor';
       closeBtn.setAttribute('aria-label', 'Close editor');
+
+      const closeIcon = document.createElement('i');
+      closeIcon.className = 'bi bi-x';
+      closeIcon.setAttribute('aria-hidden', 'true');
+      closeBtn.appendChild(closeIcon);
+
+      const closeText = document.createElement('span');
+      closeText.className = 'visually-hidden';
+      closeText.textContent = 'Close editor';
+      closeBtn.appendChild(closeText);
+
       closeBtn.addEventListener('click', () => {
         entry.dispatchEvent(new CustomEvent('widget-editor:destroy', { detail: { widget }, bubbles: true }));
         entry.remove();
       });
-      actions.prepend(closeBtn);
+
+      actions.appendChild(closeBtn);
     }
 
     entry.appendChild(fragment);
     widgetList.appendChild(entry);
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Created widget entry', {
+      widgetKey: entry.dataset.topicWidgetKey,
+      definitionId: entry.dataset.widgetDefinitionId,
+    });
     return entry;
   }
 
@@ -163,13 +250,31 @@
 
     const panelsContainer = toolbar.querySelector('[data-toolbar-panels]');
     const templateMap = buildTemplateMap(panelsContainer);
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Initialised template map', {
+      keys: Array.from(templateMap.keys()),
+      panelCount: templateMap.size,
+    });
     const buttonsContainer = toolbar.querySelector('[data-toolbar-buttons]');
     if (!buttonsContainer) {
       return;
     }
 
+    const buttons = Array.from(buttonsContainer.querySelectorAll('[data-toolbar-button]'));
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Discovered widget toolbar buttons', {
+      total: buttons.length,
+      disabled: buttons.filter((button) => button.disabled).map((button) => button.getAttribute('data-toolbar-button')),
+      keys: buttons.map((button) => button.getAttribute('data-toolbar-button')),
+    });
+
     const topicUuid = resolveTopicUuid();
     const catalog = await fetchCatalog();
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Loaded widget catalog', {
+      fromBootstrap: Boolean(parseCatalogScript()),
+      count: Array.isArray(catalog) ? catalog.length : 0,
+    });
     const catalogMap = new Map();
     catalog.forEach((item) => {
       if (!item) {
@@ -182,24 +287,65 @@
       }
     });
 
+    // eslint-disable-next-line no-console
+    console.info('[TopicWidgets][Toolbar] Catalog map ready', {
+      keys: Array.from(catalogMap.keys()),
+    });
     buttonsContainer.addEventListener('click', (event) => {
       const button = event.target.closest('[data-toolbar-button]');
       if (!button) {
         return;
       }
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Widget toolbar button click', {
+        buttonKey: button.getAttribute('data-toolbar-button'),
+        buttonDisabled: button.disabled,
+      });
       const key = button.getAttribute('data-toolbar-button');
       if (!key) {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicWidgets][Toolbar] Clicked widget button without key', { button });
         return;
       }
-
-      const definition = catalogMap.get(key);
+      let definition = catalogMap.get(key);
+      if (!definition) {
+        const name = button.textContent ? button.textContent.trim() : '';
+        const idAttr = button.getAttribute('data-widget-definition-id');
+        const id = idAttr ? parseInt(idAttr, 10) : null;
+        definition = {
+          id: Number.isFinite(id) ? id : null,
+          key,
+          name,
+        };
+        catalogMap.set(key, definition);
+      }
       const template = templateMap.get(key);
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Resolved widget definition', {
+        key,
+        hasDefinition: Boolean(definition),
+        hasTemplate: Boolean(template),
+        definition,
+      });
       if (!definition || !template) {
+        // eslint-disable-next-line no-console
+        console.warn('[TopicWidgets][Toolbar] Missing definition or template for key', {
+          key,
+          hasDefinition: Boolean(definition),
+          hasTemplate: Boolean(template),
+        });
         return;
       }
 
       event.preventDefault();
       const entry = createEntry(definition, template, widgetList);
+      // eslint-disable-next-line no-console
+      console.info('[TopicWidgets][Toolbar] Entry creation result', {
+        key,
+        entryCreated: Boolean(entry),
+        widgetDefinitionId: definition.id,
+        widgetKey: definition.key,
+      });
       if (entry) {
         notifyInit(entry, definition, topicUuid);
         if (typeof entry.scrollIntoView === 'function') {

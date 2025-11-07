@@ -1,342 +1,246 @@
-from django.core.exceptions import ValidationError
-import json
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from semanticnews.topics.models import Topic, TopicSection
-
-from .models import Widget, WidgetAPIExecution
-from .services import (
+from semanticnews.topics.models import Topic, TopicSection, TopicTitle
+from semanticnews.widgets.models import (
+    Widget,
+    WidgetAction,
+    WidgetActionExecution,
+)
+from semanticnews.widgets.services import (
     WidgetExecutionRegistry,
     WidgetExecutionService,
     WidgetExecutionStrategy,
-    WidgetRegistryLookupError,
 )
-from .tasks import execute_widget
-from . import helpers
 
 
-class WidgetModelTests(TestCase):
-    def test_defaults_are_empty_collections(self):
-        widget = Widget(name="Example")
-        widget.full_clean()
-        widget.save()
+class DummyStrategy(WidgetExecutionStrategy):
+    """Strategy stub that avoids external API calls during tests."""
 
-
-class WidgetHelperTests(TestCase):
-    def test_append_extra_instructions_combines_sources(self):
-        base = "Base instruction"
-        resolved = helpers.append_extra_instructions(
-            base,
-            "Additional",
-            "Additional",
-            metadata={"extra_instructions": ["Meta", "Additional"]},
-        )
-        self.assertEqual(
-            resolved,
-            "Base instruction\n\nAdditional\n\nMeta",
-        )
-
-    def test_build_topic_context_snippet_respects_limit(self):
-        class _Topic:
-            def __init__(self):
-                self.calls = 0
-
-            def build_context(self):
-                self.calls += 1
-                return "Context" * 100
-
-        topic = _Topic()
-        snippet = helpers.build_topic_context_snippet(topic, metadata={"context_limit": 10})
-        self.assertTrue(snippet.endswith("…"))
-        self.assertLessEqual(len(snippet), 10)
-        self.assertEqual(topic.calls, 1)
-
-
-class WidgetAPIExecutionModelTests(TestCase):
-    def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user("user", "user@example.com", "pass")
-        self.topic = Topic.objects.create(title="Example", created_by=self.user)
-        self.widget = Widget.objects.create(name="Execution widget")
-
-    def test_defaults(self):
-        execution = WidgetAPIExecution.objects.create(
-            topic=self.topic,
-            section=None,
-            widget=self.widget,
-            user=self.user,
-        )
-
-        self.assertEqual(execution.status, WidgetAPIExecution.Status.PENDING)
-        self.assertIsNone(execution.started_at)
-        self.assertEqual(execution.metadata, {})
-
-
-class _EchoStrategy(WidgetExecutionStrategy):
     def __init__(self):
         super().__init__(response_schema=None)
 
-    def call_model(self, state):
-        raw = {"text": state.final_prompt}
-        parsed = {"result": "ok"}
-        state.raw_response = raw
-        state.parsed_response = parsed
-        return raw, parsed
+    def call_model(self, state):  # pragma: no cover - trivial override
+        return {"raw": True}, {"result": "ok"}
 
 
 class WidgetExecutionServiceTests(TestCase):
     def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user("user", "user@example.com", "pass")
-        self.topic = Topic.objects.create(title="Service", created_by=self.user)
-        self.widget = Widget.objects.create(
-            name="Service Widget",
-            prompt_template="Prompt: {{ topic.title }}",
+        super().setUp()
+        self.registry = WidgetExecutionRegistry()
+        self.strategy = DummyStrategy()
+
+    def _create_topic(self, title: str) -> Topic:
+        topic = Topic.objects.create()
+        TopicTitle.objects.create(topic=topic, title=title)
+        return topic
+
+    def test_execute_uses_action_configuration(self):
+        topic = self._create_topic("Sample Topic")
+        widget = Widget.objects.create(name="summary")
+        action = WidgetAction.objects.create(
+            widget=widget,
+            name="summary.generate",
+            prompt_template="Hello {{ topic.title }}",
+            tools=["retrieval"],
         )
-        self.section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        section = TopicSection.objects.create(topic=topic, widget=widget)
 
-    def test_registry_lookup_error(self):
-        registry = WidgetExecutionRegistry()
+        execution = WidgetActionExecution.objects.create(action=action, section=section)
+        execution.metadata = {"model": "metadata-model"}
+        execution.extra_instructions = "Keep it short."
+        execution.response_schema = {"type": "object"}
 
-        with self.assertRaises(WidgetRegistryLookupError):
-            registry.get("unknown")
-
-    def test_execute_populates_execution_metadata(self):
-        execution = WidgetAPIExecution.objects.create(
-            topic=self.topic,
-            section=self.section,
-            widget=self.widget,
-            user=self.user,
-        )
-
-        registry = WidgetExecutionRegistry()
-        registry.register(self.widget.name, _EchoStrategy())
-        service = WidgetExecutionService(registry)
+        self.registry.register(widget.name, self.strategy)
+        service = WidgetExecutionService(registry=self.registry)
 
         state = service.execute(execution)
 
-        self.assertEqual(state.parsed_response, {"result": "ok"})
-        self.assertIn("topic", execution.prompt_context)
-        self.assertTrue(execution.prompt_text.endswith("Respond in English."))
+        self.assertEqual(execution.widget, widget)
+        self.assertEqual(state.model_name, "metadata-model")
+        self.assertEqual(execution.model_name, "metadata-model")
+        self.assertEqual(state.tools, [{"type": "retrieval"}])
+        self.assertEqual(execution.tools, [{"type": "retrieval"}])
+        self.assertEqual(execution.prompt_template, action.prompt_template)
+        self.assertIn("Sample Topic", state.rendered_prompt)
+        self.assertIn("Respond in", state.final_prompt)
+        self.assertIn("Keep it short.", state.final_prompt)
+        self.assertEqual(state.response_schema, {"type": "object"})
+        self.assertEqual(execution.response_schema, {"type": "object"})
+        self.assertEqual(execution.widget_type, widget.name)
+        self.assertIn("rendered_prompt", execution.metadata)
         self.assertEqual(execution.metadata.get("history_count"), 0)
-        self.assertEqual(execution.raw_response, {"text": execution.prompt_text})
+        self.assertEqual(execution.prompt_context.get("topic", {}).get("title"), "Sample Topic")
+        self.assertEqual(execution.raw_response, {"raw": True})
+        self.assertEqual(execution.parsed_response, {"result": "ok"})
 
 
-class ExecuteWidgetTaskTests(TestCase):
+class WidgetActionAPITests(TestCase):
     def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user("user", "user@example.com", "pass")
-        self.topic = Topic.objects.create(title="Task Topic", created_by=self.user)
-        self.widget = Widget.objects.create(
-            name="Task Widget",
-            prompt_template="Prompt: {{ topic.title }}",
-        )
-        self.section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
-        self.execution = WidgetAPIExecution.objects.create(
-            topic=self.topic,
-            section=self.section,
-            widget=self.widget,
-            user=self.user,
-        )
-
-    def _mock_success_state(self):
-        def _fake_execute(execution):
-            execution.prompt_template = self.widget.prompt_template
-            execution.prompt_context = {"topic": {"title": self.topic.title}}
-            execution.prompt_text = "Rendered prompt"
-            execution.extra_instructions = ""
-            execution.metadata = {"rendered_prompt": "Rendered prompt", "history_count": 0}
-            execution.raw_response = {"raw": True}
-            execution.parsed_response = {"parsed": True}
-            return SimpleNamespace(parsed_response=execution.parsed_response)
-
-        return _fake_execute
-
-    @patch("semanticnews.widgets.tasks.WidgetExecutionService.execute")
-    def test_execute_widget_updates_models(self, mock_execute):
-        mock_execute.side_effect = self._mock_success_state()
-
-        result = execute_widget.run(execution_id=self.execution.id)
-
-        self.section.refresh_from_db()
-        self.execution.refresh_from_db()
-
-        self.assertEqual(result["status"], WidgetAPIExecution.Status.SUCCESS)
-        self.assertEqual(self.section.status, "finished")
-        self.assertEqual(self.section.content, {"parsed": True})
-        self.assertEqual(self.execution.status, WidgetAPIExecution.Status.SUCCESS)
-        self.assertIsNotNone(self.execution.completed_at)
-
-    @patch("semanticnews.widgets.tasks.WidgetExecutionService.execute")
-    def test_execute_widget_failure_updates_status(self, mock_execute):
-        mock_execute.side_effect = WidgetRegistryLookupError("missing")
-
-        with self.assertRaises(WidgetRegistryLookupError):
-            execute_widget.run(execution_id=self.execution.id)
-
-        self.section.refresh_from_db()
-        self.execution.refresh_from_db()
-
-        self.assertEqual(self.section.status, "error")
-        self.assertEqual(self.execution.status, WidgetAPIExecution.Status.FAILURE)
-        self.assertEqual(self.execution.error_code, "registry_missing")
-
-        self.assertEqual(widget.response_format, {})
-        self.assertEqual(widget.tools, [])
-
-    def test_response_format_must_be_mapping(self):
-        widget = Widget(name="Bad response", response_format=["not", "a", "dict"])
-
-        with self.assertRaises(ValidationError) as exc:
-            widget.full_clean()
-
-        self.assertIn("response_format", exc.exception.error_dict)
-
-    def test_tools_must_be_list_of_non_empty_strings(self):
-        widget = Widget(name="Bad tools", tools=["valid", 7, ""])
-
-        with self.assertRaises(ValidationError) as exc:
-            widget.full_clean()
-
-        self.assertIn("tools", exc.exception.error_dict)
-
-    def test_valid_widget_passes_clean(self):
-        widget = Widget(
-            name="Valid widget",
-            prompt_template="Render content",
-            response_format={"type": "markdown"},
-            tools=["web_search"],
-            template="{{ body }}",
-        )
-
-        # Should not raise
-        widget.full_clean()
-        widget.save()
-
-
-class WidgetAPITests(TestCase):
-    def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user("user", "user@example.com", "pass")
-        self.topic = Topic.objects.create(title="API Topic", created_by=self.user)
-        self.widget = Widget.objects.create(
-            name="API Widget",
-            response_format={
-                "type": "object",
-                "properties": {"summary": {"type": "string"}},
-                "required": ["summary"],
-            },
-        )
+        super().setUp()
+        User = get_user_model()
+        self.user = User.objects.create_user("user", "user@example.com", "password")
         self.client.force_login(self.user)
-
-    def _post_json(self, path: str, payload: dict[str, object]):
-        return self.client.post(
-            path,
-            data=json.dumps(payload),
-            content_type="application/json",
+        self.topic = Topic.objects.create(created_by=self.user)
+        TopicTitle.objects.create(topic=self.topic, title="Sample Topic")
+        self.widget = Widget.objects.create(
+            name="summary",
+            description="Generate a topic summary",
+            template="widgets/topics/widgets/summary.html",
+            context_structure={"type": "markdown", "sections": ["summary"]},
+            input_format=[{"type": "text", "required": True}],
         )
-
-    def test_list_widgets_returns_definitions(self):
-        response = self.client.get("/api/topics/widget/definitions")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["total"], 1)
-        self.assertEqual(data["items"][0]["id"], self.widget.id)
-        self.assertEqual(data["items"][0]["name"], self.widget.name)
-
-    def test_manual_execution_updates_section_and_logs(self):
-        payload = {
-            "topic_uuid": str(self.topic.uuid),
-            "widget_id": self.widget.id,
-            "mode": "manual",
-            "content": {"summary": "Manual update"},
-        }
-
-        response = self._post_json("/api/topics/widget/executions", payload)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["status"], "manual")
-
-        section = TopicSection.objects.get(pk=data["section_id"])
-        self.assertEqual(section.content, {"summary": "Manual update"})
-        self.assertEqual(section.status, "finished")
-
-        execution = WidgetAPIExecution.objects.get(pk=data["id"])
-        self.assertEqual(execution.status, WidgetAPIExecution.Status.MANUAL)
-        self.assertEqual(execution.parsed_response, {"summary": "Manual update"})
-        self.assertEqual(execution.metadata.get("mode"), "manual")
-        self.assertIsNotNone(execution.completed_at)
-
-    def test_create_section_enforces_widget_schema(self):
-        payload = {
-            "topic_uuid": str(self.topic.uuid),
-            "widget_id": self.widget.id,
-            "content": {"summary": "Hello"},
-        }
-
-        response = self._post_json("/api/topics/widget/sections", payload)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["content"], {"summary": "Hello"})
-        section = TopicSection.objects.get(pk=data["id"])
-        self.assertEqual(section.content, {"summary": "Hello"})
-
-        invalid_payload = {
-            "topic_uuid": str(self.topic.uuid),
-            "widget_id": self.widget.id,
-            "content": {},
-        }
-
-        response = self._post_json("/api/topics/widget/sections", invalid_payload)
-        self.assertEqual(response.status_code, 400)
-
-    @patch("semanticnews.widgets.api.execute_widget.delay")
-    def test_trigger_execution_creates_record(self, mock_delay):
-        section = TopicSection.objects.create(
-            topic=self.topic,
+        self.action = WidgetAction.objects.create(
             widget=self.widget,
-            display_order=1,
-            content={"summary": "Draft"},
-            status="finished",
+            name="summary.generate",
+            icon="sparkles",
         )
 
+    def test_widget_definitions_list_includes_key(self):
+        response = self.client.get("/api/widgets/definitions")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        item = payload["items"][0]
+        self.assertEqual(item["id"], self.widget.id)
+        self.assertEqual(item["name"], self.widget.name)
+        self.assertEqual(item["key"], "summary")
+
+    def test_widget_details_returns_metadata(self):
+        response = self.client.get(f"/api/widgets/{self.widget.id}/details")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["id"], self.widget.id)
+        self.assertEqual(data["name"], self.widget.name)
+        self.assertEqual(data["key"], "summary")
+        self.assertEqual(data["template"], self.widget.template)
+        self.assertEqual(data["response_format"], self.widget.context_structure)
+        self.assertEqual(data["input_format"], self.widget.input_format)
+        self.assertEqual(data["description"], self.widget.description)
+        self.assertEqual(len(data["actions"]), 1)
+        action = data["actions"][0]
+        self.assertEqual(action["id"], self.action.id)
+        self.assertEqual(action["name"], self.action.name)
+        self.assertEqual(action["icon"], self.action.icon)
+
+        slug_response = self.client.get("/api/widgets/summary/details")
+        self.assertEqual(slug_response.status_code, 200)
+        self.assertEqual(slug_response.json()["id"], self.widget.id)
+
+    def test_execute_widget_action_creates_execution_and_section(self):
         payload = {
             "topic_uuid": str(self.topic.uuid),
             "widget_id": self.widget.id,
+            "action_id": self.action.id,
+            "extra_instructions": "  Keep it brief.  ",
+            "metadata": {"model": "gpt"},
+        }
+
+        with patch("semanticnews.widgets.api.execute_widget_action_task.delay") as mock_delay:
+            response = self.client.post(
+                "/api/widgets/execute",
+                payload,
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], WidgetActionExecution.Status.PENDING)
+        self.assertEqual(data["widget_id"], self.widget.id)
+        self.assertEqual(data["action_id"], self.action.id)
+        self.assertEqual(data["topic_uuid"], str(self.topic.uuid))
+        self.assertIsNotNone(data["section_id"])
+
+        execution = WidgetActionExecution.objects.get(id=data["id"])
+        self.assertEqual(execution.extra_instructions, "Keep it brief.")
+        self.assertEqual(execution.metadata, {"model": "gpt"})
+        self.assertEqual(TopicSection.objects.count(), 1)
+
+        mock_delay.assert_called_once_with(execution_id=execution.id)
+
+    def test_execute_widget_action_reuses_existing_section(self):
+        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "action_id": self.action.id,
             "section_id": section.id,
         }
 
-        response = self._post_json("/api/topics/widget/executions", payload)
+        with patch("semanticnews.widgets.api.execute_widget_action_task.delay") as mock_delay:
+            response = self.client.post(
+                "/api/widgets/execute",
+                payload,
+                content_type="application/json",
+            )
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
+        self.assertEqual(data["section_id"], section.id)
+        self.assertEqual(TopicSection.objects.count(), 1)
+        mock_delay.assert_called_once()
 
-        execution = WidgetAPIExecution.objects.get(pk=data["id"])
-        self.assertEqual(execution.section_id, section.id)
-        self.assertEqual(execution.topic_id, self.topic.id)
-        mock_delay.assert_called_once_with(execution_id=execution.id)
+    def test_execute_widget_action_validates_section(self):
+        other_topic = Topic.objects.create()
+        other_section = TopicSection.objects.create(topic=other_topic, widget=self.widget)
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "action_id": self.action.id,
+            "section_id": other_section.id,
+        }
 
-        section.refresh_from_db()
-        self.assertEqual(section.status, "in_progress")
-
-    def test_download_section_returns_rendered_html(self):
-        section = TopicSection.objects.create(
-            topic=self.topic,
-            widget=self.widget,
-            display_order=1,
-            content={"summary": "Hello"},
-            status="finished",
+        response = self.client.post(
+            "/api/widgets/execute",
+            payload,
+            content_type="application/json",
         )
 
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(WidgetActionExecution.objects.count(), 0)
+
+    def test_execute_widget_action_requires_authentication(self):
+        self.client.logout()
+        payload = {
+            "topic_uuid": str(self.topic.uuid),
+            "widget_id": self.widget.id,
+            "action_id": self.action.id,
+        }
+
+        response = self.client.post(
+            "/api/widgets/execute",
+            payload,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(WidgetActionExecution.objects.count(), 0)
+
+    def test_get_execution_status_returns_payload(self):
+        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        execution = WidgetActionExecution.objects.create(action=self.action, section=section)
+
         response = self.client.get(
-            f"/api/topics/widget/sections/{section.id}/download",
+            f"/api/widgets/executions/{execution.id}",
             {"topic_uuid": str(self.topic.uuid)},
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("text/html", response["Content-Type"])
-        self.assertIn(self.widget.name, response.content.decode())
+        data = response.json()
+        self.assertEqual(data["id"], execution.id)
+        self.assertEqual(data["status"], WidgetActionExecution.Status.PENDING)
+        self.assertEqual(data["section_id"], section.id)
+
+    def test_get_execution_status_scopes_to_topic(self):
+        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        execution = WidgetActionExecution.objects.create(action=self.action, section=section)
+        other_topic = Topic.objects.create()
+
+        response = self.client.get(
+            f"/api/widgets/executions/{execution.id}",
+            {"topic_uuid": str(other_topic.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 404)
