@@ -270,9 +270,8 @@ class Topic(models.Model):
         """Return an ordered list of published, non-deleted sections."""
 
         return [
-            section
-            for section in self.sections_ordered
-            if not section.is_deleted and section.published_at is not None and section.status == "finished"
+            s for s in self.sections_ordered
+            if not s.is_deleted and s.published_at is not None
         ]
 
     @property

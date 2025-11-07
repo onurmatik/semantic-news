@@ -62,11 +62,10 @@ class TopicSectionAdmin(admin.ModelAdmin):
         "widget",
         "display_order",
         "language_code",
-        "status",
         "published_at",
         "is_deleted",
     )
-    list_filter = ("status", "language_code", "is_deleted", "published_at")
+    list_filter = ("language_code", "is_deleted", "published_at")
     search_fields = ("topic__titles__title", "widget__name")
 
 
