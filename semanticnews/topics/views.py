@@ -109,7 +109,7 @@ def topics_list(request):
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by")
-        .prefetch_related("recaps", "images", "sections__widget")
+        .prefetch_related("recaps", "sections__widget")
         .order_by("-ordering_activity", "-created_at")
     )
 
@@ -132,7 +132,6 @@ def topics_detail(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
         "recaps",
-        "images",
         "sections__widget",
         RELATED_ENTITIES_PREFETCH,
         Prefetch(
