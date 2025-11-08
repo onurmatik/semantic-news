@@ -1,6 +1,6 @@
 (function () {
   const CATALOG_SCRIPT_ID = 'widget-catalog-data';
-  const DEFINITIONS_ENDPOINT = '/api/widgets';
+  const DEFINITIONS_ENDPOINT = '/api/topics/widgets/definitions';
   const registry = () => window.TopicWidgetRegistry;
 
   function ready(callback) {

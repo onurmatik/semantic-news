@@ -25,8 +25,8 @@
       ? String(definition.id)
       : (definition.key || '');
     const sectionsEndpoint = widgetIdentifier
-      ? `/api/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
-      : '/api/widgets/sections';
+      ? `/api/topics/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
+      : '/api/topics/widgets/sections';
 
     const urlGroup = document.createElement('div');
     urlGroup.className = 'mb-3';
@@ -81,7 +81,7 @@
       const url = sectionId
         ? (widgetIdentifier
             ? `${sectionsEndpoint}/${sectionId}`
-            : `/api/widgets/sections/${sectionId}`)
+            : `/api/topics/widgets/sections/${sectionId}`)
         : sectionsEndpoint;
       const method = sectionId ? 'PUT' : 'POST';
 
