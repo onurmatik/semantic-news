@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'semanticnews.agenda',
     'semanticnews.entities',
     'semanticnews.topics',
+    'semanticnews.widgets',  # DIAGNOSTIC: Adding widgets app
 ]
 
 MIDDLEWARE = [

@@ -261,10 +261,10 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                 "widget_definition_id": getattr(widget, "id", None),
                 "widget_id": f"widget-editor-{key}",
                 "title": panel_title,
-                "validation_template": "topics/widgets/validation_state.html",
+                "validation_template": "widgets/validation_state.html",
                 "validation_id": f"widgetValidation-{key}",
                 "validation_variant": "info",
-                "content_template": "topics/widgets/editors/shell_content.html",
+                "content_template": "widgets/editors/shell_content.html",
             }
             catalog.append(
                 {
@@ -277,7 +277,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     ),
                     "actions": actions,
                     "panel_html": render_to_string(
-                        "topics/widgets/editor_card.html",
+                        "widgets/editor_card.html",
                         panel_context,
                     ),
                 }
