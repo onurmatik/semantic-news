@@ -11,6 +11,8 @@ def load_widgets() -> Dict[str, Widget]:
     global WIDGET_REGISTRY
 
     for _, modname, _ in pkgutil.iter_modules(__path__):
+        if modname in {"api", "services"}:
+            continue
         module = importlib.import_module(f"{__name__}.{modname}")
         for obj in module.__dict__.values():
             if isinstance(obj, type) and issubclass(obj, Widget) and obj is not Widget:

@@ -643,6 +643,8 @@ class TopicSection(models.Model):
     display_order = models.PositiveSmallIntegerField(default=0)
 
     content = models.JSONField(blank=True, null=True)
+    metadata = models.JSONField(blank=True, default=dict)
+    execution_state = models.JSONField(blank=True, default=dict)
 
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_deleted = models.BooleanField(default=False)
@@ -669,6 +671,48 @@ class TopicSection(models.Model):
             raise LookupError(
                 f"Widget '{self.widget_name}' is not registered"
             ) from exc
+
+    @property
+    def status(self) -> str:
+        """Return the execution status recorded for this section."""
+
+        state = self.execution_state or {}
+        status = state.get("status")
+        if status:
+            return str(status)
+        if self.published_at:
+            return "finished"
+        return "pending"
+
+    @status.setter
+    def status(self, value: str) -> None:
+        state = dict(self.execution_state or {})
+        state["status"] = value
+        self.execution_state = state
+
+    @property
+    def error_message(self) -> Optional[str]:
+        state = self.execution_state or {}
+        message = state.get("error_message")
+        return str(message) if message is not None else None
+
+    @error_message.setter
+    def error_message(self, value: Optional[str]) -> None:
+        state = dict(self.execution_state or {})
+        state["error_message"] = value
+        self.execution_state = state
+
+    @property
+    def error_code(self) -> Optional[str]:
+        state = self.execution_state or {}
+        code = state.get("error_code")
+        return str(code) if code is not None else None
+
+    @error_code.setter
+    def error_code(self, value: Optional[str]) -> None:
+        state = dict(self.execution_state or {})
+        state["error_code"] = value
+        self.execution_state = state
 
     def render(self):
         """Renders the content with the widget.template"""
