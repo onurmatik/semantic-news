@@ -16,6 +16,7 @@ from semanticnews.topics.models import Topic, TopicSection
 from semanticnews.topics.widgets import WIDGET_REGISTRY, get_widget, load_widgets
 from semanticnews.topics.widgets.base import Widget, WidgetAction
 
+from .execution import WidgetExecutionError, resolve_widget_action
 from .services import TopicWidgetExecutionService, TopicWidgetExecution
 
 router = Router(tags=["widgets"])
@@ -157,22 +158,6 @@ def _resolve_widget(identifier: str) -> Widget:
             return widget
 
     raise HttpError(404, "Widget not found")
-
-
-def _resolve_action(widget: Widget, identifier: str) -> WidgetAction:
-    normalized = str(identifier or "").strip()
-    slug = slugify(normalized)
-
-    for action in widget.get_actions():
-        action_name = getattr(action, "name", "") or action.__class__.__name__
-        if normalized and normalized == action_name:
-            return action
-        if slug and slugify(action_name) == slug:
-            return action
-
-    raise HttpError(404, "Widget action not found")
-
-
 @router.get("/definitions", response=WidgetDefinitionListResponse)
 def list_widgets(request) -> WidgetDefinitionListResponse:
     widgets = list(load_widgets().values())
@@ -215,7 +200,10 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
         raise HttpError(403, "Forbidden")
 
     widget = _resolve_widget(payload.widget_name)
-    action = _resolve_action(widget, payload.action)
+    try:
+        action = resolve_widget_action(widget, payload.action)
+    except WidgetExecutionError as exc:
+        raise HttpError(404, str(exc)) from exc
 
     section: TopicSection | None = None
     if payload.section_id is not None:
