@@ -17,7 +17,11 @@ from semanticnews.topics.widgets import WIDGET_REGISTRY, get_widget, load_widget
 from semanticnews.topics.widgets.base import Widget, WidgetAction
 
 from .execution import WidgetExecutionError, resolve_widget_action
-from .services import TopicWidgetExecutionService, TopicWidgetExecution
+from .services import (
+    TopicWidgetExecution,
+    TopicWidgetExecutionService,
+)
+from .tasks import execute_widget_action_task
 
 router = Router(tags=["widgets"])
 _execution_service = TopicWidgetExecutionService()
@@ -214,15 +218,22 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
         if section.widget_name and section.widget_name != widget.name:
             raise HttpError(400, "Topic section is linked to a different widget")
 
-    execution = _execution_service.queue_execution(
-        topic=topic,
-        widget=widget,
-        action=action,
-        section=section,
-        metadata=payload.metadata or {},
-        extra_instructions=payload.extra_instructions,
-    )
+    if section is None:
+        section = TopicSection.objects.create(
+            topic=topic,
+            widget_name=widget.name,
+            created_by=user,
+        )
 
+    execute_widget_action_task.delay(
+        topic_uuid=str(payload.topic_uuid),
+        widget_name=payload.widget_name,
+        action=payload.action,
+        section_id=section.id,
+        extra_instructions=payload.extra_instructions,
+        metadata=payload.metadata,
+    )
+    execution = _execution_service.get_state(section=section)
     return _serialize_execution(execution, topic_uuid=str(topic.uuid))
 
 
