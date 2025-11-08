@@ -17,8 +17,8 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 from semanticnews.agenda.models import Event
-from semanticnews.widgets.models import Widget
-from semanticnews.widgets.rendering import build_renderable_section
+from semanticnews.topics.widgets import WIDGET_REGISTRY, load_widgets
+from semanticnews.topics.widgets.rendering import build_renderable_section
 
 from .models import RelatedEntity, RelatedEvent, RelatedTopic, Source, Topic
 
@@ -228,29 +228,39 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
     context["edit_mode"] = edit_mode
 
     if edit_mode:
-        widgets = list(
-            Widget.objects.all()
-            .order_by("name")
-            .prefetch_related("actions")
+        load_widgets()
+        widgets = sorted(
+            WIDGET_REGISTRY.values(),
+            key=lambda widget: (widget.name or widget.__class__.__name__ or "").lower(),
         )
         catalog: list[dict[str, object]] = []
         for widget in widgets:
-            key = slugify(widget.name or "")
+            key_source = widget.name or widget.__class__.__name__
+            key = slugify(key_source or "")
             if not key:
-                key = f"widget-{widget.pk or len(catalog) + 1}"
-            actions = [
-                {
-                    "id": action.id,
-                    "name": action.name,
-                    "icon": action.icon or "",
-                }
-                for action in widget.actions.all()
-            ]
+                identifier = getattr(widget, "id", None)
+                key = f"widget-{identifier or len(catalog) + 1}"
+            actions = []
+            for index, action in enumerate(widget.get_actions(), start=1):
+                name = getattr(action, "name", "") or ""
+                identifier = getattr(action, "id", None)
+                if identifier is None:
+                    base = name or key
+                    identifier = f"{base}-{index}".replace(" ", "-")
+                identifier = str(identifier)
+                actions.append(
+                    {
+                        "id": identifier,
+                        "name": name,
+                        "icon": getattr(action, "icon", "") or "",
+                    }
+                )
+            panel_title = widget.name or widget.__class__.__name__
             panel_context = {
                 "widget_key": key,
-                "widget_definition_id": widget.id,
+                "widget_definition_id": getattr(widget, "id", None),
                 "widget_id": f"widget-editor-{key}",
-                "title": widget.name,
+                "title": panel_title,
                 "validation_template": "topics/widgets/validation_state.html",
                 "validation_id": f"widgetValidation-{key}",
                 "validation_variant": "info",
@@ -258,11 +268,13 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
             }
             catalog.append(
                 {
-                    "id": widget.id,
-                    "name": widget.name,
+                    "id": getattr(widget, "id", None),
+                    "name": panel_title,
                     "key": key,
                     "template": widget.template or "",
-                    "response_format": widget.context_structure or {},
+                    "response_format": dict(
+                        getattr(widget, "context_structure", {}) or {}
+                    ),
                     "actions": actions,
                     "panel_html": render_to_string(
                         "topics/widgets/editor_card.html",
