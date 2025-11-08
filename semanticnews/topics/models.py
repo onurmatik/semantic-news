@@ -12,6 +12,7 @@ from django.conf import settings
 from slugify import slugify
 from semanticnews.openai import OpenAI, AsyncOpenAI
 from pgvector.django import VectorField, L2Distance, HnswIndex
+from semanticnews.topics.widgets import get_widget
 
 
 class Source(models.TextChoices):
@@ -263,7 +264,7 @@ class Topic(models.Model):
         if prefetched is not None:
             return list(prefetched)
 
-        return list(self.sections.select_related("widget"))
+        return list(self.sections.all())
 
     @cached_property
     def active_sections(self):
@@ -653,24 +654,32 @@ class TopicSection(models.Model):
         ordering = ("display_order", "published_at", "id")
 
     def __str__(self) -> str:  # pragma: no cover - trivial
-        return f"{self.topic_id}:{self.widget_id}:{self.display_order}"
+        widget_name = self.widget_name or "unknown"
+        return f"{self.topic_id}:{widget_name}:{self.display_order}"
 
     @property
     def widget(self):
         """Retrieve the Widget instance from the code registry"""
-        from widgets import get_widget
+        if not self.widget_name:
+            raise LookupError("Topic section is missing a widget name")
 
-        return get_widget(self.widget_name)
+        try:
+            return get_widget(self.widget_name)
+        except KeyError as exc:  # pragma: no cover - defensive branch
+            raise LookupError(
+                f"Widget '{self.widget_name}' is not registered"
+            ) from exc
 
     def render(self):
         """Renders the content with the widget.template"""
         from django.template import Template, Context
 
-        template = Template(self.widget.template)
+        widget = self.widget
+        template = Template(widget.template)
         context = Context({
             'content': self.content,
             'section': self,
-            'widget': self.widget,
+            'widget': widget,
         })
         return template.render(context)
 

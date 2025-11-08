@@ -46,7 +46,7 @@ class WidgetExecutionServiceTests(TestCase):
             prompt_template="Hello {{ topic.title }}",
             tools=["retrieval"],
         )
-        section = TopicSection.objects.create(topic=topic, widget=widget)
+        section = TopicSection.objects.create(topic=topic, widget_name=widget.name)
 
         execution = WidgetActionExecution.objects.create(action=action, section=section)
         execution.metadata = {"model": "metadata-model"}
@@ -161,7 +161,7 @@ class WidgetActionAPITests(TestCase):
         mock_delay.assert_called_once_with(execution_id=execution.id)
 
     def test_execute_widget_action_reuses_existing_section(self):
-        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        section = TopicSection.objects.create(topic=self.topic, widget_name=self.widget.name)
         payload = {
             "topic_uuid": str(self.topic.uuid),
             "widget_id": self.widget.id,
@@ -184,7 +184,7 @@ class WidgetActionAPITests(TestCase):
 
     def test_execute_widget_action_validates_section(self):
         other_topic = Topic.objects.create()
-        other_section = TopicSection.objects.create(topic=other_topic, widget=self.widget)
+        other_section = TopicSection.objects.create(topic=other_topic, widget_name=self.widget.name)
         payload = {
             "topic_uuid": str(self.topic.uuid),
             "widget_id": self.widget.id,
@@ -219,7 +219,7 @@ class WidgetActionAPITests(TestCase):
         self.assertEqual(WidgetActionExecution.objects.count(), 0)
 
     def test_get_execution_status_returns_payload(self):
-        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        section = TopicSection.objects.create(topic=self.topic, widget_name=self.widget.name)
         execution = WidgetActionExecution.objects.create(action=self.action, section=section)
 
         response = self.client.get(
@@ -234,7 +234,7 @@ class WidgetActionAPITests(TestCase):
         self.assertEqual(data["section_id"], section.id)
 
     def test_get_execution_status_scopes_to_topic(self):
-        section = TopicSection.objects.create(topic=self.topic, widget=self.widget)
+        section = TopicSection.objects.create(topic=self.topic, widget_name=self.widget.name)
         execution = WidgetActionExecution.objects.create(action=self.action, section=section)
         other_topic = Topic.objects.create()
 
