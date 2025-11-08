@@ -222,12 +222,16 @@ def execute_widget_action(request, payload: WidgetActionExecutionCreateRequest):
     section: Optional[TopicSection] = None
     if payload.section_id is not None:
         try:
-            section = TopicSection.objects.get(id=payload.section_id, topic=topic, widget=widget)
+            section = TopicSection.objects.get(
+                id=payload.section_id,
+                topic=topic,
+                widget_name=widget.name,
+            )
         except TopicSection.DoesNotExist:
             raise HttpError(404, "Topic section not found")
 
     if section is None:
-        section = TopicSection.objects.create(topic=topic, widget=widget)
+        section = TopicSection.objects.create(topic=topic, widget_name=widget.name)
 
     metadata = dict(payload.metadata or {})
     extra_instructions = (payload.extra_instructions or "").strip()

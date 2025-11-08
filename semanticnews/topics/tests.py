@@ -1234,7 +1234,7 @@ class TopicSectionRenderingTests(TestCase):
         )
         TopicSection.objects.create(
             topic=topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"summary": "**Key finding**"},
             status="finished",
             published_at=timezone.now(),
@@ -1248,7 +1248,7 @@ class TopicSectionRenderingTests(TestCase):
         topic = Topic.objects.create(title="Draft", created_by=self.user)
         TopicSection.objects.create(
             topic=topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"summary": "Draft block"},
             status="in_progress",
         )
@@ -1407,14 +1407,14 @@ class TopicSectionModelTests(TestCase):
     def test_active_queryset_filters_deleted(self):
         active_section = TopicSection.objects.create(
             topic=self.topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             display_order=1,
             content={"summary": "Hello"},
             status="finished",
         )
         TopicSection.objects.create(
             topic=self.topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             display_order=2,
             content={"summary": "Discarded"},
             is_deleted=True,
@@ -1427,7 +1427,7 @@ class TopicSectionModelTests(TestCase):
     def test_validation_enforces_required_sections(self):
         section = TopicSection(
             topic=self.topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"details": "Missing summary"},
             status="finished",
         )
@@ -1444,7 +1444,7 @@ class TopicSectionModelTests(TestCase):
         )
         section = TopicSection(
             topic=self.topic,
-            widget=widget,
+            widget_name=widget.name,
             content=[{"title": "First"}, {"title": "Second"}],
             status="finished",
         )
@@ -1472,13 +1472,13 @@ class TopicSectionPublishTests(TestCase):
         TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
         section = TopicSection.objects.create(
             topic=topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"summary": "Latest"},
             status="finished",
         )
         TopicSection.objects.create(
             topic=topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"summary": "Hidden"},
             status="finished",
             is_deleted=True,
@@ -1513,7 +1513,7 @@ class TopicSectionPublishTests(TestCase):
         TopicRecap.objects.create(topic=topic, recap="Recap", status="finished")
         TopicSection.objects.create(
             topic=topic,
-            widget=self.widget,
+            widget_name=self.widget.name,
             content={"summary": "Publish me"},
             status="finished",
         )

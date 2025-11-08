@@ -323,7 +323,10 @@ class WidgetExecutionService:
             return []
 
         qs = (
-            TopicSection.objects.filter(topic=section.topic, widget=section.widget)
+            TopicSection.objects.filter(
+                topic=section.topic,
+                widget_name=section.widget_name,
+            )
             .exclude(pk=section.pk)
             .order_by("-published_at", "-id")[: self.history_limit]
         )

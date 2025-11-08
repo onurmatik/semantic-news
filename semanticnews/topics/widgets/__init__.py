@@ -14,7 +14,10 @@ def load_widgets() -> Dict[str, Widget]:
         module = importlib.import_module(f"{__name__}.{modname}")
         for obj in module.__dict__.values():
             if isinstance(obj, type) and issubclass(obj, Widget) and obj is not Widget:
-                instance = obj()
+                try:
+                    instance = obj()
+                except TypeError:
+                    instance = obj(getattr(obj, "name", obj.__name__))
                 WIDGET_REGISTRY[instance.name] = instance
 
     return WIDGET_REGISTRY
