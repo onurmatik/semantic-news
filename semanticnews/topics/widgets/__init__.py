@@ -19,7 +19,12 @@ def load_widgets() -> Dict[str, Widget]:
         for obj in module.__dict__.values():
             if isinstance(obj, type) and issubclass(obj, Widget) and obj is not Widget:
                 try:
-                    instance = obj()
+                    # Extract class attributes to pass to dataclass __init__
+                    kwargs = {}
+                    for field_name in ['name', 'icon', 'form_template', 'template', 'actions', 'context_structure', 'schema']:
+                        if hasattr(obj, field_name):
+                            kwargs[field_name] = getattr(obj, field_name)
+                    instance = obj(**kwargs)
                 except TypeError:
                     instance = obj(getattr(obj, "name", obj.__name__))
                 WIDGET_REGISTRY[instance.name] = instance

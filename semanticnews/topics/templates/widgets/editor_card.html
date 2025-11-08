@@ -26,7 +26,7 @@
         {% endif %}
         <div data-topic-widget-content>
             {% if content_template %}
-                {% include content_template %}
+                {% include content_template with widget_form_template=widget_form_template %}
             {% else %}
                 {% block widget_content %}{% endblock %}
             {% endif %}

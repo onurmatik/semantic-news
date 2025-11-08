@@ -1,3 +1,7 @@
 <div class="widget-editor-shell" data-widget-editor-content>
-    <!-- Widget content will be injected here dynamically -->
+    {% if widget_form_template %}
+        {% include widget_form_template %}
+    {% else %}
+        <!-- Widget content will be injected here dynamically -->
+    {% endif %}
 </div>

@@ -40,4 +40,12 @@ class Widget:
 
     def get_actions(self) -> List[WidgetAction]:
         """Return initialized action instances."""
-        return [action_cls() for action_cls in self.actions]
+        actions = []
+        for action_cls in self.actions:
+            # Extract class attributes to pass to dataclass __init__
+            kwargs = {}
+            for field_name in ['name', 'icon', 'prompt', 'tools', 'schema']:
+                if hasattr(action_cls, field_name):
+                    kwargs[field_name] = getattr(action_cls, field_name)
+            actions.append(action_cls(**kwargs))
+        return actions

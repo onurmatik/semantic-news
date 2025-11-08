@@ -265,6 +265,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                 "validation_id": f"widgetValidation-{key}",
                 "validation_variant": "info",
                 "content_template": "widgets/editors/shell_content.html",
+                "widget_form_template": widget.form_template or "",
             }
             catalog.append(
                 {
@@ -272,6 +273,7 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False):
                     "name": panel_title,
                     "key": key,
                     "template": widget.template or "",
+                    "form_template": widget.form_template or "",
                     "response_format": dict(
                         getattr(widget, "context_structure", {}) or {}
                     ),
