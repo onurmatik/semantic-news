@@ -1,6 +1,8 @@
 import pkgutil
 import importlib
+import pkgutil
 from typing import Dict
+
 from .base import Widget
 
 WIDGET_REGISTRY: Dict[str, Widget] = {}

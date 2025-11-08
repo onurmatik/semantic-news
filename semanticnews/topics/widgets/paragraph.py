@@ -1,5 +1,10 @@
+from typing import Any, Dict
+
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Any, Dict
+
+from pydantic import BaseModel
+
 from .base import Widget, WidgetAction
 
 
