@@ -1,0 +1,20 @@
+{% load i18n %}
+{% if actions %}
+    {% for action in actions %}
+        {% with action_id=action.id action_name=action.name action_icon=action.icon %}
+            <button
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                data-widget-action="{{ action_id }}"
+                data-widget-action-id="{{ action_id }}"
+                {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
+                {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
+            >
+                <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
+                {% if action_name %}
+                    <span class="visually-hidden">{{ action_name }}</span>
+                {% endif %}
+            </button>
+        {% endwith %}
+    {% endfor %}
+{% endif %}

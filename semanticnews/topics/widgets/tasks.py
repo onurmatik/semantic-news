@@ -37,7 +37,7 @@ def execute_widget_action_task(
             raise WidgetExecutionError("Topic section not found")
 
     execution_service = TopicWidgetExecutionService()
-    execution_service.queue_execution(
+    execution = execution_service.queue_execution(
         topic=topic,
         widget=widget,
         action=action,
@@ -45,3 +45,8 @@ def execute_widget_action_task(
         metadata=metadata or {},
         extra_instructions=extra_instructions,
     )
+    from semanticnews.widgets.tasks import execute_widget_action as run_widget_execution
+
+    result = run_widget_execution.apply(kwargs={"execution_id": execution.section.id})
+    if result.failed():
+        raise result.result

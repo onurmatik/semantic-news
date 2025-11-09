@@ -222,7 +222,6 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
         section = TopicSection.objects.create(
             topic=topic,
             widget_name=widget.name,
-            created_by=user,
         )
 
     execute_widget_action_task.delay(

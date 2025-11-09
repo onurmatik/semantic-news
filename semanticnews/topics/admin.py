@@ -1,6 +1,6 @@
 from asgiref.sync import async_to_sync
 from django.contrib import admin
-from .models import Topic, TopicRecap, RelatedTopic, RelatedEntity, RelatedEvent
+from .models import Topic, TopicSection, TopicRecap, RelatedTopic, RelatedEntity, RelatedEvent
 
 
 @admin.register(Topic)
@@ -26,6 +26,11 @@ class TopicAdmin(admin.ModelAdmin):
             async_to_sync(topic.extract_entity_graph)()
             # Display the result to the admin user
             self.message_user(request, f"Extracted entity graph for '{topic}'")
+
+
+@admin.register(TopicSection)
+class TopicSectionAdmin(admin.ModelAdmin):
+    list_display = ("topic", "widget_name", "execution_state")
 
 
 @admin.register(TopicRecap)
