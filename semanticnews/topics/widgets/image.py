@@ -14,7 +14,7 @@ class ImageSchema(BaseModel):
 class GenerateImageAction(WidgetAction):
     name = "generate"
     icon = "bi bi-stars"
-    tools = ["image_gen"]
+    tools = ["image_generation"]
 
     def build_prompt(self, context: Dict[str, Any]) -> str:
         prompt_text = context.get("prompt", "")
@@ -24,7 +24,7 @@ class GenerateImageAction(WidgetAction):
 class VariateImageAction(WidgetAction):
     name = "variate"
     icon = "bi bi-shuffle"
-    tools = ["image_gen"]
+    tools = ["image_generation"]
 
     def build_prompt(self, context: Dict[str, Any]) -> str:
         image_url = context.get("image_url")
