@@ -38,7 +38,16 @@ class TopicAdmin(admin.ModelAdmin):
 
 @admin.register(TopicSection)
 class TopicSectionAdmin(admin.ModelAdmin):
-    list_display = ("topic", "widget_name", "execution_state")
+    list_display = (
+        "topic",
+        "widget",
+        "display_order",
+        "language_code",
+        "published_at",
+        "is_deleted",
+    )
+    list_filter = ("language_code", "is_deleted", "published_at")
+    search_fields = ("topic__titles__title", "widget__name")
 
 
 @admin.register(TopicRecap)
@@ -58,20 +67,6 @@ class TopicTitleAdmin(admin.ModelAdmin):
     list_filter = ("published_at",)
     search_fields = ("title", "subtitle", "topic__titles__title")
     readonly_fields = ("created_at",)
-
-
-@admin.register(TopicSection)
-class TopicSectionAdmin(admin.ModelAdmin):
-    list_display = (
-        "topic",
-        "widget",
-        "display_order",
-        "language_code",
-        "published_at",
-        "is_deleted",
-    )
-    list_filter = ("language_code", "is_deleted", "published_at")
-    search_fields = ("topic__titles__title", "widget__name")
 
 
 @admin.register(RelatedEvent)
