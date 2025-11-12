@@ -1,6 +1,6 @@
 {% load i18n markdown_extras %}
 {% if edit_mode %}
-    {% include "topics/widgets/editor_card.html" with widget_key="recap" widget_id="topicRecapContainer" title=_("Recap") actions_template="topics/recaps/editor_actions.html" validation_template="topics/widgets/validation_state.html" validation_id="recapStatusMessage" content_template="topics/recaps/editor_content.html" %}
+    {% include "widgets/editor_card.html" with widget_key="recap" widget_id="topicRecapContainer" title=_("Recap") actions_template="topics/recaps/editor_actions.html" validation_template="widgets/validation_state.html" validation_id="recapStatusMessage" content_template="topics/recaps/editor_content.html" %}
 {% else %}
     <div class="my-3" id="topicRecapContainer">
         <div id="topicRecapText">

@@ -4,16 +4,6 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 
-INPUT_FIELD_TYPES = {
-    "text": forms.CharField,
-    "char": forms.CharField,
-    "markdown": lambda: forms.CharField(widget=forms.Textarea(attrs={"class": "markdown"})),
-    "url": forms.URLField,
-    "img": forms.ImageField,
-    "doc": forms.FileField,
-}
-
-
 class Widget(models.Model):
     """Reusable widget definition that can be attached to topic sections."""
 
@@ -21,7 +11,7 @@ class Widget(models.Model):
     description = models.TextField(blank=True)
 
     input_format = models.JSONField(
-        default=[{"type": "text", "required": True}],
+        default=list,
         help_text=_("List of input field definitions."),
     )
     context_structure = models.JSONField(

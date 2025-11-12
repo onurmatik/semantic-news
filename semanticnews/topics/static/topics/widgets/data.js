@@ -25,8 +25,8 @@
       ? String(definition.id)
       : (definition.key || '');
     const sectionsEndpoint = widgetIdentifier
-      ? `/api/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
-      : '/api/widgets/sections';
+      ? `/api/topics/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
+      : '/api/topics/widgets/sections';
 
     const instructions = document.createElement('p');
     instructions.className = 'text-secondary small';
@@ -56,7 +56,7 @@
       const url = sectionId
         ? (widgetIdentifier
             ? `${sectionsEndpoint}/${sectionId}`
-            : `/api/widgets/sections/${sectionId}`)
+            : `/api/topics/widgets/sections/${sectionId}`)
         : sectionsEndpoint;
       const method = sectionId ? 'PUT' : 'POST';
 

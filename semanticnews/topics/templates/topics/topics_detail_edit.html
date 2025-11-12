@@ -173,11 +173,26 @@
     {% include "topics/recaps/scripts.html" %}
     <script src="{% static 'topics/widgets/shared.js' %}"></script>
     <script src="{% static 'topics/widgets/registry.js' %}"></script>
+    <script src="{% static 'topics/widgets/shell.js' %}"></script>
     <script src="{% static 'topics/content/toolbar.js' %}"></script>
     <script src="{% static 'topics/content/external_content.js' %}"></script>
     <script src="{% static 'topics/widgets/text.js' %}"></script>
     <script src="{% static 'topics/widgets/data.js' %}"></script>
     <script src="{% static 'topics/widgets/url.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const container = document.querySelector('[data-topic-primary-widgets]');
+  if (container) {
+    const uuid = '{{ topic.uuid }}';
+    console.log('[TopicWidgets] Initializing shell for primary widgets container...');
+    window.TopicWidgetRegistry.init('shell', {
+      element: container,
+      definition: { key: 'shell' },
+      topicUuid: uuid
+    });
+  }
+});
+</script>
     {% include "topics/text/scripts.html" %}
     {% include "topics/images/scripts.html" %}
     {% include "topics/relations/scripts.html" %}

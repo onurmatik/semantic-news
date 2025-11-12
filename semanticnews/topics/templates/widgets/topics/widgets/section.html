@@ -1,0 +1,34 @@
+{% load i18n %}
+{% with widget=renderable.widget section=renderable.section %}
+    {% with widget_name=widget.name|default:renderable.key %}
+        {% with widget_key=widget_name|slugify %}
+            {% if edit_mode %}
+                {% with section_token=section.id|default_if_none:widget_key %}
+                    {% with section_token_str=section_token|stringformat:"s" %}
+                        {% with panel_title=widget_name|default:_("Widget") card_id="widget-editor-"|add:widget_key|add:"-"|add:section_token_str validation_id="widgetValidation-"|add:section_token_str %}
+                            <div
+                                class="topic-widget-entry"
+                                data-topic-widget-entry
+                                data-topic-widget-key="{{ widget_key }}"
+                                {% if section.id %}data-widget-section-id="{{ section.id }}"{% endif %}
+                            >
+                                {% include "widgets/editor_card.html" with widget_key=widget_key widget_definition_id=widget.id widget_id=card_id widget_section_id=section.id title=panel_title actions_template="widgets/topics/widgets/actions.html" actions=renderable.actions validation_template="widgets/validation_state.html" validation_id=validation_id validation_variant="info" content_template="widgets/editors/shell_content.html" widget_form_template=renderable.form_template %}
+                            </div>
+                        {% endwith %}
+                    {% endwith %}
+                {% endwith %}
+            {% else %}
+                <div
+                    class="topic-widget-section"
+                    {% if section.id %}data-topic-widget-section="{{ section.id }}"{% endif %}
+                >
+                    {% if renderable.rendered %}
+                        {{ renderable.rendered|safe }}
+                    {% else %}
+                        <p class="text-muted mb-0">{% trans "No content available." %}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    {% endwith %}
+{% endwith %}

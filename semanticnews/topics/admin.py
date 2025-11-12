@@ -36,6 +36,11 @@ class TopicAdmin(admin.ModelAdmin):
             self.message_user(request, f"Extracted entity graph for '{topic}'")
 
 
+@admin.register(TopicSection)
+class TopicSectionAdmin(admin.ModelAdmin):
+    list_display = ("topic", "widget_name", "execution_state")
+
+
 @admin.register(TopicRecap)
 class TopicRecapAdmin(admin.ModelAdmin):
     list_display = ("topic", "created_at", "short_recap", "status")

@@ -25,8 +25,8 @@
       ? String(definition.id)
       : (definition.key || '');
     const sectionsEndpoint = widgetIdentifier
-      ? `/api/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
-      : '/api/widgets/sections';
+      ? `/api/topics/widgets/${encodeURIComponent(widgetIdentifier)}/sections`
+      : '/api/topics/widgets/sections';
 
     const textarea = document.createElement('textarea');
     textarea.className = 'form-control';
@@ -95,7 +95,7 @@
       try {
         const target = widgetIdentifier
           ? `${sectionsEndpoint}/${sectionId}`
-          : `/api/widgets/sections/${sectionId}`;
+          : `/api/topics/widgets/sections/${sectionId}`;
         const response = await fetch(target, {
           method: 'PUT',
           headers: {

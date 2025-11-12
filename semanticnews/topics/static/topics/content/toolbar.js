@@ -1,6 +1,6 @@
 (function () {
   const CATALOG_SCRIPT_ID = 'widget-catalog-data';
-  const DEFINITIONS_ENDPOINT = '/api/widgets';
+  const DEFINITIONS_ENDPOINT = '/api/topics/widgets/definitions';
   const registry = () => window.TopicWidgetRegistry;
 
   function ready(callback) {
@@ -137,11 +137,26 @@
             return;
           }
           const label = typeof action.name === 'string' ? action.name.trim() : '';
+          const actionIdentifier = (() => {
+            if (action.id != null) {
+              const raw = String(action.id).trim();
+              if (raw) {
+                return raw;
+              }
+            }
+            if (label) {
+              return label;
+            }
+            return '';
+          })();
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'btn btn-outline-primary btn-sm';
           if (action.id != null) {
             button.dataset.widgetActionId = String(action.id);
+          }
+          if (actionIdentifier) {
+            button.dataset.widgetAction = actionIdentifier;
           }
           if (label) {
             button.dataset.widgetActionName = label;

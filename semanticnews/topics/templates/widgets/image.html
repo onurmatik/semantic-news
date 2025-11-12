@@ -1,0 +1,25 @@
+{% load i18n %}
+{% with image_src=content.image_url|default:content.url %}
+<figure class="topic-widget-image text-center">
+    {% if image_src %}
+        <img
+            src="{{ image_src }}"
+            class="img-fluid rounded"
+            alt="{{ content.prompt|default:_('Generated illustration') }}"
+            loading="lazy"
+        />
+        {% if content.prompt %}
+            <figcaption class="figure-caption mt-2 text-muted">{{ content.prompt }}</figcaption>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info" role="status">
+            {% if content.prompt %}
+                <p class="mb-1">{% blocktrans %}Awaiting an image for:{% endblocktrans %}</p>
+                <p class="mb-0"><strong>{{ content.prompt }}</strong></p>
+            {% else %}
+                <p class="mb-0">{% trans "No image has been generated yet." %}</p>
+            {% endif %}
+        </div>
+    {% endif %}
+</figure>
+{% endwith %}
