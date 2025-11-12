@@ -132,7 +132,6 @@ def topics_detail(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
         "recaps",
-        "sections__widget",
         "sections",
         RELATED_ENTITIES_PREFETCH,
         Prefetch(
