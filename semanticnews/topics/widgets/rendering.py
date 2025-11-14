@@ -14,8 +14,13 @@ from .base import Widget, WidgetAction
 if TYPE_CHECKING:  # pragma: no cover - import used for type checking only
     from semanticnews.topics.models import TopicSection
 
-
 logger = logging.getLogger(__name__)
+
+
+try:
+    from pydantic import BaseModel
+except Exception:
+    BaseModel = None
 
 
 @dataclass
@@ -67,6 +72,58 @@ def _serialise_action(widget: Widget, action: WidgetAction, index: int) -> Dict[
     return payload
 
 
+def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[str, Any]:
+    """
+    Normalise TopicSection.content into the shape templates and forms expect.
+    """
+
+    raw = section.content or {}
+    if not isinstance(raw, Mapping):
+        raw = {}
+
+    content: Dict[str, Any] = dict(raw)
+    widget_name = widget.name or ""
+
+    schema = getattr(widget, "schema", None)
+    if BaseModel and isinstance(schema, type) and issubclass(schema, BaseModel):  # type: ignore[arg-type]
+        defaults: Dict[str, Any] = {}
+        try:
+            instance = schema()
+        except Exception:
+            # Required fields with no defaults -> ignore schema defaults
+            defaults = {}
+        else:
+            if hasattr(instance, "model_dump"):
+                defaults = instance.model_dump()
+            elif hasattr(instance, "dict"):
+                defaults = instance.dict()
+            else:
+                defaults = {}
+        merged = dict(defaults)
+        merged.update(content)
+        content = merged
+
+    if widget_name == "paragraph":
+        print(content)
+
+        result_val = content.get("result")
+        if "text" not in content and isinstance(result_val, str):
+            content["text"] = result_val
+
+    if widget_name == "image":
+        if "image_url" not in content and "url" not in content:
+            result_val = content.get("result")
+
+            if isinstance(result_val, str) and result_val:
+                content["image_url"] = result_val
+
+        content.setdefault("image_url", "")
+        content.setdefault("url", "")
+        content.setdefault("prompt", "")
+
+    return content
+
+
 def build_renderable_section(
     section: "TopicSection", *, edit_mode: bool = False
 ) -> RenderableSection:
@@ -74,16 +131,8 @@ def build_renderable_section(
 
     widget = section.widget
 
-    # NORMALISE CONTENT FOR PARAGRAPH WIDGET
-    raw_content = section.content or {}
-    if widget.name == "paragraph":
-        if "text" not in raw_content and "result" in raw_content:
-            content = dict(raw_content)
-            content["text"] = content["result"]
-        else:
-            content = raw_content
-    else:
-        content = raw_content
+    # Normalisation for all widgets
+    content = normalise_section_content(widget, section)
 
     template_context = {
         "section": section,
@@ -125,4 +174,3 @@ def build_renderable_section(
         context=template_context,
         rendered=rendered,
     )
-
