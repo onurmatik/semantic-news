@@ -18,6 +18,21 @@
     return name.replace(/["\\]/g, '\\$&');
   }
 
+    function syncRichTextField(field, value) {
+    if (!field || !field._easyMDE || typeof field._easyMDE.value !== 'function') {
+      return;
+    }
+    try {
+      field._easyMDE.value(value);
+      if (field._easyMDE.codemirror && typeof field._easyMDE.codemirror.refresh === 'function') {
+        field._easyMDE.codemirror.refresh();
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[TopicWidgets][Shell] Failed to sync rich text field', error);
+    }
+  }
+
   function setFieldValue(field, value) {
     if (!field) {
       return;
@@ -33,6 +48,7 @@
     }
 
     field.value = normalized;
+    syncRichTextField(field, normalized);
   }
 
   function updateFormFields(container, content) {
@@ -91,6 +107,112 @@
     if (resolvedKey === 'image') {
       updateImagePreview(contentContainer, content.image_url || content.imageUrl || '');
     }
+  }
+
+    function appendValue(target, name, value) {
+    if (Object.prototype.hasOwnProperty.call(target, name)) {
+      const current = target[name];
+      if (Array.isArray(current)) {
+        current.push(value);
+      } else {
+        target[name] = [current, value];
+      }
+    } else {
+      target[name] = value;
+    }
+  }
+
+  function getFieldValue(field) {
+    if (!field) {
+      return '';
+    }
+
+    if (field.type === 'checkbox') {
+      if (!field.checked) {
+        return null;
+      }
+      return field.value === 'on' ? true : field.value;
+    }
+
+    if (field.type === 'radio') {
+      if (!field.checked) {
+        return null;
+      }
+      return field.value;
+    }
+
+    if (field.multiple && field.options) {
+      return Array.from(field.options)
+        .filter((option) => option.selected)
+        .map((option) => option.value);
+    }
+
+    if (field._easyMDE && typeof field._easyMDE.value === 'function') {
+      return field._easyMDE.value();
+    }
+
+    if (field instanceof HTMLTextAreaElement) {
+      return field.value;
+    }
+
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+      return field.value;
+    }
+
+    return field.value;
+  }
+
+  function serializeWidgetContext(widgetEl) {
+    if (!widgetEl) {
+      return {};
+    }
+    const container = widgetEl.querySelector('[data-widget-editor-content]');
+    if (!container) {
+      return {};
+    }
+
+    const fields = container.querySelectorAll('input[name], textarea[name], select[name]');
+    if (!fields.length) {
+      return {};
+    }
+
+    const data = {};
+    fields.forEach((field) => {
+      if (!field || field.disabled) {
+        return;
+      }
+      const { name, type } = field;
+      if (!name) {
+        return;
+      }
+
+      const value = getFieldValue(field);
+
+      if (value == null) {
+        return;
+      }
+
+      if (type === 'checkbox') {
+        appendValue(data, name, value);
+        return;
+      }
+
+      if (type === 'radio') {
+        data[name] = value;
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        if (value.length) {
+          data[name] = value;
+        }
+        return;
+      }
+
+      data[name] = value;
+    });
+
+    return data;
   }
 
   function buildPollKey(topicUuid, sectionId) {
@@ -279,18 +401,30 @@
       }
 
       try {
+        const contextPayload = serializeWidgetContext(widgetEl);
+
+        console.log('[TopicWidgets][Shell] contextPayload', contextPayload);
+
+        const requestBody = {
+          topic_uuid: topicUuid,
+          widget_name: widgetKey,
+          action: actionId,
+          section_id: sectionId,
+        };
+
+        if (Object.keys(contextPayload).length > 0) {
+          requestBody.metadata = { context: contextPayload };
+        }
+
+        console.log('[TopicWidgets][Shell] requestBody', requestBody);
+
         const response = await fetch('/api/topics/widgets/execute', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken(),
           },
-          body: JSON.stringify({
-            topic_uuid: topicUuid,
-            widget_name: widgetKey,
-            action: actionId,
-            section_id: sectionId,
-          }),
+          body: JSON.stringify(requestBody),
         });
         if (!response.ok) {
           throw new Error(`Error ${response.status}`);
