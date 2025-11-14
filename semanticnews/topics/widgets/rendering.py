@@ -104,8 +104,6 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
         content = merged
 
     if widget_name == "paragraph":
-        print(content)
-
         result_val = content.get("result")
         if "text" not in content and isinstance(result_val, str):
             content["text"] = result_val
@@ -115,7 +113,11 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
             result_val = content.get("result")
 
             if isinstance(result_val, str) and result_val:
-                content["image_url"] = result_val
+                cleaned = result_val.strip()
+                if cleaned.startswith(("http://", "https://", "data:")):
+                    content["image_url"] = cleaned
+                else:
+                    content["image_url"] = f"data:image/png;base64,{cleaned}"
 
         content.setdefault("image_url", "")
         content.setdefault("url", "")
