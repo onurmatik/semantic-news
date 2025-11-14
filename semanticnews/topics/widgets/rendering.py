@@ -73,7 +73,17 @@ def build_renderable_section(
     """Build a renderable descriptor for the provided topic section."""
 
     widget = section.widget
-    content: Mapping[str, Any] = section.content or {}
+
+    # NORMALISE CONTENT FOR PARAGRAPH WIDGET
+    raw_content = section.content or {}
+    if widget.name == "paragraph":
+        if "text" not in raw_content and "result" in raw_content:
+            content = dict(raw_content)
+            content["text"] = content["result"]
+        else:
+            content = raw_content
+    else:
+        content = raw_content
 
     template_context = {
         "section": section,

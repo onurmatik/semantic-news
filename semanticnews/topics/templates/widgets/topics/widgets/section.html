@@ -1,5 +1,5 @@
 {% load i18n %}
-{% with widget=renderable.widget section=renderable.section %}
+{% with widget=renderable.widget section=renderable.section content=renderable.content %}
     {% with widget_name=widget.name|default:renderable.key %}
         {% with widget_key=widget_name|slugify %}
             {% if edit_mode %}
@@ -12,7 +12,7 @@
                                 data-topic-widget-key="{{ widget_key }}"
                                 {% if section.id %}data-widget-section-id="{{ section.id }}"{% endif %}
                             >
-                                {% include "widgets/editor_card.html" with widget_key=widget_key widget_definition_id=widget.id widget_id=card_id widget_section_id=section.id title=panel_title actions_template="widgets/topics/widgets/actions.html" actions=renderable.actions validation_template="widgets/validation_state.html" validation_id=validation_id validation_variant="info" content_template="widgets/editors/shell_content.html" widget_form_template=renderable.form_template %}
+                                {% include "widgets/editor_card.html" with widget_key=widget_key widget_definition_id=widget.id widget_id=card_id widget_section_id=section.id title=panel_title actions_template="widgets/topics/widgets/actions.html" actions=renderable.actions validation_template="widgets/validation_state.html" validation_id=validation_id validation_variant="info" content_template="widgets/editors/shell_content.html" widget_form_template=renderable.form_template content=content %}
                             </div>
                         {% endwith %}
                     {% endwith %}
