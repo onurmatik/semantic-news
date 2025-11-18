@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import copy
 import json
 import uuid
 from typing import Optional
@@ -264,7 +267,9 @@ class Topic(models.Model):
         if prefetched is not None:
             return list(prefetched)
 
-        return list(self.sections.all())
+        return list(
+            self.sections.select_related("draft_content", "published_content")
+        )
 
     @cached_property
     def active_sections(self):
@@ -274,6 +279,33 @@ class Topic(models.Model):
             s for s in self.sections_ordered
             if not s.is_deleted and s.published_at is not None
         ]
+
+    @cached_property
+    def published_sections(self):
+        """Return published sections with their frozen content and metadata."""
+
+        published: list["TopicSection"] = []
+        for section in self.sections_ordered:
+            if section.is_deleted or section.published_at is None:
+                continue
+
+            snapshot = section.published_content or section.draft_content
+            if snapshot is None:
+                continue
+
+            clone = copy.copy(section)
+            clone._apply_content_override(snapshot)
+            context = snapshot.publication_context or {}
+            if getattr(snapshot, "stage", None) == TopicSectionContent.Stage.SNAPSHOT:
+                if context.get("widget_name"):
+                    clone.widget_name = context["widget_name"]
+                if context.get("language_code"):
+                    clone.language_code = context["language_code"]
+                if context.get("display_order") is not None:
+                    clone.display_order = context["display_order"]
+            published.append(clone)
+
+        return published
 
     @property
     def active_related_entities(self):
@@ -329,11 +361,13 @@ class Topic(models.Model):
             parts.append(body_local)
             parts.append("\n")
 
+        # Events
         events_qs = self.events.filter(relatedevent__is_deleted=False).order_by("date")
         if events_qs.exists():
             event_lines = [f"- {event.title} ({event.date})" for event in events_qs]
             append_section("Events", "\n".join(event_lines))
 
+        # Entities
         entities_qs = self.entities.all().order_by("name")
         if entities_qs.exists():
             entity_lines = []
@@ -347,122 +381,166 @@ class Topic(models.Model):
                 entity_lines.append(f"- {line}")
             append_section("Entities", "\n".join(entity_lines))
 
-        documents_qs = self.documents.filter(is_deleted=False).order_by("created_at")
-        if documents_qs.exists():
-            document_lines = []
-            for document in documents_qs:
-                description = document.description or ""
-                display_title = document.display_title
-                line = f"- {display_title}: {document.url}"
-                if description:
-                    line = f"{line}\n  {description}"
-                document_lines.append(line)
-            append_section("Documents", "\n".join(document_lines))
+        # Documents
+        documents_rel = getattr(self, "documents", None)
+        if documents_rel is not None:
+            documents_qs = documents_rel.filter(is_deleted=False).order_by("created_at")
+            if documents_qs.exists():
+                document_lines = []
+                for document in documents_qs:
+                    description = document.description or ""
+                    display_title = document.display_title
+                    line = f"- {display_title}: {document.url}"
+                    if description:
+                        line = f"{line}\n  {description}"
+                    document_lines.append(line)
+                append_section("Documents", "\n".join(document_lines))
 
-        webpages_qs = self.webpages.filter(is_deleted=False).order_by("created_at")
-        if webpages_qs.exists():
-            webpage_lines = []
-            for webpage in webpages_qs:
-                description = webpage.description or ""
-                title = webpage.title or webpage.url
-                line = f"- {title}: {webpage.url}"
-                if description:
-                    line = f"{line}\n  {description}"
-                webpage_lines.append(line)
-            append_section("Webpages", "\n".join(webpage_lines))
+        # Webpages
+        webpages_rel = getattr(self, "webpages", None)
+        if webpages_rel is not None:
+            webpages_qs = webpages_rel.filter(is_deleted=False).order_by("created_at")
+            if webpages_qs.exists():
+                webpage_lines = []
+                for webpage in webpages_qs:
+                    description = webpage.description or ""
+                    title = webpage.title or webpage.url
+                    line = f"- {title}: {webpage.url}"
+                    if description:
+                        line = f"{line}\n  {description}"
+                    webpage_lines.append(line)
+                append_section("Webpages", "\n".join(webpage_lines))
 
-        texts_qs = self.texts.filter(is_deleted=False).order_by("created_at")
-        if texts_qs.exists():
-            text_blocks = [text.content for text in texts_qs if text.content]
-            append_section("Text Notes", "\n\n".join(text_blocks))
+        # Text notes
+        texts_rel = getattr(self, "texts", None)
+        if texts_rel is not None:
+            texts_qs = texts_rel.filter(is_deleted=False).order_by("created_at")
+            if texts_qs.exists():
+                text_blocks = [text.content for text in texts_qs if text.content]
+                append_section("Text Notes", "\n\n".join(text_blocks))
 
-        recaps_qs = self.recaps.filter(is_deleted=False, status="finished").order_by("created_at")
+        # Recaps
+        recaps_qs = self.recaps.filter(is_deleted=False, status="finished").order_by(
+            "created_at"
+        )
         if recaps_qs.exists():
             recap_blocks = [recap.recap for recap in recaps_qs if recap.recap]
             append_section("Recaps", "\n\n".join(recap_blocks))
 
-        images_qs = self.images.filter(is_deleted=False, status="finished").order_by("created_at")
-        if images_qs.exists():
-            image_lines = []
-            for image in images_qs:
-                image_name = getattr(image.image, "name", "") or ""
-                thumbnail_name = getattr(image.thumbnail, "name", "") or ""
-                line = f"- Image: {image_name}" if image_name else "- Image"
-                if thumbnail_name:
-                    line = f"{line}\n  Thumbnail: {thumbnail_name}"
-                image_lines.append(line)
-            append_section("Images", "\n".join(image_lines))
+        # Images
+        images_rel = getattr(self, "images", None)
+        if images_rel is not None:
+            images_qs = images_rel.filter(is_deleted=False, status="finished").order_by(
+                "created_at"
+            )
+            if images_qs.exists():
+                image_lines = []
+                for image in images_qs:
+                    image_name = getattr(image.image, "name", "") or ""
+                    thumbnail_name = getattr(image.thumbnail, "name", "") or ""
+                    line = f"- Image: {image_name}" if image_name else "- Image"
+                    if thumbnail_name:
+                        line = f"{line}\n  Thumbnail: {thumbnail_name}"
+                    image_lines.append(line)
+                append_section("Images", "\n".join(image_lines))
 
-        tweets_qs = self.tweets.filter(is_deleted=False).order_by("created_at")
-        if tweets_qs.exists():
-            tweet_lines = []
-            for tweet in tweets_qs:
-                tweet_lines.append(f"- {tweet.url}\n  {tweet.html}")
-            append_section("Tweets", "\n".join(tweet_lines))
+        # Tweets
+        tweets_rel = getattr(self, "tweets", None)
+        if tweets_rel is not None:
+            tweets_qs = tweets_rel.filter(is_deleted=False).order_by("created_at")
+            if tweets_qs.exists():
+                tweet_lines = []
+                for tweet in tweets_qs:
+                    tweet_lines.append(f"- {tweet.url}\n  {tweet.html}")
+                append_section("Tweets", "\n".join(tweet_lines))
 
-        videos_qs = self.youtube_videos.filter(is_deleted=False, status="finished").order_by("created_at")
-        if videos_qs.exists():
-            video_lines = []
-            for video in videos_qs:
-                description = video.description or ""
-                title = video.title or "Video"
-                line = f"- {title}: {video.url or video.video_id}"
-                if description:
-                    line = f"{line}\n  {description}"
-                video_lines.append(line)
-            append_section("Videos", "\n".join(video_lines))
+        # YouTube videos
+        videos_rel = getattr(self, "youtube_videos", None)
+        if videos_rel is not None:
+            videos_qs = videos_rel.filter(is_deleted=False, status="finished").order_by(
+                "created_at"
+            )
+            if videos_qs.exists():
+                video_lines = []
+                for video in videos_qs:
+                    description = video.description or ""
+                    title = video.title or "Video"
+                    line = f"- {title}: {video.url or video.video_id}"
+                    if description:
+                        line = f"{line}\n  {description}"
+                    video_lines.append(line)
+                append_section("Videos", "\n".join(video_lines))
 
-        data_qs = self.datas.filter(is_deleted=False).order_by("created_at")
-        if data_qs.exists():
-            data_sections = []
-            for dataset in data_qs:
-                name = dataset.name or "Dataset"
-                explanation = dataset.explanation or ""
-                try:
-                    data_payload = json.dumps(dataset.data, indent=2, sort_keys=True)
-                except TypeError:
-                    data_payload = str(dataset.data)
-                sources = dataset.sources or []
-                sources_repr = ""
-                if sources:
+        # Data
+        datas_rel = getattr(self, "datas", None)
+        if datas_rel is not None:
+            data_qs = datas_rel.filter(is_deleted=False).order_by("created_at")
+            if data_qs.exists():
+                data_sections = []
+                for dataset in data_qs:
+                    name = dataset.name or "Dataset"
+                    explanation = dataset.explanation or ""
                     try:
-                        sources_repr = json.dumps(sources, ensure_ascii=False)
+                        data_payload = json.dumps(dataset.data, indent=2, sort_keys=True)
                     except TypeError:
-                        sources_repr = str(sources)
-                section_lines = [f"### {name}", data_payload]
-                if explanation:
-                    section_lines.insert(1, explanation)
-                if sources_repr:
-                    section_lines.append(f"Sources: {sources_repr}")
-                data_sections.append("\n\n".join(section_lines))
-            append_section("Data", "\n\n".join(data_sections))
+                        data_payload = str(dataset.data)
+                    sources = dataset.sources or []
+                    sources_repr = ""
+                    if sources:
+                        try:
+                            sources_repr = json.dumps(sources, ensure_ascii=False)
+                        except TypeError:
+                            sources_repr = str(sources)
+                    section_lines = [f"### {name}", data_payload]
+                    if explanation:
+                        section_lines.insert(1, explanation)
+                    if sources_repr:
+                        section_lines.append(f"Sources: {sources_repr}")
+                    data_sections.append("\n\n".join(section_lines))
+                append_section("Data", "\n\n".join(data_sections))
 
-        insights_qs = self.data_insights.filter(is_deleted=False).order_by("created_at")
-        if insights_qs.exists():
-            insight_lines = []
-            for insight in insights_qs:
-                sources = insight.sources.all()
-                source_names = [source.name or "Dataset" for source in sources]
-                line = insight.insight
-                if source_names:
-                    line = f"{line}\n  Sources: {', '.join(source_names)}"
-                insight_lines.append(f"- {line}")
-            append_section("Data Insights", "\n".join(insight_lines))
+        # Data insights
+        insights_rel = getattr(self, "data_insights", None)
+        if insights_rel is not None:
+            insights_qs = insights_rel.filter(is_deleted=False).order_by("created_at")
+            if insights_qs.exists():
+                insight_lines = []
+                for insight in insights_qs:
+                    sources = insight.sources.all()
+                    source_names = [source.name or "Dataset" for source in sources]
+                    line = insight.insight
+                    if source_names:
+                        line = f"{line}\n  Sources: {', '.join(source_names)}"
+                    insight_lines.append(f"- {line}")
+                append_section("Data Insights", "\n".join(insight_lines))
 
-        visualizations_qs = self.data_visualizations.filter(is_deleted=False).select_related("insight").order_by("created_at")
-        if visualizations_qs.exists():
-            visualization_sections = []
-            for visualization in visualizations_qs:
-                try:
-                    chart_payload = json.dumps(visualization.chart_data, indent=2, sort_keys=True)
-                except TypeError:
-                    chart_payload = str(visualization.chart_data)
-                title = visualization.chart_type.title() if visualization.chart_type else "Visualization"
-                section_lines = [f"### {title}", chart_payload]
-                if visualization.insight_id and visualization.insight:
-                    section_lines.insert(1, f"Insight: {visualization.insight.insight}")
-                visualization_sections.append("\n\n".join(section_lines))
-            append_section("Data Visualizations", "\n\n".join(visualization_sections))
+        # Data visualizations
+        visualizations_rel = getattr(self, "data_visualizations", None)
+        if visualizations_rel is not None:
+            visualizations_qs = visualizations_rel.filter(is_deleted=False).select_related(
+                "insight"
+            ).order_by("created_at")
+            if visualizations_qs.exists():
+                visualization_sections = []
+                for visualization in visualizations_qs:
+                    try:
+                        chart_payload = json.dumps(
+                            visualization.chart_data, indent=2, sort_keys=True
+                        )
+                    except TypeError:
+                        chart_payload = str(visualization.chart_data)
+                    title = (
+                        visualization.chart_type.title()
+                        if visualization.chart_type
+                        else "Visualization"
+                    )
+                    section_lines = [f"### {title}", chart_payload]
+                    if visualization.insight_id and visualization.insight:
+                        section_lines.insert(
+                            1, f"Insight: {visualization.insight.insight}"
+                        )
+                    visualization_sections.append("\n\n".join(section_lines))
+                append_section("Data Visualizations", "\n\n".join(visualization_sections))
 
         return "".join(parts)
 
@@ -641,9 +719,20 @@ class TopicSection(models.Model):
     widget_name = models.CharField(max_length=100, db_index=True)
     display_order = models.PositiveSmallIntegerField(default=0)
 
-    content = models.JSONField(blank=True, null=True)
-    metadata = models.JSONField(blank=True, default=dict)
-    execution_state = models.JSONField(blank=True, default=dict)
+    draft_content = models.ForeignKey(
+        "TopicSectionContent",
+        related_name="drafted_sections",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+    published_content = models.ForeignKey(
+        "TopicSectionContent",
+        related_name="published_sections",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
 
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_deleted = models.BooleanField(default=False)
@@ -651,12 +740,143 @@ class TopicSection(models.Model):
 
     objects = TopicSectionQuerySet.as_manager()
 
+    def _get_render_override(self) -> "TopicSectionContent" | None:
+        return getattr(self, "_render_content_override", None)
+
+    def _apply_content_override(self, record: "TopicSectionContent") -> None:
+        self._render_content_override = record
+
+
+    def _pending_draft_state(self) -> dict:
+        """
+        Return the in-memory draft state buffer for unsaved sections.
+        """
+        return getattr(self, "_pending_draft_state_data", {}) or {}
+
+    def _queue_pending_draft_update(self, field: str, value) -> None:
+        """
+        Queue a change to be applied to the draft content once the section is saved.
+        """
+        state = getattr(self, "_pending_draft_state_data", None)
+        if state is None:
+            state = {}
+            self._pending_draft_state_data = state
+        state[field] = value
+
+    def _get_effective_record(self) -> "TopicSectionContent" | None:
+        override = self._get_render_override()
+        if override is not None:
+            return override
+        return self.draft_content
+
+    def _get_or_create_draft_record(self) -> "TopicSectionContent":
+        record = self.draft_content
+        if record is not None:
+            return record
+
+        if not self.pk:
+            raise ValueError("TopicSection must be saved before setting content")
+
+        record = TopicSectionContent.objects.create(
+            section=self,
+            stage=TopicSectionContent.Stage.DRAFT,
+        )
+        TopicSection.objects.filter(pk=self.pk).update(draft_content=record)
+        self.draft_content = record
+        return record
+
+    def _update_draft_record(self, **fields) -> None:
+        if not fields:
+            return
+
+        record = self._get_or_create_draft_record()
+        updates: list[str] = []
+        for attr, value in fields.items():
+            if attr not in {"content", "metadata", "execution_state"}:
+                continue
+            if attr in {"metadata", "execution_state"} and value is None:
+                value = {}
+            if getattr(record, attr) != value:
+                setattr(record, attr, value)
+                updates.append(attr)
+
+        if updates:
+            record.save(update_fields=updates)
+
+    def _apply_pending_draft_updates(self) -> None:
+        state = getattr(self, "_pending_draft_state_data", None)
+        if not state or not self.pk:
+            return
+
+        self._update_draft_record(**state)
+        delattr(self, "_pending_draft_state_data")
+
+    def save(self, *args, **kwargs):  # pragma: no cover - exercised via integration tests
+        pending = getattr(self, "_pending_draft_state_data", None)
+        super().save(*args, **kwargs)
+        if pending:
+            self._apply_pending_draft_updates()
+
     class Meta:
         ordering = ("display_order", "published_at", "id")
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         widget_name = self.widget_name or "unknown"
         return f"{self.topic_id}:{widget_name}:{self.display_order}"
+
+    # ---- properties that use the pending draft state ----
+
+    @property
+    def content(self):
+        record = self._get_effective_record()
+        if record is not None:
+            return record.content
+        return self._pending_draft_state().get("content")
+
+    @content.setter
+    def content(self, value):
+        if self._get_render_override() is not None:
+            raise AttributeError("Cannot modify published section content")
+        if not self.pk:
+            self._queue_pending_draft_update("content", value)
+            return
+        self._update_draft_record(content=value)
+
+    @property
+    def metadata(self) -> dict:
+        record = self._get_effective_record()
+        if record is not None and record.metadata is not None:
+            return record.metadata
+        pending = self._pending_draft_state().get("metadata")
+        return pending or {}
+
+    @metadata.setter
+    def metadata(self, value):
+        payload = value or {}
+        if self._get_render_override() is not None:
+            raise AttributeError("Cannot modify metadata on a published snapshot")
+        if not self.pk:
+            self._queue_pending_draft_update("metadata", payload)
+            return
+        self._update_draft_record(metadata=payload)
+
+    @property
+    def execution_state(self) -> dict:
+        record = self._get_effective_record()
+        if record is not None and record.execution_state is not None:
+            return record.execution_state
+        pending = self._pending_draft_state().get("execution_state")
+        return pending or {}
+
+    @execution_state.setter
+    def execution_state(self, value):
+        payload = value or {}
+        if self._get_render_override() is not None:
+            raise AttributeError("Cannot modify execution state on a published snapshot")
+        if not self.pk:
+            self._queue_pending_draft_update("execution_state", payload)
+            return
+        self._update_draft_record(execution_state=payload)
 
     @property
     def widget(self):
@@ -713,6 +933,23 @@ class TopicSection(models.Model):
         state["error_code"] = value
         self.execution_state = state
 
+    def snapshot_content(self, *, published_at) -> "TopicSectionContent":
+        draft = self._get_or_create_draft_record()
+        snapshot = TopicSectionContent.objects.create(
+            section=self,
+            stage=TopicSectionContent.Stage.SNAPSHOT,
+            content=copy.deepcopy(draft.content),
+            metadata=copy.deepcopy(draft.metadata or {}),
+            execution_state=copy.deepcopy(draft.execution_state or {}),
+            published_at=published_at,
+            publication_context={
+                "widget_name": self.widget_name,
+                "language_code": self.language_code,
+                "display_order": self.display_order,
+            },
+        )
+        return snapshot
+
     def render(self):
         """Renders the content with the widget.template"""
         from django.template import Template, Context
@@ -725,6 +962,37 @@ class TopicSection(models.Model):
             'widget': widget,
         })
         return template.render(context)
+
+
+#
+# Section content snapshots
+#
+
+class TopicSectionContent(models.Model):
+    class Stage(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SNAPSHOT = "snapshot", "Snapshot"
+
+    section = models.ForeignKey(
+        TopicSection,
+        related_name="content_entries",
+        on_delete=models.CASCADE,
+    )
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.DRAFT)
+    content = models.JSONField(blank=True, null=True)
+    metadata = models.JSONField(blank=True, default=dict)
+    execution_state = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    publication_context = models.JSONField(blank=True, default=dict)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):  # pragma: no cover - debugging helper
+        return f"SectionContent<{self.stage}>:{self.section_id}:{self.uuid}"
 
 
 #

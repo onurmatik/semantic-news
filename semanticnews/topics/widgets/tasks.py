@@ -20,6 +20,7 @@ def execute_widget_action_task(
     """
     from semanticnews.topics.models import Topic, TopicSection
     from semanticnews.topics.widgets.services import TopicWidgetExecutionService
+    from .helpers import execute_widget_action as run_widget_execution
 
     try:
         topic = Topic.objects.get(uuid=topic_uuid)
@@ -45,7 +46,6 @@ def execute_widget_action_task(
         metadata=metadata or {},
         extra_instructions=extra_instructions,
     )
-    from semanticnews.widgets.tasks import execute_widget_action as run_widget_execution
 
     result = run_widget_execution.apply(kwargs={"execution_id": execution.section.id})
     if result.failed():

@@ -1,6 +1,7 @@
 """Utilities for publishing topics and capturing publication metadata."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -34,40 +35,40 @@ def _resolve_related_topic_source(choice: str, fallback: str) -> str:
     return fallback
 
 
-def _snapshot_image(image: TopicImage) -> Dict[str, Any]:
-    def _field_url(field):
-        if not field:
-            return None
-        url = getattr(field, "url", None)
-        if url:
-            return url
-        return str(field)
-
-    return {
-        "id": image.id,
-        "is_hero": getattr(image, "is_hero", False),
-        "image_url": _field_url(getattr(image, "image", None)),
-        "thumbnail_url": _field_url(getattr(image, "thumbnail", None)),
-    }
-
-
 def _snapshot_section(section: TopicSection) -> Dict[str, Any]:
-    # Make a shallow copy of the JSON content so future edits do not mutate the snapshot.
-    content = section.content
-    if isinstance(content, dict):
-        content_snapshot = dict(content)
-    elif isinstance(content, list):
-        content_snapshot = [dict(item) if isinstance(item, dict) else item for item in content]
+    record = section.published_content or section.draft_content
+    content_snapshot: Any = None
+    metadata_snapshot: Dict[str, Any] | Any = {}
+
+    if record is not None:
+        payload = record.content
+        if isinstance(payload, dict):
+            content_snapshot = dict(payload)
+        elif isinstance(payload, list):
+            content_snapshot = [
+                dict(item) if isinstance(item, dict) else item for item in payload
+            ]
+        else:
+            content_snapshot = deepcopy(payload)
+
+        metadata_payload = record.metadata or {}
+        if isinstance(metadata_payload, dict):
+            metadata_snapshot = dict(metadata_payload)
+        else:
+            metadata_snapshot = deepcopy(metadata_payload)
+        context = record.publication_context or {}
     else:
-        content_snapshot = content
+        context = {}
 
     return {
         "id": section.id,
-        "widget_id": section.widget_id,
-        "language_code": section.language_code,
-        "display_order": section.display_order,
+        "widget_id": getattr(section, "widget_id", None),
+        "widget_name": context.get("widget_name", section.widget_name),
+        "language_code": context.get("language_code", section.language_code),
+        "display_order": context.get("display_order", section.display_order),
         "status": section.status,
         "content": content_snapshot,
+        "metadata": metadata_snapshot,
     }
 
 
@@ -75,6 +76,7 @@ def _clear_topic_caches(topic: Topic) -> None:
     for attr in [
         "sections_ordered",
         "active_sections",
+        "published_sections",
         "hero_image",
         "image",
         "thumbnail",
@@ -136,37 +138,29 @@ def _publish_recaps(topic: Topic, published_at) -> Optional[TopicRecap]:
 
 
 def _publish_sections(topic: Topic, published_at) -> List[TopicSection]:
-    sections = list(
-        topic.sections.filter(is_deleted=False, status="finished")
-        .select_related("widget")
+    queryset = (
+        topic.sections.filter(is_deleted=False)
+        .select_related("draft_content", "published_content")
         .order_by("display_order", "id")
     )
 
-    for section in sections:
-        updates: List[str] = []
+    sections: List[TopicSection] = []
+    for section in queryset:
+        if section.status != "finished":
+            continue
+
+        snapshot = section.snapshot_content(published_at=published_at)
+        updates: List[str] = ["published_content"]
+        section.published_content = snapshot
+
         if getattr(section, "published_at", None) != published_at:
             section.published_at = published_at
             updates.append("published_at")
-        if updates:
-            section.save(update_fields=updates)
+
+        section.save(update_fields=updates)
+        sections.append(section)
 
     return sections
-
-
-def _publish_images(topic: Topic, published_at) -> List[TopicImage]:
-    images = list(
-        topic.images.filter(is_deleted=False)
-        .order_by("display_order", "id")
-    )
-
-    for image in images:
-        if not hasattr(image, "published_at"):
-            continue
-        if image.published_at is None:
-            image.published_at = published_at
-            image.save(update_fields=["published_at"])
-
-    return images
 
 
 def _publish_related_topics(topic: Topic, user, published_at) -> None:
@@ -249,18 +243,9 @@ def publish_topic(topic: Topic, user=None) -> TopicPublication:
     _publish_title(topic, published_at)
     published_recap = _publish_recaps(topic, published_at)
     sections = _publish_sections(topic, published_at)
-    images = _publish_images(topic, published_at)
     # _publish_related_topics(topic, user, published_at)
 
     _clear_topic_caches(topic)
-
-    hero_image_snapshot: Optional[Dict[str, Any]] = None
-    images_snapshot: List[Dict[str, Any]] = []
-    for image in images:
-        snapshot = _snapshot_image(image)
-        images_snapshot.append(snapshot)
-        if snapshot.get("is_hero"):
-            hero_image_snapshot = snapshot
 
     context_snapshot = {
         "topic_id": topic.id,
@@ -268,8 +253,6 @@ def publish_topic(topic: Topic, user=None) -> TopicPublication:
         "slug": topic.slug,
         "recap": getattr(published_recap, "recap", None),
         "sections": [_snapshot_section(section) for section in sections],
-        "image": hero_image_snapshot,
-        "images": images_snapshot,
     }
 
     return TopicPublication(

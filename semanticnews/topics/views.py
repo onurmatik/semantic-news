@@ -20,7 +20,14 @@ from semanticnews.agenda.models import Event
 from semanticnews.topics.widgets import WIDGET_REGISTRY, load_widgets
 from semanticnews.topics.widgets.rendering import build_renderable_section
 
-from .models import RelatedEntity, RelatedEvent, RelatedTopic, Source, Topic
+from .models import (
+    RelatedEntity,
+    RelatedEvent,
+    RelatedTopic,
+    Source,
+    Topic,
+    TopicSection,
+)
 
 
 RELATED_ENTITIES_PREFETCH = Prefetch(
@@ -31,11 +38,19 @@ RELATED_ENTITIES_PREFETCH = Prefetch(
     to_attr="prefetched_related_entities",
 )
 
+SECTIONS_PREFETCH = Prefetch(
+    "sections",
+    queryset=(
+        TopicSection.objects.select_related("draft_content", "published_content")
+        .order_by("display_order", "published_at", "id")
+    ),
+)
+
 
 def _build_renderable_sections(topic, *, edit_mode=False):
     """Return section descriptors prepared for template rendering."""
 
-    sections = topic.sections_ordered if edit_mode else topic.active_sections
+    sections = topic.sections_ordered if edit_mode else topic.published_sections
 
     renderables = []
     for index, section in enumerate(sections, start=1):
@@ -109,7 +124,7 @@ def topics_list(request):
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by")
-        .prefetch_related("recaps", "sections")
+        .prefetch_related("recaps", SECTIONS_PREFETCH)
         .order_by("-ordering_activity", "-created_at")
     )
 
@@ -132,7 +147,7 @@ def topics_detail(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
         "recaps",
-        "sections",
+        SECTIONS_PREFETCH,
         RELATED_ENTITIES_PREFETCH,
         Prefetch(
             "topic_related_topics",

@@ -73,7 +73,7 @@ class TopicWidgetExecutionService:
 
             section.execution_state = state
             section.metadata = normalized_metadata
-            section.save(update_fields=["widget_name", "execution_state", "metadata"])
+            section.save(update_fields=["widget_name"])
 
         return TopicWidgetExecution(
             section=section,
