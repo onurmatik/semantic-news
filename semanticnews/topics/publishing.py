@@ -56,16 +56,13 @@ def _snapshot_section(section: TopicSection) -> Dict[str, Any]:
             metadata_snapshot = dict(metadata_payload)
         else:
             metadata_snapshot = deepcopy(metadata_payload)
-        context = record.publication_context or {}
-    else:
-        context = {}
 
     return {
         "id": section.id,
         "widget_id": getattr(section, "widget_id", None),
-        "widget_name": context.get("widget_name", section.widget_name),
-        "language_code": context.get("language_code", section.language_code),
-        "display_order": context.get("display_order", section.display_order),
+        "widget_name": section.widget_name,
+        "language_code": section.language_code,
+        "display_order": section.display_order,
         "status": section.status,
         "content": content_snapshot,
         "metadata": metadata_snapshot,

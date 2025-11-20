@@ -295,14 +295,6 @@ class Topic(models.Model):
 
             clone = copy.copy(section)
             clone._apply_content_override(snapshot)
-            context = snapshot.publication_context or {}
-            if getattr(snapshot, "stage", None) == TopicSectionContent.Stage.SNAPSHOT:
-                if context.get("widget_name"):
-                    clone.widget_name = context["widget_name"]
-                if context.get("language_code"):
-                    clone.language_code = context["language_code"]
-                if context.get("display_order") is not None:
-                    clone.display_order = context["display_order"]
             published.append(clone)
 
         return published
@@ -942,11 +934,6 @@ class TopicSection(models.Model):
             metadata=copy.deepcopy(draft.metadata or {}),
             execution_state=copy.deepcopy(draft.execution_state or {}),
             published_at=published_at,
-            publication_context={
-                "widget_name": self.widget_name,
-                "language_code": self.language_code,
-                "display_order": self.display_order,
-            },
         )
         return snapshot
 
@@ -986,7 +973,6 @@ class TopicSectionContent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
-    publication_context = models.JSONField(blank=True, default=dict)
 
     class Meta:
         ordering = ("-created_at", "-id")

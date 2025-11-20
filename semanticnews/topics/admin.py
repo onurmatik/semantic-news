@@ -5,6 +5,7 @@ from .models import (
     TopicRecap,
     TopicTitle,
     TopicSection,
+    TopicSectionContent,
     RelatedTopic,
     RelatedEntity,
     RelatedEvent,
@@ -40,14 +41,25 @@ class TopicAdmin(admin.ModelAdmin):
 class TopicSectionAdmin(admin.ModelAdmin):
     list_display = (
         "topic",
-        "widget",
+        "widget_name",
+        "status",
         "display_order",
         "language_code",
         "published_at",
         "is_deleted",
     )
     list_filter = ("language_code", "is_deleted", "published_at")
-    search_fields = ("topic__titles__title", "widget__name")
+    search_fields = (
+        "topic__titles__title",
+        "widget_name",
+        "draft_content__uuid",
+        "published_content__uuid",
+    )
+    raw_id_fields = (
+        "topic",
+        "draft_content",
+        "published_content",
+    )
 
 
 @admin.register(TopicRecap)
@@ -111,3 +123,26 @@ class RelatedEntityAdmin(admin.ModelAdmin):
         "entity__aliases__name",
     )
     readonly_fields = ("created_at",)
+
+
+@admin.register(TopicSectionContent)
+class TopicSectionContentAdmin(admin.ModelAdmin):
+    list_display = (
+        "uuid",
+        "section",
+        "stage",
+        "published_at",
+        "created_at",
+    )
+    list_filter = ("stage", "published_at")
+    search_fields = (
+        "uuid",
+        "section__topic__titles__title",
+        "section__widget_name",
+    )
+    raw_id_fields = ("section",)
+    readonly_fields = (
+        "uuid",
+        "created_at",
+        "updated_at",
+    )
