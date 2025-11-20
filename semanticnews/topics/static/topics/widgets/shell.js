@@ -93,6 +93,34 @@
     preview.appendChild(placeholder);
   }
 
+  function normaliseWidgetContent(widgetKey, content) {
+    if (!content || typeof content !== 'object') {
+      return {};
+    }
+
+    const normalized = { ...content };
+    const key = widgetKey || '';
+
+    if (key === 'paragraph' && typeof normalized.text !== 'string') {
+      const resultVal = normalized.result;
+      if (typeof resultVal === 'string' && resultVal.trim()) {
+        normalized.text = resultVal;
+      }
+    }
+
+    if (key === 'image') {
+      const resultVal = normalized.result;
+      if (!normalized.image_url && !normalized.imageUrl && typeof resultVal === 'string') {
+        const cleaned = resultVal.trim();
+        if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('data:')) {
+          normalized.image_url = cleaned;
+        }
+      }
+    }
+
+    return normalized;
+  }
+
   function updateWidgetContent(widgetEl, content, widgetKey) {
     if (!widgetEl || !content || typeof content !== 'object') {
       return;
@@ -101,11 +129,13 @@
     if (!contentContainer) {
       return;
     }
-    updateFormFields(contentContainer, content);
+
+    const normalizedContent = normaliseWidgetContent(widgetKey || widgetEl.dataset.topicWidgetKey, content);
+    updateFormFields(contentContainer, normalizedContent);
 
     const resolvedKey = widgetKey || widgetEl.dataset.topicWidgetKey || '';
     if (resolvedKey === 'image') {
-      updateImagePreview(contentContainer, content.image_url || content.imageUrl || '');
+      updateImagePreview(contentContainer, normalizedContent.image_url || normalizedContent.imageUrl || '');
     }
   }
 
@@ -332,9 +362,14 @@
           state.context.widgetEl.dataset.widgetSectionId = responseSectionId;
         }
 
-        if (status === 'finished') {
+        if (content && state.context.widgetEl) {
           updateWidgetContent(state.context.widgetEl, content, state.context.widgetKey);
-          clearValidation(state.context.statusEl);
+        }
+
+        if (status === 'finished' || (!status && content)) {
+          if (state.context.statusEl) {
+            setValidationState(state.context.statusEl, 'Action completed', 'success');
+          }
           finish();
           return;
         }

@@ -15,6 +15,7 @@ from semanticnews.topics.widgets.execution import (
     normalise_tools,
     resolve_widget_action,
 )
+from semanticnews.topics.widgets.rendering import normalise_section_content
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +127,11 @@ def execute_widget_action(self, *, execution_id: int) -> Dict[str, Any]:
         metadata_payload["execution_logs"] = logs
 
     section.content = dict(result.content or {})
+    section.content = normalise_section_content(widget, section)
     section.metadata = metadata_payload
     section.execution_state = state
+
+    section.save(update_fields=["draft_content"])
 
     return {
         "section_id": section.id,
