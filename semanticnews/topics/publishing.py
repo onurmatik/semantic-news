@@ -143,9 +143,6 @@ def _publish_sections(topic: Topic, published_at) -> List[TopicSection]:
 
     sections: List[TopicSection] = []
     for section in queryset:
-        if section.status != "finished":
-            continue
-
         snapshot = section.snapshot_content(published_at=published_at)
         updates: List[str] = ["published_content"]
         section.published_content = snapshot

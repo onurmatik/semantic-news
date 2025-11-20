@@ -788,6 +788,13 @@ class TopicSection(models.Model):
                 continue
             if attr in {"metadata", "execution_state"} and value is None:
                 value = {}
+            if attr in {"metadata", "execution_state"}:
+                payload = copy.deepcopy(value)
+                setattr(record, attr, payload)
+                if attr not in updates:
+                    updates.append(attr)
+                continue
+
             if getattr(record, attr) != value:
                 setattr(record, attr, value)
                 updates.append(attr)
