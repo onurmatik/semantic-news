@@ -47,10 +47,13 @@ SECTIONS_PREFETCH = Prefetch(
 )
 
 
-def _build_renderable_sections(topic, *, edit_mode=False):
+def _build_renderable_sections(topic, *, edit_mode=False, include_unpublished=False):
     """Return section descriptors prepared for template rendering."""
 
-    sections = topic.sections_ordered if edit_mode else topic.published_sections
+    if edit_mode or include_unpublished:
+        sections = topic.sections_ordered
+    else:
+        sections = topic.published_sections
 
     renderables = []
     for index, section in enumerate(sections, start=1):
@@ -166,7 +169,7 @@ def topics_detail(request, slug, username):
     return _render_topic_detail(request, topic)
 
 
-def _build_topic_module_context(topic, user=None, *, edit_mode=False):
+def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_unpublished_sections=False):
     """Collect related objects used to render topic content."""
 
     related_events = topic.active_events
@@ -234,12 +237,21 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False):
         "related_entities_json_pretty": related_entities_json_pretty,
         "related_topic_links": active_related_topic_links,
         "related_topics": related_topics,
-        "sections": _build_renderable_sections(topic, edit_mode=edit_mode),
+        "sections": _build_renderable_sections(
+            topic,
+            edit_mode=edit_mode,
+            include_unpublished=include_unpublished_sections,
+        ),
     }
 
 
-def _build_topic_page_context(topic, user=None, *, edit_mode=False):
-    context = _build_topic_module_context(topic, user, edit_mode=edit_mode)
+def _build_topic_page_context(topic, user=None, *, edit_mode=False, include_unpublished_sections=False):
+    context = _build_topic_module_context(
+        topic,
+        user,
+        edit_mode=edit_mode,
+        include_unpublished_sections=include_unpublished_sections,
+    )
     context["edit_mode"] = edit_mode
 
     if edit_mode:
@@ -432,7 +444,12 @@ def topics_detail_preview(request, topic_uuid, username):
     if request.user != topic.created_by or topic.status == "archived":
         return HttpResponseForbidden()
 
-    context = _build_topic_page_context(topic, user=None, edit_mode=False)
+    context = _build_topic_page_context(
+        topic,
+        user=None,
+        edit_mode=False,
+        include_unpublished_sections=True,
+    )
     context["is_preview"] = True
 
     context.update(_build_topic_metadata(request, topic, context))
