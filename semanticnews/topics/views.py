@@ -173,12 +173,21 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
     """Collect related objects used to render topic content."""
 
     related_events = topic.active_events
-    current_recap = topic.active_recaps.order_by("-created_at").first()
-    latest_recap = (
-        topic.active_recaps.filter(status="finished")
-        .order_by("-created_at")
-        .first()
-    )
+    if edit_mode:
+        current_recap = (
+            topic.recaps.filter(is_deleted=False, published_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+            or topic.active_recaps.order_by("-created_at").first()
+        )
+        latest_recap = current_recap
+    else:
+        current_recap = None
+        latest_recap = (
+            topic.published_recaps.filter(status="finished")
+            .order_by("-published_at", "-created_at")
+            .first()
+        )
     related_entities = list(
         getattr(topic, "prefetched_related_entities", None)
         or topic.active_related_entities.select_related("entity").order_by("-created_at")

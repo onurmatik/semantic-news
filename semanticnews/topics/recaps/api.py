@@ -40,9 +40,10 @@ class _TopicRecapResponse(Schema):
 def _get_current_recap(topic: Topic) -> Optional[TopicRecap]:
     """Return the recap instance currently being edited for ``topic``.
 
-    The working recap is the most recent non-deleted recap that has not been
-    published yet. If no such recap exists (for example, in legacy data), fall
-    back to the most recent active recap overall.
+    Prefer the most recent non-deleted recap that has not been published yet
+    (the working draft). When none exists (for example, legacy data that only
+    has published recaps), create an unsaved draft copy from the latest
+    published recap so edits never modify the published text.
     """
 
     current = (
@@ -53,12 +54,17 @@ def _get_current_recap(topic: Topic) -> Optional[TopicRecap]:
     )
     if current:
         return current
-    return (
+
+    published = (
         TopicRecap.objects
-        .filter(topic=topic, is_deleted=False)
-        .order_by("-created_at")
+        .filter(topic=topic, is_deleted=False, published_at__isnull=False)
+        .order_by("-published_at", "-created_at")
         .first()
     )
+    if published:
+        return TopicRecap(topic=topic, recap=published.recap, status=published.status)
+
+    return None
 
 
 def _save_recap(instance: TopicRecap, *, update_fields: Iterable[str]) -> TopicRecap:
@@ -195,12 +201,22 @@ def list_recaps(request, topic_uuid: str):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    recaps = (
+    drafts_qs = (
         TopicRecap.objects
-        .filter(topic=topic, status="finished", is_deleted=False)
+        .filter(topic=topic, status="finished", is_deleted=False, published_at__isnull=True)
         .order_by("created_at")
-        .values("id", "recap", "created_at")
     )
+    recaps_qs = drafts_qs
+
+    if not drafts_qs.exists():
+        recaps_qs = (
+            TopicRecap.objects
+            .filter(topic=topic, status="finished", is_deleted=False, published_at__isnull=False)
+            .order_by("-published_at", "-created_at")
+            [:1]
+        )
+
+    recaps = recaps_qs.values("id", "recap", "created_at")
 
     items = [
         TopicRecapItem(

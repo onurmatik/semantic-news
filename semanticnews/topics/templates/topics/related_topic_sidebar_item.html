@@ -12,7 +12,7 @@
         {% endif %}
     {% endwith %}
 
-    {% with latest_recap=topic.active_recaps.last %}
+    {% with latest_recap=topic.published_recaps.last %}
         {% if latest_recap %}
             <div class="small text-body">{{ latest_recap.recap|markdownify }}</div>
         {% elif topic.prefetched_recaps %}

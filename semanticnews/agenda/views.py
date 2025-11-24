@@ -97,8 +97,11 @@ def event_detail(request, year, month, day, slug):
             Prefetch(
                 "recaps",
                 queryset=(
-                    TopicRecap.objects.filter(is_deleted=False, status="finished")
-                    .order_by("-created_at")
+                    TopicRecap.objects.filter(
+                        is_deleted=False,
+                        status="finished",
+                        published_at__isnull=False,
+                    ).order_by("-published_at", "-created_at")
                 ),
                 to_attr="prefetched_recaps",
             )

@@ -258,6 +258,10 @@ class Topic(models.Model):
     def active_recaps(self):
         return self.recaps.filter(is_deleted=False)
 
+    @property
+    def published_recaps(self):
+        return self.recaps.filter(is_deleted=False, published_at__isnull=False)
+
     @cached_property
     def sections_ordered(self):
         """Return an ordered list of all sections attached to the topic."""
