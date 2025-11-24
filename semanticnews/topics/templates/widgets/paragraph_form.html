@@ -13,4 +13,18 @@
             {% blocktrans %}This text will appear in the published topic and in editor previews.{% endblocktrans %}
         </div>
     </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="widget-paragraph-instructions">{% trans "Instructions" %}</label>
+        <textarea
+            id="widget-paragraph-instructions"
+            class="form-control"
+            name="instructions"
+            rows="3"
+            placeholder="{% trans 'Guidance for the AI generator (tone, details, constraints)…' %}"
+        >{{ content.instructions|default_if_none:'' }}</textarea>
+        <div class="form-text text-muted">
+            {% blocktrans %}Optional guidance sent with the Generate action to tailor the paragraph.{% endblocktrans %}
+        </div>
+    </div>
 </div>

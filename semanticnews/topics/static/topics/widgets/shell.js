@@ -192,6 +192,54 @@
     return field.value;
   }
 
+
+  function normaliseTextValue(value) {
+    if (value == null) {
+      return '';
+    }
+    return String(value).replace(/\r\n/g, '\n').trim();
+  }
+
+  function collectParagraphGenerationContext(widgetEl, baseContext) {
+    const context = { ...(baseContext || {}) };
+
+    const titleEl = document.getElementById('topicTitleInput');
+    const topicTitle = normaliseTextValue(titleEl ? titleEl.textContent : '');
+    if (topicTitle) {
+      context.topic_title = topicTitle;
+    }
+
+    const recapTextarea = document.getElementById('recapText');
+    const recapValue = recapTextarea ? normaliseTextValue(getFieldValue(recapTextarea)) : '';
+    if (recapValue) {
+      context.latest_recap = recapValue;
+    }
+
+    const otherParagraphs = [];
+    const currentEntry = widgetEl ? widgetEl.closest('[data-topic-widget-entry]') : null;
+    document.querySelectorAll('[data-topic-widget-entry][data-topic-widget-key="paragraph"]').forEach((entry) => {
+      if (!entry || entry === currentEntry) {
+        return;
+      }
+      const textField = entry.querySelector('[name="text"]');
+      const value = textField ? normaliseTextValue(getFieldValue(textField)) : '';
+      if (value) {
+        otherParagraphs.push(value);
+      }
+    });
+    if (otherParagraphs.length) {
+      context.paragraphs = otherParagraphs;
+    }
+
+    const instructionField = widgetEl ? widgetEl.querySelector('[name="instructions"]') : null;
+    const instructionValue = instructionField ? normaliseTextValue(getFieldValue(instructionField)) : '';
+    if (instructionValue) {
+      context.instructions = instructionValue;
+    }
+
+    return context;
+  }
+
   function serializeWidgetContext(widgetEl) {
     if (!widgetEl) {
       return {};
@@ -436,7 +484,14 @@
       }
 
       try {
-        const contextPayload = serializeWidgetContext(widgetEl);
+        let contextPayload = serializeWidgetContext(widgetEl);
+
+        const normalizedWidgetKey = (widgetKey || '').toLowerCase();
+        const normalizedActionId = (actionId || '').toLowerCase();
+
+        if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+          contextPayload = collectParagraphGenerationContext(widgetEl, contextPayload);
+        }
 
         console.log('[TopicWidgets][Shell] contextPayload', contextPayload);
 
