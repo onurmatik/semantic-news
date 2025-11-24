@@ -305,6 +305,14 @@
       return null;
     }
 
+    const deleteModalEl = document.getElementById('confirmDeleteParagraphModal');
+    const deleteModal = deleteModalEl && window.bootstrap
+      ? window.bootstrap.Modal.getOrCreateInstance(deleteModalEl)
+      : null;
+    const deleteConfirmBtn = document.getElementById('confirmDeleteParagraphBtn');
+    const deleteSpinner = document.getElementById('confirmDeleteParagraphSpinner');
+    const pendingDelete = { entry: null, sectionId: null };
+
     function getSectionId(widgetEl) {
       if (!widgetEl) {
         return null;
@@ -315,6 +323,20 @@
       }
       const parsed = Number(widgetSectionId);
       return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function performDeleteRequest(sectionId) {
+      return fetch(`/api/topics/widgets/sections/${sectionId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        },
+      }).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to delete widget section (status ${response.status})`);
+        }
+        return response.json().catch(() => ({}));
+      });
     }
 
     function resolveActionIdentifier(button) {
@@ -533,6 +555,101 @@
       }
     }
 
+    function onDeleteClick(button) {
+      if (!button || !element.contains(button)) {
+        return;
+      }
+
+      const entry = button.closest('[data-topic-widget-entry]');
+      const widgetEl = entry ? entry.querySelector('[data-topic-widget]') : null;
+      const sectionId = getSectionId(widgetEl);
+
+      pendingDelete.entry = entry;
+      pendingDelete.sectionId = sectionId;
+
+      if (deleteConfirmBtn) {
+        deleteConfirmBtn.dataset.sectionId = sectionId != null ? String(sectionId) : '';
+      }
+
+      if (deleteModal) {
+        deleteModal.show();
+      }
+    }
+
+    function resetDeleteState() {
+      pendingDelete.entry = null;
+      pendingDelete.sectionId = null;
+      if (deleteConfirmBtn) {
+        deleteConfirmBtn.disabled = false;
+        deleteConfirmBtn.removeAttribute('aria-busy');
+        deleteConfirmBtn.dataset.sectionId = '';
+      }
+      if (deleteSpinner) {
+        deleteSpinner.classList.add('d-none');
+      }
+    }
+
+    function handleConfirmedDelete() {
+      if (!pendingDelete.entry) {
+        resetDeleteState();
+        if (deleteModal) {
+          deleteModal.hide();
+        }
+        return;
+      }
+
+      const { entry, sectionId } = pendingDelete;
+      const statusEl = entry.querySelector('[data-widget-validation]');
+
+      if (statusEl) {
+        setValidationState(statusEl, 'Deleting paragraph…', 'info');
+      }
+
+      const finish = () => {
+        resetDeleteState();
+        if (deleteModal) {
+          deleteModal.hide();
+        }
+      };
+
+      if (deleteConfirmBtn) {
+        deleteConfirmBtn.disabled = true;
+        deleteConfirmBtn.setAttribute('aria-busy', 'true');
+      }
+      if (deleteSpinner) {
+        deleteSpinner.classList.remove('d-none');
+      }
+
+      if (!sectionId) {
+        entry.remove();
+        if (statusEl) {
+          clearValidation(statusEl);
+        }
+        finish();
+        return;
+      }
+
+      performDeleteRequest(sectionId)
+        .then(() => {
+          stopPolling(sectionId);
+          entry.remove();
+          if (statusEl) {
+            clearValidation(statusEl);
+          }
+          document.dispatchEvent(new CustomEvent('topic:changed'));
+        })
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error('[TopicWidgets][Shell] Failed to delete section', error);
+          if (statusEl) {
+            setValidationState(statusEl, 'Unable to delete paragraph', 'danger');
+          }
+        })
+        .finally(() => {
+          finish();
+        });
+    }
+
     console.log('[TopicWidgets][Shell] Attaching delegated event listener to document.');
     document.addEventListener('click', (evt) => {
       const button = evt.target.closest('[data-widget-action],[data-widget-action-id],[data-widget-action-name]');
@@ -540,6 +657,27 @@
         onActionClick(button);
       }
     }, { capture: true });
+
+    document.addEventListener('click', (evt) => {
+      const deleteButton = evt.target.closest('[data-widget-delete-section-id]');
+      if (deleteButton && element.contains(deleteButton)) {
+        evt.preventDefault();
+        onDeleteClick(deleteButton);
+      }
+    }, { capture: true });
+
+    if (deleteConfirmBtn) {
+      deleteConfirmBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleConfirmedDelete();
+      });
+    }
+
+    if (deleteModalEl) {
+      deleteModalEl.addEventListener('hidden.bs.modal', () => {
+        resetDeleteState();
+      });
+    }
 
     element.addEventListener('widget-editor:destroy', (event) => {
       const entry = event.target && typeof event.target.closest === 'function'

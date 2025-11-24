@@ -57,6 +57,9 @@ def _build_renderable_sections(topic, *, edit_mode=False, include_unpublished=Fa
 
     renderables = []
     for index, section in enumerate(sections, start=1):
+        if section.is_deleted:
+            continue
+
         descriptor = build_renderable_section(section, edit_mode=edit_mode)
         descriptor.key = f"section:{getattr(section, 'id', None) or index}"
         renderables.append(descriptor)

@@ -17,4 +17,16 @@
             </button>
         {% endwith %}
     {% endfor %}
+    {% if widget.name == "paragraph" %}
+        <button
+            type="button"
+            class="btn btn-outline-danger btn-sm"
+            data-widget-delete-section-id="{{ section.id|default_if_none:'' }}"
+            title="{% trans "Delete paragraph" %}"
+            aria-label="{% trans "Delete paragraph" %}"
+        >
+            <i class="bi bi-trash" aria-hidden="true"></i>
+            <span class="visually-hidden">{% trans "Delete paragraph" %}</span>
+        </button>
+    {% endif %}
 {% endif %}

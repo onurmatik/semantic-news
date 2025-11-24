@@ -81,6 +81,10 @@ class WidgetExecutionResponse(Schema):
     error_code: Optional[str] = None
 
 
+class WidgetSectionDeleteResponse(Schema):
+    success: bool
+
+
 def _serialize_widget(widget: Widget) -> WidgetDefinition:
     identifier = widget.name
     return WidgetDefinition(
@@ -257,6 +261,28 @@ def get_execution_status(request, section_id: int, topic_uuid: uuid.UUID):
 
     execution = _execution_service.get_state(section=section)
     return _serialize_execution(execution, topic_uuid=str(topic.uuid))
+
+
+@router.delete("/sections/{section_id}", response=WidgetSectionDeleteResponse)
+def delete_widget_section(request, section_id: int):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        section = TopicSection.objects.select_related("topic").get(id=section_id)
+    except TopicSection.DoesNotExist:
+        raise HttpError(404, "Topic section not found")
+
+    topic = section.topic
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    if not section.is_deleted:
+        section.is_deleted = True
+        section.save(update_fields=["is_deleted"])
+
+    return WidgetSectionDeleteResponse(success=True)
 
 
 __all__ = ["router"]
