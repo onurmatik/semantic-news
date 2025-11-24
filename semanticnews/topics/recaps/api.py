@@ -201,20 +201,11 @@ def list_recaps(request, topic_uuid: str):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    drafts_qs = (
+    recaps_qs = (
         TopicRecap.objects
-        .filter(topic=topic, status="finished", is_deleted=False, published_at__isnull=True)
+        .filter(topic=topic, status="finished", is_deleted=False)
         .order_by("created_at")
     )
-    recaps_qs = drafts_qs
-
-    if not drafts_qs.exists():
-        recaps_qs = (
-            TopicRecap.objects
-            .filter(topic=topic, status="finished", is_deleted=False, published_at__isnull=False)
-            .order_by("-published_at", "-created_at")
-            [:1]
-        )
 
     recaps = recaps_qs.values("id", "recap", "created_at")
 
