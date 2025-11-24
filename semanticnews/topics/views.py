@@ -183,11 +183,15 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
         latest_recap = current_recap
     else:
         current_recap = None
-        latest_recap = (
-            topic.published_recaps.filter(status="finished")
-            .order_by("-published_at", "-created_at")
-            .first()
-        )
+        latest_recap = None
+        if include_unpublished_sections:
+            latest_recap = topic.active_recaps.order_by("-created_at").first()
+        if latest_recap is None:
+            latest_recap = (
+                topic.published_recaps.filter(status="finished")
+                .order_by("-published_at", "-created_at")
+                .first()
+            )
     related_entities = list(
         getattr(topic, "prefetched_related_entities", None)
         or topic.active_related_entities.select_related("entity").order_by("-created_at")
