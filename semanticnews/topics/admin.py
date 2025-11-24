@@ -62,15 +62,38 @@ class TopicSectionAdmin(admin.ModelAdmin):
     )
 
 
+class _RecapPublishedFilter(admin.SimpleListFilter):
+    title = "published"
+    parameter_name = "published"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("yes", "Published"),
+            ("no", "Unpublished"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(published_at__isnull=False)
+        if self.value() == "no":
+            return queryset.filter(published_at__isnull=True)
+        return queryset
+
+
 @admin.register(TopicRecap)
 class TopicRecapAdmin(admin.ModelAdmin):
-    list_display = ("topic", "created_at", "short_recap", "status")
+    list_display = ("topic", "created_at", "short_recap", "status", "is_published")
+    list_filter = ("status", _RecapPublishedFilter)
     search_fields = ("topic__titles__title", "recap")
     readonly_fields = ("created_at",)
 
+    @admin.display(description="recap")
     def short_recap(self, obj):
         return obj.recap[:50] + ("..." if len(obj.recap) > 50 else "")
-    short_recap.short_description = "recap"
+
+    @admin.display(boolean=True, description="Published")
+    def is_published(self, obj):
+        return obj.published_at is not None
 
 
 @admin.register(TopicTitle)
