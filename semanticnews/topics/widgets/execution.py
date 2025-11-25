@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from dataclasses import dataclass, field
@@ -124,7 +125,7 @@ class WidgetExecutionPipeline:
             parsed_response = request.action.run(context)
             raw_response = parsed_response
 
-        content = self.postprocess(request, context, parsed_response)
+        content = self.postprocess(request, context, parsed_response, raw_response)
         metadata = self.finalize_metadata(request, model_name, tools)
 
         log_entry = WidgetExecutionLogEntry(
@@ -225,10 +226,29 @@ class WidgetExecutionPipeline:
         request: WidgetExecutionRequest,
         context: Mapping[str, Any],
         parsed_response: Any,
+        raw_response: Any | None,
     ) -> Mapping[str, Any]:
         action = request.action
         if hasattr(action, "postprocess") and callable(action.postprocess):
-            result = action.postprocess(context=context, response=parsed_response)
+            use_raw_response = False
+            try:
+                signature = inspect.signature(action.postprocess)
+            except (TypeError, ValueError):
+                use_raw_response = True
+            else:
+                for parameter in signature.parameters.values():
+                    if (
+                        parameter.kind == inspect.Parameter.VAR_KEYWORD
+                        or parameter.name == "raw_response"
+                    ):
+                        use_raw_response = True
+                        break
+
+            kwargs = {"context": context, "response": parsed_response}
+            if use_raw_response:
+                kwargs["raw_response"] = raw_response
+
+            result = action.postprocess(**kwargs)
             if result is not None:
                 return result
         if isinstance(parsed_response, Mapping):

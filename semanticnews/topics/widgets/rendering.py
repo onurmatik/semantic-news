@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, TYPE_CHECKING
 
@@ -109,17 +111,50 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
             content["text"] = result_val
 
     if widget_name == "image":
-        if "image_url" not in content and "url" not in content:
-            result_val = content.get("result")
+        image_source = content.get("image_url") or content.get("url")
+        result_val = content.get("result")
 
-            if isinstance(result_val, str) and result_val:
-                cleaned = result_val.strip()
-                if cleaned.startswith(("http://", "https://", "data:")):
-                    content["image_url"] = cleaned
-                else:
-                    content["image_url"] = f"data:image/png;base64,{cleaned}"
+        def _is_valid_image_source(value: str) -> bool:
+            if not value:
+                return False
+            cleaned_value = value.strip()
+            if cleaned_value.startswith(("http://", "https://")):
+                return True
+            if cleaned_value.lower().startswith("data:image/"):
+                return True
+            return False
 
-        content.setdefault("image_url", "")
+        def _normalise_base64_image(value: str) -> str | None:
+            if not value:
+                return None
+            cleaned_value = value.strip()
+            if " " in cleaned_value:
+                return None
+            if not re.fullmatch(r"[A-Za-z0-9+/=\n\r]+", cleaned_value):
+                return None
+            try:
+                decoded = base64.b64decode(cleaned_value, validate=True)
+            except Exception:
+                return None
+            if not decoded:
+                return None
+            return f"data:image/png;base64,{cleaned_value}"
+
+        if isinstance(image_source, str) and not _is_valid_image_source(image_source):
+            image_source = None
+
+        if not image_source and isinstance(result_val, str) and result_val.strip():
+            cleaned = result_val.strip()
+            if cleaned.startswith(("http://", "https://")):
+                image_source = cleaned
+            elif cleaned.lower().startswith("data:image/"):
+                image_source = cleaned
+            else:
+                base64_candidate = _normalise_base64_image(cleaned)
+                if base64_candidate:
+                    image_source = base64_candidate
+
+        content["image_url"] = image_source or ""
         content.setdefault("url", "")
         content.setdefault("prompt", "")
 

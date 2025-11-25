@@ -8,9 +8,10 @@
             alt="{{ content.prompt|default:_('Generated illustration') }}"
             loading="lazy"
         />
-        {% if content.prompt %}
-            <figcaption class="figure-caption mt-2 text-muted">{{ content.prompt }}</figcaption>
-        {% endif %}
+    {% elif content.result %}
+        <div class="alert alert-warning" role="status">
+            <p class="mb-0">{{ content.result }}</p>
+        </div>
     {% else %}
         <div class="alert alert-info" role="status">
             {% if content.prompt %}

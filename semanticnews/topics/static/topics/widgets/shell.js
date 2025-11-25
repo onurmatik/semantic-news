@@ -110,10 +110,36 @@
 
     if (key === 'image') {
       const resultVal = normalized.result;
-      if (!normalized.image_url && !normalized.imageUrl && typeof resultVal === 'string') {
+      const providedImage = normalized.image_url || normalized.imageUrl;
+      const hasValidProvidedImage =
+        typeof providedImage === 'string' &&
+        (providedImage.trim().startsWith('http://') ||
+          providedImage.trim().startsWith('https://') ||
+          providedImage.trim().toLowerCase().startsWith('data:image/'));
+
+      if (hasValidProvidedImage) {
+        normalized.image_url = providedImage.trim();
+      } else {
+        delete normalized.image_url;
+        if (Object.prototype.hasOwnProperty.call(normalized, 'imageUrl')) {
+          delete normalized.imageUrl;
+        }
+      }
+
+      if (!normalized.image_url && typeof resultVal === 'string') {
         const cleaned = resultVal.trim();
-        if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('data:')) {
+        const lowerCleaned = cleaned.toLowerCase();
+        const isLikelyUrl = cleaned.startsWith('http://') || cleaned.startsWith('https://');
+        const isLikelyDataUrl = lowerCleaned.startsWith('data:image/');
+        if (isLikelyUrl || isLikelyDataUrl) {
           normalized.image_url = cleaned;
+        } else if (/^[a-z0-9+/=\n\r]+$/i.test(cleaned) && !/\s/.test(cleaned) && cleaned.length >= 60) {
+          try {
+            window.atob(cleaned);
+            normalized.image_url = `data:image/png;base64,${cleaned}`;
+          } catch (error) {
+            // Not a valid base64 image payload; leave as text.
+          }
         }
       }
     }
