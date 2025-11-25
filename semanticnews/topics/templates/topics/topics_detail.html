@@ -33,7 +33,11 @@
 
 <div class="d-flex justify-content-between pb-2 align-items-start">
 
-    <div data-topic-uuid="{{ topic.uuid }}">
+    <div
+        data-topic-uuid="{{ topic.uuid }}"
+        data-topic-detail-url="{{ topic.get_absolute_url }}"
+        data-topic-detail-uuid-url="{% url 'topics_detail_redirect' topic_uuid=topic.uuid username=topic.created_by.username %}"
+    >
 
         <h3 class="fs-5 d-flex align-items-center">
 

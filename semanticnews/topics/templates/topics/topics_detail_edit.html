@@ -17,6 +17,8 @@
         data-topic-uuid="{{ topic.uuid }}"
         data-topic-slug="{{ topic.slug|default:'' }}"
         data-topic-title="{{ topic.title|default_if_none:'' }}"
+        data-topic-detail-url="{{ topic.get_absolute_url }}"
+        data-topic-detail-uuid-url="{% url 'topics_detail_redirect' topic_uuid=topic.uuid username=topic.created_by.username %}"
     >
 
         <h3 class="fs-5 d-flex align-items-center">

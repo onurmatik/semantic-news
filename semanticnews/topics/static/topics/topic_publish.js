@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const topicEl = document.querySelector('[data-topic-uuid]');
   if (!topicEl) return;
   const topicUuid = topicEl.dataset.topicUuid;
+  const topicDetailUrl = topicEl.dataset.topicDetailUuidUrl || topicEl.dataset.topicDetailUrl;
 
   const errorEl = document.getElementById('publishTopicError');
 
@@ -70,6 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) {
           const detail = (data && (data.detail || data.message)) || 'Unable to update the topic status. Please try again.';
           throw new Error(detail);
+        }
+
+        if (status === 'published' && topicDetailUrl) {
+          window.location.href = topicDetailUrl;
+          return;
         }
 
         window.location.reload();
