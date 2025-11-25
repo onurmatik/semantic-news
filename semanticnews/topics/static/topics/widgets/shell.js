@@ -331,13 +331,15 @@
       return null;
     }
 
-    const deleteModalEl = document.getElementById('confirmDeleteParagraphModal');
+    const deleteModalEl = document.getElementById('confirmDeleteWidgetModal');
     const deleteModal = deleteModalEl && window.bootstrap
       ? window.bootstrap.Modal.getOrCreateInstance(deleteModalEl)
       : null;
-    const deleteConfirmBtn = document.getElementById('confirmDeleteParagraphBtn');
-    const deleteSpinner = document.getElementById('confirmDeleteParagraphSpinner');
-    const pendingDelete = { entry: null, sectionId: null };
+    const deleteConfirmBtn = document.getElementById('confirmDeleteWidgetBtn');
+    const deleteSpinner = document.getElementById('confirmDeleteWidgetSpinner');
+    const deleteTitle = deleteModalEl ? deleteModalEl.querySelector('[data-widget-delete-title]') : null;
+    const deleteMessage = deleteModalEl ? deleteModalEl.querySelector('[data-widget-delete-message]') : null;
+    const pendingDelete = { entry: null, sectionId: null, label: 'section' };
 
     function getSectionId(widgetEl) {
       if (!widgetEl) {
@@ -581,6 +583,24 @@
       }
     }
 
+    function getDeleteLabel(button) {
+      if (!button) {
+        return 'section';
+      }
+      const label = (button.dataset && button.dataset.widgetDeleteLabel) || 'section';
+      return label.trim() || 'section';
+    }
+
+    function updateDeleteModalText(label) {
+      const normalizedLabel = label || 'section';
+      if (deleteTitle) {
+        deleteTitle.textContent = `Delete ${normalizedLabel}`;
+      }
+      if (deleteMessage) {
+        deleteMessage.textContent = `Are you sure you want to delete this ${normalizedLabel}?`;
+      }
+    }
+
     function onDeleteClick(button) {
       if (!button || !element.contains(button)) {
         return;
@@ -590,8 +610,13 @@
       const widgetEl = entry ? entry.querySelector('[data-topic-widget]') : null;
       const sectionId = getSectionId(widgetEl);
 
+      const deleteLabel = getDeleteLabel(button);
+
       pendingDelete.entry = entry;
       pendingDelete.sectionId = sectionId;
+      pendingDelete.label = deleteLabel;
+
+      updateDeleteModalText(deleteLabel);
 
       if (deleteConfirmBtn) {
         deleteConfirmBtn.dataset.sectionId = sectionId != null ? String(sectionId) : '';
@@ -605,6 +630,7 @@
     function resetDeleteState() {
       pendingDelete.entry = null;
       pendingDelete.sectionId = null;
+      pendingDelete.label = 'section';
       if (deleteConfirmBtn) {
         deleteConfirmBtn.disabled = false;
         deleteConfirmBtn.removeAttribute('aria-busy');
@@ -624,11 +650,11 @@
         return;
       }
 
-      const { entry, sectionId } = pendingDelete;
+      const { entry, sectionId, label } = pendingDelete;
       const statusEl = entry.querySelector('[data-widget-validation]');
 
       if (statusEl) {
-        setValidationState(statusEl, 'Deleting paragraph…', 'info');
+        setValidationState(statusEl, `Deleting ${label}…`, 'info');
       }
 
       const finish = () => {
@@ -668,7 +694,7 @@
           // eslint-disable-next-line no-console
           console.error('[TopicWidgets][Shell] Failed to delete section', error);
           if (statusEl) {
-            setValidationState(statusEl, 'Unable to delete paragraph', 'danger');
+            setValidationState(statusEl, `Unable to delete ${label}`, 'danger');
           }
         })
         .finally(() => {

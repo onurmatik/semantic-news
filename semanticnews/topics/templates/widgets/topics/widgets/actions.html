@@ -17,16 +17,23 @@
             </button>
         {% endwith %}
     {% endfor %}
-    {% if widget.name == "paragraph" %}
+    {% if widget.name == "paragraph" or widget.name == "image" %}
+        {% if widget.name == "image" %}
+            {% trans "image" as delete_target %}
+        {% else %}
+            {% trans "paragraph" as delete_target %}
+        {% endif %}
+        {% blocktrans asvar delete_label with target=delete_target %}Delete {{ target }}{% endblocktrans %}
         <button
             type="button"
             class="btn btn-outline-danger btn-sm"
             data-widget-delete-section-id="{{ section.id|default_if_none:'' }}"
-            title="{% trans "Delete paragraph" %}"
-            aria-label="{% trans "Delete paragraph" %}"
+            data-widget-delete-label="{{ delete_target }}"
+            title="{{ delete_label }}"
+            aria-label="{{ delete_label }}"
         >
             <i class="bi bi-trash" aria-hidden="true"></i>
-            <span class="visually-hidden">{% trans "Delete paragraph" %}</span>
+            <span class="visually-hidden">{{ delete_label }}</span>
         </button>
     {% endif %}
 {% endif %}
