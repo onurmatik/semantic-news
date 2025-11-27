@@ -1,6 +1,15 @@
 {% load i18n %}
 <div class="topic-widget-form" data-widget-form="paragraph">
     <div class="mb-3">
+        <div class="border rounded bg-body-secondary-subtle p-3" data-widget-paragraph-preview>
+            {% if content.text %}
+                <p class="mb-0">{{ content.text|default_if_none:''|linebreaksbr }}</p>
+            {% else %}
+                <p class="text-muted mb-0">{% trans "Paragraph preview will appear here." %}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="mb-3">
         <label class="form-label" for="widget-paragraph-text">{% trans "Paragraph" %}</label>
         <textarea
             id="widget-paragraph-text"
@@ -8,6 +17,7 @@
             name="text"
             rows="6"
             placeholder="{% trans 'Write your paragraph…' %}"
+            {% if section.id %}readonly aria-readonly="true"{% endif %}
         >{{ content.text|default_if_none:'' }}</textarea>
         <div class="form-text text-muted">
             {% blocktrans %}This text will appear in the published topic and in editor previews.{% endblocktrans %}

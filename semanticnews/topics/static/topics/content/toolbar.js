@@ -183,6 +183,24 @@
             button.appendChild(srText);
           }
 
+          const normalizedKey = (widget.key || '').toLowerCase();
+          const normalizedAction = actionIdentifier.toLowerCase();
+          if (normalizedKey === 'paragraph') {
+            if (normalizedAction === 'generate') {
+              button.dataset.widgetVisibility = 'draft';
+            } else if (normalizedAction === 'summarize' || normalizedAction === 'expand') {
+              button.dataset.widgetVisibility = 'saved-with-text';
+              button.classList.add('d-none');
+            }
+          } else if (normalizedKey === 'image') {
+            if (normalizedAction === 'generate') {
+              button.dataset.widgetVisibility = 'needs-image';
+            } else if (normalizedAction === 'variate') {
+              button.dataset.widgetVisibility = 'saved-with-image';
+              button.classList.add('d-none');
+            }
+          }
+
           buttons.push(button);
         });
         return buttons;
@@ -198,6 +216,8 @@
       closeBtn.className = 'btn btn-outline-secondary btn-sm';
       closeBtn.title = 'Close editor';
       closeBtn.setAttribute('aria-label', 'Close editor');
+      closeBtn.dataset.widgetVisibility = 'draft';
+      closeBtn.dataset.widgetClose = 'true';
 
       const closeIcon = document.createElement('i');
       closeIcon.className = 'bi bi-x';
@@ -215,6 +235,27 @@
       });
 
       actions.appendChild(closeBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-outline-danger btn-sm d-none';
+      deleteBtn.dataset.widgetDeleteSectionId = '';
+      deleteBtn.dataset.widgetVisibility = 'saved';
+      deleteBtn.dataset.widgetDeleteLabel = widget.key === 'image' ? 'image' : 'paragraph';
+      deleteBtn.title = `Delete ${deleteBtn.dataset.widgetDeleteLabel}`;
+      deleteBtn.setAttribute('aria-label', deleteBtn.title);
+
+      const deleteIcon = document.createElement('i');
+      deleteIcon.className = 'bi bi-trash';
+      deleteIcon.setAttribute('aria-hidden', 'true');
+      deleteBtn.appendChild(deleteIcon);
+
+      const deleteText = document.createElement('span');
+      deleteText.className = 'visually-hidden';
+      deleteText.textContent = deleteBtn.title;
+      deleteBtn.appendChild(deleteText);
+
+      actions.appendChild(deleteBtn);
     }
 
     entry.appendChild(fragment);

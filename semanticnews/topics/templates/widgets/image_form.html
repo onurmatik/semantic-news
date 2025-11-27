@@ -1,6 +1,23 @@
 {% load i18n %}
 <div class="topic-widget-form" data-widget-form="image">
     <div class="mb-3">
+        <div
+            class="border rounded bg-body-secondary-subtle p-3 text-center"
+            data-widget-image-preview
+        >
+            {% with image_src=content.image_url %}
+                {% if image_src %}
+                    <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
+                {% else %}
+                    <div class="d-inline-flex flex-column align-items-center gap-2 text-muted">
+                        <i class="bi bi-image fs-1" aria-hidden="true"></i>
+                        <span>{% trans "Image preview will appear here." %}</span>
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+    <div class="mb-3">
         <label class="form-label" for="widget-image-prompt">{% trans "Image prompt" %}</label>
         <textarea
             id="widget-image-prompt"
@@ -26,14 +43,5 @@
         <div class="form-text text-muted">
             {% blocktrans %}Provide an existing image URL to use in previews or leave blank to generate a new image.{% endblocktrans %}
         </div>
-    </div>
-    <div class="text-center" data-widget-image-preview>
-        {% with image_src=content.image_url %}
-            {% if image_src %}
-                <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
-            {% else %}
-                <p class="text-muted mb-0">{% trans "No preview available yet." %}</p>
-            {% endif %}
-        {% endwith %}
     </div>
 </div>

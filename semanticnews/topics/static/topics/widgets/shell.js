@@ -18,7 +18,7 @@
     return name.replace(/["\\]/g, '\\$&');
   }
 
-    function syncRichTextField(field, value) {
+  function syncRichTextField(field, value) {
     if (!field || !field._easyMDE || typeof field._easyMDE.value !== 'function') {
       return;
     }
@@ -70,6 +70,22 @@
     });
   }
 
+  function createImagePlaceholder() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-inline-flex flex-column align-items-center gap-2 text-muted';
+
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-image fs-1';
+    icon.setAttribute('aria-hidden', 'true');
+    wrapper.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = 'Image preview will appear here.';
+    wrapper.appendChild(label);
+
+    return wrapper;
+  }
+
   function updateImagePreview(container, imageUrl) {
     if (!container) {
       return;
@@ -87,9 +103,30 @@
       preview.appendChild(img);
       return;
     }
+    const placeholder = createImagePlaceholder();
+    preview.appendChild(placeholder);
+  }
+
+  function updateParagraphPreview(container, text) {
+    if (!container) {
+      return;
+    }
+    const preview = container.querySelector('[data-widget-paragraph-preview]');
+    if (!preview) {
+      return;
+    }
+    const resolved = typeof text === 'string' ? text.trim() : '';
+    preview.innerHTML = '';
+    if (resolved) {
+      const paragraph = document.createElement('p');
+      paragraph.className = 'mb-0';
+      paragraph.textContent = resolved;
+      preview.appendChild(paragraph);
+      return;
+    }
     const placeholder = document.createElement('p');
     placeholder.className = 'text-muted mb-0';
-    placeholder.textContent = 'No preview available yet.';
+    placeholder.textContent = 'Paragraph preview will appear here.';
     preview.appendChild(placeholder);
   }
 
@@ -162,6 +199,8 @@
     const resolvedKey = widgetKey || widgetEl.dataset.topicWidgetKey || '';
     if (resolvedKey === 'image') {
       updateImagePreview(contentContainer, normalizedContent.image_url || normalizedContent.imageUrl || '');
+    } else if (resolvedKey === 'paragraph') {
+      updateParagraphPreview(contentContainer, normalizedContent.text || '');
     }
   }
 
@@ -353,6 +392,88 @@
       return Number.isNaN(parsed) ? null : parsed;
     }
 
+    function evaluateWidgetState(widgetEl) {
+      const sectionId = getSectionId(widgetEl);
+      const widgetKey = widgetEl && widgetEl.dataset && widgetEl.dataset.topicWidgetKey
+        ? widgetEl.dataset.topicWidgetKey.toLowerCase()
+        : '';
+      const contentContainer = widgetEl ? widgetEl.querySelector('[data-widget-editor-content]') : null;
+
+      const findField = (name) => (contentContainer
+        ? contentContainer.querySelector(`[name="${name}"]`)
+        : null);
+      const imageField = findField('image_url') || findField('url');
+      const imageValue = imageField ? getFieldValue(imageField) : '';
+      const textField = findField('text');
+      const textValue = textField ? getFieldValue(textField) : '';
+
+      return {
+        widgetKey,
+        sectionId,
+        hasImage: typeof imageValue === 'string' ? imageValue.trim().length > 0 : false,
+        hasText: typeof textValue === 'string' ? textValue.trim().length > 0 : false,
+      };
+    }
+
+    function updateActionVisibility(widgetEl) {
+      if (!widgetEl) {
+        return;
+      }
+      const state = evaluateWidgetState(widgetEl);
+      const {
+        sectionId,
+        hasImage,
+        hasText,
+        widgetKey,
+      } = state;
+
+      const controls = widgetEl.querySelectorAll(
+        '[data-widget-action],[data-widget-action-id],[data-widget-action-name],'
+        + '[data-widget-delete-section-id],[data-widget-close]',
+      );
+
+      controls.forEach((button) => {
+        if (!button || !button.classList) {
+          return;
+        }
+        const visibility = (button.dataset.widgetVisibility || 'always').toLowerCase();
+        let shouldShow = true;
+        switch (visibility) {
+          case 'draft':
+            shouldShow = !sectionId;
+            break;
+          case 'saved':
+            shouldShow = Boolean(sectionId);
+            break;
+          case 'needs-image':
+            shouldShow = !hasImage;
+            break;
+          case 'saved-with-image':
+            shouldShow = Boolean(sectionId && hasImage);
+            break;
+          case 'saved-with-text':
+            shouldShow = Boolean(sectionId && hasText);
+            break;
+          default:
+            shouldShow = true;
+            break;
+        }
+        button.classList.toggle('d-none', !shouldShow);
+
+        if (button.dataset.widgetDeleteSectionId !== undefined && sectionId) {
+          button.dataset.widgetDeleteSectionId = sectionId;
+        }
+      });
+
+      if (widgetKey === 'paragraph') {
+        const textField = widgetEl.querySelector('[name="text"]');
+        if (textField && sectionId) {
+          textField.setAttribute('readonly', 'true');
+          textField.setAttribute('aria-readonly', 'true');
+        }
+      }
+    }
+
     function performDeleteRequest(sectionId) {
       return fetch(`/api/topics/widgets/sections/${sectionId}`, {
         method: 'DELETE',
@@ -456,13 +577,15 @@
         }
 
         const { status, content, error_message: errorMessage, section_id: responseSectionId } = snapshot;
-        if (responseSectionId && state.context && state.context.widgetEl && !state.context.widgetEl.dataset.widgetSectionId) {
-          state.context.widgetEl.dataset.widgetSectionId = responseSectionId;
-        }
+          if (responseSectionId && state.context && state.context.widgetEl && !state.context.widgetEl.dataset.widgetSectionId) {
+            state.context.widgetEl.dataset.widgetSectionId = responseSectionId;
+            updateActionVisibility(state.context.widgetEl);
+          }
 
-        if (content && state.context.widgetEl) {
-          updateWidgetContent(state.context.widgetEl, content, state.context.widgetKey);
-        }
+          if (content && state.context.widgetEl) {
+            updateWidgetContent(state.context.widgetEl, content, state.context.widgetKey);
+            updateActionVisibility(state.context.widgetEl);
+          }
 
         if (status === 'finished' || (!status && content)) {
           if (state.context.statusEl) {
@@ -569,11 +692,12 @@
         if (!response.ok) {
           throw new Error(`Error ${response.status}`);
         }
-        const payload = await response.json();
-        widgetEl.dataset.widgetSectionId = payload.section_id;
-        if (statusEl) {
-          setValidationState(statusEl, 'Action queued', 'success');
-        }
+          const payload = await response.json();
+          widgetEl.dataset.widgetSectionId = payload.section_id;
+          updateActionVisibility(widgetEl);
+          if (statusEl) {
+            setValidationState(statusEl, 'Action queued', 'success');
+          }
         startPolling(payload.section_id, { widgetEl, statusEl, widgetKey });
       } catch (error) {
         console.error(error);
@@ -591,11 +715,11 @@
       return label.trim() || 'section';
     }
 
-    function updateDeleteModalText(label) {
-      const normalizedLabel = label || 'section';
-      if (deleteTitle) {
-        deleteTitle.textContent = `Delete ${normalizedLabel}`;
-      }
+      function updateDeleteModalText(label) {
+        const normalizedLabel = label || 'section';
+        if (deleteTitle) {
+          deleteTitle.textContent = `Delete ${normalizedLabel}`;
+        }
       if (deleteMessage) {
         deleteMessage.textContent = `Are you sure you want to delete this ${normalizedLabel}?`;
       }
@@ -664,22 +788,22 @@
         }
       };
 
-      if (deleteConfirmBtn) {
-        deleteConfirmBtn.disabled = true;
-        deleteConfirmBtn.setAttribute('aria-busy', 'true');
-      }
-      if (deleteSpinner) {
-        deleteSpinner.classList.remove('d-none');
-      }
-
-      if (!sectionId) {
-        entry.remove();
-        if (statusEl) {
-          clearValidation(statusEl);
+        if (deleteConfirmBtn) {
+          deleteConfirmBtn.disabled = true;
+          deleteConfirmBtn.setAttribute('aria-busy', 'true');
         }
-        finish();
-        return;
-      }
+        if (deleteSpinner) {
+          deleteSpinner.classList.remove('d-none');
+        }
+
+        if (!sectionId) {
+          entry.remove();
+          if (statusEl) {
+            clearValidation(statusEl);
+          }
+          finish();
+          return;
+        }
 
       performDeleteRequest(sectionId)
         .then(() => {
@@ -697,31 +821,77 @@
             setValidationState(statusEl, `Unable to delete ${label}`, 'danger');
           }
         })
-        .finally(() => {
-          finish();
-        });
-    }
-
-    console.log('[TopicWidgets][Shell] Attaching delegated event listener to document.');
-    document.addEventListener('click', (evt) => {
-      const button = evt.target.closest('[data-widget-action],[data-widget-action-id],[data-widget-action-name]');
-      if (button && element.contains(button)) {
-        onActionClick(button);
+          .finally(() => {
+            finish();
+          });
       }
-    }, { capture: true });
 
-    document.addEventListener('click', (evt) => {
-      const deleteButton = evt.target.closest('[data-widget-delete-section-id]');
-      if (deleteButton && element.contains(deleteButton)) {
-        evt.preventDefault();
-        onDeleteClick(deleteButton);
-      }
-    }, { capture: true });
+      element.querySelectorAll('[data-topic-widget]').forEach((widgetNode) => {
+        updateActionVisibility(widgetNode);
+      });
 
-    if (deleteConfirmBtn) {
-      deleteConfirmBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        handleConfirmedDelete();
+      element.addEventListener('widget-editor:init', (event) => {
+        const widgetEl = event.detail && event.detail.element ? event.detail.element : null;
+        if (!widgetEl || !element.contains(widgetEl)) {
+          return;
+        }
+        const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
+        const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
+        if (widgetKey === 'image' && contentContainer) {
+          const imageField = contentContainer.querySelector('[name="image_url"]')
+            || contentContainer.querySelector('[name="url"]');
+          const value = imageField ? getFieldValue(imageField) : '';
+          updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
+        } else if (widgetKey === 'paragraph' && contentContainer) {
+          const textField = contentContainer.querySelector('[name="text"]');
+          const value = textField ? getFieldValue(textField) : '';
+          updateParagraphPreview(contentContainer, typeof value === 'string' ? value : '');
+        }
+        updateActionVisibility(widgetEl);
+      });
+
+      element.addEventListener('input', (event) => {
+        const widgetEl = event.target && typeof event.target.closest === 'function'
+          ? event.target.closest('[data-topic-widget]')
+          : null;
+        if (!widgetEl || !element.contains(widgetEl)) {
+          return;
+        }
+        const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
+        const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
+        if (widgetKey === 'image' && contentContainer) {
+          const imageField = contentContainer.querySelector('[name="image_url"]')
+            || contentContainer.querySelector('[name="url"]');
+          const value = imageField ? getFieldValue(imageField) : '';
+          updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
+        } else if (widgetKey === 'paragraph' && contentContainer) {
+          const textField = contentContainer.querySelector('[name="text"]');
+          const value = textField ? getFieldValue(textField) : '';
+          updateParagraphPreview(contentContainer, typeof value === 'string' ? value : '');
+        }
+        updateActionVisibility(widgetEl);
+      });
+
+      console.log('[TopicWidgets][Shell] Attaching delegated event listener to document.');
+      document.addEventListener('click', (evt) => {
+        const button = evt.target.closest('[data-widget-action],[data-widget-action-id],[data-widget-action-name]');
+        if (button && element.contains(button)) {
+          onActionClick(button);
+        }
+      }, { capture: true });
+
+      document.addEventListener('click', (evt) => {
+        const deleteButton = evt.target.closest('[data-widget-delete-section-id]');
+        if (deleteButton && element.contains(deleteButton)) {
+          evt.preventDefault();
+          onDeleteClick(deleteButton);
+        }
+      }, { capture: true });
+
+      if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          handleConfirmedDelete();
       });
     }
 
