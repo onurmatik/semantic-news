@@ -131,7 +131,35 @@
     if (actions) {
       const createActionButtons = () => {
         const buttons = [];
-        const availableActions = Array.isArray(widget.actions) ? widget.actions : [];
+       const availableActions = Array.isArray(widget.actions) ? [...widget.actions] : [];
+
+        const appendDefaultParagraphActions = () => {
+          const normalizedKey = (widget.key || '').toLowerCase();
+          if (normalizedKey !== 'paragraph') {
+            return;
+          }
+
+          const existingActions = new Set(
+            availableActions
+              .map((action) => action && (action.id || action.name))
+              .filter(Boolean)
+              .map((identifier) => String(identifier).trim().toLowerCase()),
+          );
+
+          [
+            { id: 'summarize', name: 'summarize', icon: 'bi bi-arrow-down-short' },
+            { id: 'expand', name: 'expand', icon: 'bi bi-arrow-up-short' },
+          ].forEach((fallback) => {
+            const identifier = (fallback.id || fallback.name || '').trim().toLowerCase();
+            if (!identifier || existingActions.has(identifier)) {
+              return;
+            }
+            availableActions.push(fallback);
+            existingActions.add(identifier);
+          });
+        };
+
+        appendDefaultParagraphActions();
         availableActions.forEach((action) => {
           if (!action) {
             return;
