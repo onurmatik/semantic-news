@@ -41,7 +41,7 @@ class GenerateAction(WidgetAction):
         )
 
         if instructions:
-            prompt_parts.append("Follow these user instructions:\n" + instructions)
+            prompt_parts.append("Follow these user instructions only in context of the topic:\n" + instructions)
 
         return "\n\n".join(filter(None, prompt_parts))
 

@@ -22,7 +22,7 @@
                                     {% endif %}
                                 </button>
                             {% endwith %}
-                        {% elif action_key == 'summarize' or action_key == 'expand' %}
+                        {% else %}
                             <button
                                 type="button"
                                 class="btn btn-outline-primary btn-sm {% if not is_saved or not has_text %}d-none{% endif %}"

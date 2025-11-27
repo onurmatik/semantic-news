@@ -436,6 +436,7 @@
         if (!button || !button.classList) {
           return;
         }
+        const isForceHidden = button.dataset.widgetForceHidden === 'true';
         const visibility = (button.dataset.widgetVisibility || 'always').toLowerCase();
         let shouldShow = true;
         switch (visibility) {
@@ -458,7 +459,7 @@
             shouldShow = true;
             break;
         }
-        button.classList.toggle('d-none', !shouldShow);
+        button.classList.toggle('d-none', !shouldShow || isForceHidden);
 
         if (button.dataset.widgetDeleteSectionId !== undefined && sectionId) {
           button.dataset.widgetDeleteSectionId = sectionId;
@@ -500,6 +501,27 @@
         || dataset.widgetAction
         || dataset.widgetActionId
         || null;
+    }
+
+    function hideActionButton(widgetEl, actionId) {
+      if (!widgetEl || !actionId) {
+        return;
+      }
+      const normalizedAction = String(actionId).toLowerCase();
+      const buttons = widgetEl.querySelectorAll(
+        '[data-widget-action],[data-widget-action-id],[data-widget-action-name]',
+      );
+      buttons.forEach((btn) => {
+        const identifier = resolveActionIdentifier(btn);
+        if (!identifier) {
+          return;
+        }
+        if (String(identifier).toLowerCase() !== normalizedAction) {
+          return;
+        }
+        btn.dataset.widgetForceHidden = 'true';
+        btn.classList.add('d-none');
+      });
     }
 
     function stopPolling(sectionId) {
@@ -590,6 +612,14 @@
         if (status === 'finished' || (!status && content)) {
           if (state.context.statusEl) {
             setValidationState(state.context.statusEl, 'Action completed', 'success');
+          }
+          if (state.context) {
+            const { widgetEl, widgetKey, actionId } = state.context;
+            const normalizedWidgetKey = (widgetKey || '').toLowerCase();
+            const normalizedActionId = actionId != null ? String(actionId).toLowerCase() : '';
+            if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+              hideActionButton(widgetEl, actionId);
+            }
           }
           finish();
           return;
@@ -698,7 +728,7 @@
           if (statusEl) {
             setValidationState(statusEl, 'Action queued', 'success');
           }
-        startPolling(payload.section_id, { widgetEl, statusEl, widgetKey });
+        startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
       } catch (error) {
         console.error(error);
         if (statusEl) {
