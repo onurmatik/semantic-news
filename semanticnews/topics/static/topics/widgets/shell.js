@@ -432,6 +432,8 @@
         + '[data-widget-delete-section-id],[data-widget-close]',
       );
 
+      const isParagraph = widgetKey === 'paragraph';
+
       controls.forEach((button) => {
         if (!button || !button.classList) {
           return;
@@ -460,6 +462,13 @@
             break;
         }
         button.classList.toggle('d-none', !shouldShow || isForceHidden);
+
+        if (isParagraph && !sectionId) {
+          const actionName = (resolveActionIdentifier(button) || '').toLowerCase();
+          if (actionName !== 'generate') {
+            shouldShow = false;
+          }
+        }
 
         if (button.dataset.widgetDeleteSectionId !== undefined && sectionId) {
           button.dataset.widgetDeleteSectionId = sectionId;

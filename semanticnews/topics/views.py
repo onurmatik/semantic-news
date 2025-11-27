@@ -284,7 +284,15 @@ def _build_topic_page_context(topic, user=None, *, edit_mode=False, include_unpu
                 identifier = getattr(widget, "id", None)
                 key = f"widget-{identifier or len(catalog) + 1}"
             actions = []
-            for index, action in enumerate(widget.get_actions(), start=1):
+            available_actions = widget.get_actions()
+            if (widget.name or "").lower() == "paragraph":
+                available_actions = [
+                    action
+                    for action in available_actions
+                    if (getattr(action, "name", "") or "").lower() == "generate"
+                ]
+
+            for index, action in enumerate(available_actions, start=1):
                 name = getattr(action, "name", "") or ""
                 identifier = getattr(action, "id", None)
                 if identifier is None:
