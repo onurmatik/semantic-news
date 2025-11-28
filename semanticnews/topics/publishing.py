@@ -136,7 +136,7 @@ def _publish_recaps(topic: Topic, published_at) -> Optional[TopicRecap]:
 
 def _publish_sections(topic: Topic, published_at) -> List[TopicSection]:
     queryset = (
-        topic.sections.filter(is_deleted=False)
+        topic.sections.filter(is_deleted=False, is_draft_deleted=False)
         .select_related("draft_content", "published_content")
         .order_by("display_order", "id")
     )
@@ -236,6 +236,9 @@ def publish_topic(topic: Topic, user=None) -> TopicPublication:
 
     _publish_title(topic, published_at)
     published_recap = _publish_recaps(topic, published_at)
+    topic.sections.filter(is_draft_deleted=True).update(
+        is_deleted=True, is_draft_deleted=False
+    )
     sections = _publish_sections(topic, published_at)
     # _publish_related_topics(topic, user, published_at)
 

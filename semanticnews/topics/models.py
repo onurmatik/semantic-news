@@ -280,8 +280,11 @@ class Topic(models.Model):
         """Return an ordered list of published, non-deleted sections."""
 
         return [
-            s for s in self.sections_ordered
-            if not s.is_deleted and s.published_at is not None
+            s
+            for s in self.sections_ordered
+            if not s.is_deleted
+            and not s.is_draft_deleted
+            and s.published_at is not None
         ]
 
     @cached_property
@@ -694,7 +697,7 @@ class TopicSectionQuerySet(models.QuerySet):
     def active(self):
         """Return sections that have not been soft deleted."""
 
-        return self.filter(is_deleted=False)
+        return self.filter(is_deleted=False, is_draft_deleted=False)
 
     def published(self):
         """Return sections that have been published."""
@@ -732,6 +735,7 @@ class TopicSection(models.Model):
 
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_deleted = models.BooleanField(default=False)
+    is_draft_deleted = models.BooleanField(default=False)
     language_code = models.CharField(max_length=12, blank=True, null=True, db_index=True)
 
     objects = TopicSectionQuerySet.as_manager()

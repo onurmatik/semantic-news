@@ -278,9 +278,9 @@ def delete_widget_section(request, section_id: int):
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
-    if not section.is_deleted:
-        section.is_deleted = True
-        section.save(update_fields=["is_deleted"])
+    if not section.is_draft_deleted:
+        section.is_draft_deleted = True
+        section.save(update_fields=["is_draft_deleted"])
 
     return WidgetSectionDeleteResponse(success=True)
 
