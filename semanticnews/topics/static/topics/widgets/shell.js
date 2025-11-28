@@ -484,6 +484,30 @@
       }
     }
 
+    function setWidgetButtonsDisabled(widgetEl, disabled) {
+      if (!widgetEl) {
+        return;
+      }
+
+      const buttons = widgetEl.querySelectorAll(
+        '[data-widget-action],[data-widget-action-id],[data-widget-action-name],[data-widget-delete-section-id]',
+      );
+
+      buttons.forEach((btn) => {
+        if (!btn) return;
+        // Only act on visible buttons
+        if (btn.classList.contains('d-none')) {
+          return;
+        }
+        btn.disabled = disabled;
+        if (disabled) {
+          btn.setAttribute('aria-disabled', 'true');
+        } else {
+          btn.removeAttribute('aria-disabled');
+        }
+      });
+    }
+
     function performDeleteRequest(sectionId) {
       return fetch(`/api/topics/widgets/sections/${sectionId}`, {
         method: 'DELETE',
@@ -622,14 +646,29 @@
           if (state.context.statusEl) {
             setValidationState(state.context.statusEl, 'Action completed', 'success');
           }
+
           if (state.context) {
             const { widgetEl, widgetKey, actionId } = state.context;
             const normalizedWidgetKey = (widgetKey || '').toLowerCase();
             const normalizedActionId = actionId != null ? String(actionId).toLowerCase() : '';
+
+            if (widgetEl) {
+              setWidgetButtonsDisabled(widgetEl, false);
+            }
+
             if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
-              hideActionButton(widgetEl, actionId);
+              if (widgetEl) {
+                hideActionButton(widgetEl, actionId);
+                const instructionField = widgetEl.querySelector('[name="instructions"]');
+                if (instructionField) {
+                  setFieldValue(instructionField, '');
+                  instructionField.dispatchEvent(new Event('input', { bubbles: true }));
+                  instructionField.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+              }
             }
           }
+
           finish();
           return;
         }
@@ -637,6 +676,9 @@
         if (status === 'failed' || status === 'error') {
           if (state.context.statusEl) {
             setValidationState(state.context.statusEl, errorMessage || 'Unable to complete action', 'danger');
+          }
+          if (state.context && state.context.widgetEl) {
+            setWidgetButtonsDisabled(state.context.widgetEl, false);
           }
           finish();
           return;
@@ -649,6 +691,9 @@
         if (state.attempts >= MAX_POLL_ATTEMPTS) {
           if (state.context.statusEl) {
             setValidationState(state.context.statusEl, 'Timed out while waiting for action', 'warning');
+          }
+          if (state.context && state.context.widgetEl) {
+            setWidgetButtonsDisabled(state.context.widgetEl, false);
           }
           finish();
           return;
@@ -684,6 +729,9 @@
         || (entryEl && entryEl.dataset.topicWidgetKey)
         || definition.key;
 
+      const normalizedWidgetKey = (widgetKey || '').toLowerCase();
+      const normalizedActionId = (actionId || '').toLowerCase();
+
       console.log('[TopicWidgets][Shell] Action clicked', {
         topicUuid,
         widget_name: widgetKey,
@@ -695,11 +743,12 @@
         setValidationState(statusEl, 'Queuing action…', 'info');
       }
 
+      if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+        setWidgetButtonsDisabled(widgetEl, true);
+      }
+
       try {
         let contextPayload = serializeWidgetContext(widgetEl);
-
-        const normalizedWidgetKey = (widgetKey || '').toLowerCase();
-        const normalizedActionId = (actionId || '').toLowerCase();
 
         if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
           contextPayload = collectParagraphGenerationContext(widgetEl, contextPayload);
@@ -731,17 +780,20 @@
         if (!response.ok) {
           throw new Error(`Error ${response.status}`);
         }
-          const payload = await response.json();
-          widgetEl.dataset.widgetSectionId = payload.section_id;
-          updateActionVisibility(widgetEl);
-          if (statusEl) {
-            setValidationState(statusEl, 'Action queued', 'success');
-          }
+        const payload = await response.json();
+        widgetEl.dataset.widgetSectionId = payload.section_id;
+        updateActionVisibility(widgetEl);
+        if (statusEl) {
+          setValidationState(statusEl, 'Action queued', 'success');
+        }
         startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
       } catch (error) {
         console.error(error);
         if (statusEl) {
           setValidationState(statusEl, 'Unable to queue action', 'danger');
+        }
+        if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+          setWidgetButtonsDisabled(widgetEl, false);
         }
       }
     }

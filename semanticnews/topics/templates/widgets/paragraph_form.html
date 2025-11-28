@@ -24,11 +24,11 @@
             id="widget-paragraph-instructions"
             class="form-control"
             name="instructions"
-            rows="3"
-            placeholder="{% trans 'Guidance for the AI generator (tone, details, constraints)…' %}"
+            rows="4"
+            placeholder="{% trans 'Describe the paragraph you want to generate (tone, details, constraints)…' %}"
         >{{ content.instructions|default_if_none:'' }}</textarea>
         <div class="form-text text-muted">
-            {% blocktrans %}Optional guidance sent with the Generate action to tailor the paragraph.{% endblocktrans %}
+            {% blocktrans %}Optional instructions are sent to the model.{% endblocktrans %}
         </div>
     </div>
 </div>

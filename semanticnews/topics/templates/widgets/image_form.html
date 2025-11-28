@@ -27,7 +27,7 @@
             placeholder="{% trans 'Describe the image you want to generate…' %}"
         >{{ content.prompt|default_if_none:'' }}</textarea>
         <div class="form-text text-muted">
-            {% blocktrans %}The prompt guides the image generation model and is visible in previews.{% endblocktrans %}
+            {% blocktrans %}The prompt guides the image generation model.{% endblocktrans %}
         </div>
     </div>
     <div class="mb-3">
@@ -41,7 +41,7 @@
             placeholder="https://"
         />
         <div class="form-text text-muted">
-            {% blocktrans %}Provide an existing image URL to use in previews or leave blank to generate a new image.{% endblocktrans %}
+            {% blocktrans %}Provide an existing image URL or leave blank to generate a new image.{% endblocktrans %}
         </div>
     </div>
 </div>
