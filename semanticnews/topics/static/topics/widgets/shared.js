@@ -19,7 +19,8 @@
       'alert-success',
       'alert-danger',
       'alert-warning',
-      'alert-secondary'
+      'alert-secondary',
+      'alert-dismissible',
     ];
 
     wrapper.classList.remove('d-none');

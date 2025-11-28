@@ -856,7 +856,7 @@
         widgetEl.dataset.widgetSectionId = payload.section_id;
         updateActionVisibility(widgetEl);
         if (statusEl) {
-          setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'success');
+          setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'info');
         }
         startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
       } catch (error) {
