@@ -180,10 +180,14 @@
     const normalized = { ...content };
     const key = widgetKey || '';
 
-    if (key === 'paragraph' && typeof normalized.text !== 'string') {
-      const resultVal = normalized.result;
-      if (typeof resultVal === 'string' && resultVal.trim()) {
+    if (key === 'paragraph') {
+      const resultVal =
+        typeof normalized.result === 'string' ? normalized.result.trim() : '';
+
+      if (resultVal) {
         normalized.text = resultVal;
+      } else if (typeof normalized.text === 'string') {
+        normalized.text = normalized.text.trim();
       }
     }
 
@@ -208,11 +212,16 @@
       if (!normalized.image_url && typeof resultVal === 'string') {
         const cleaned = resultVal.trim();
         const lowerCleaned = cleaned.toLowerCase();
-        const isLikelyUrl = cleaned.startsWith('http://') || cleaned.startsWith('https://');
+        const isLikelyUrl =
+          cleaned.startsWith('http://') || cleaned.startsWith('https://');
         const isLikelyDataUrl = lowerCleaned.startsWith('data:image/');
         if (isLikelyUrl || isLikelyDataUrl) {
           normalized.image_url = cleaned;
-        } else if (/^[a-z0-9+/=\n\r]+$/i.test(cleaned) && !/\s/.test(cleaned) && cleaned.length >= 60) {
+        } else if (
+          /^[a-z0-9+/=\n\r]+$/i.test(cleaned) &&
+          !/\s/.test(cleaned) &&
+          cleaned.length >= 60
+        ) {
           try {
             window.atob(cleaned);
             normalized.image_url = `data:image/png;base64,${cleaned}`;
@@ -246,7 +255,7 @@
     }
   }
 
-    function appendValue(target, name, value) {
+  function appendValue(target, name, value) {
     if (Object.prototype.hasOwnProperty.call(target, name)) {
       const current = target[name];
       if (Array.isArray(current)) {
@@ -514,13 +523,6 @@
         }
         button.classList.toggle('d-none', !shouldShow || isForceHidden);
 
-        if (isParagraph && !sectionId) {
-          const actionName = (resolveActionIdentifier(button) || '').toLowerCase();
-          if (actionName !== 'generate') {
-            shouldShow = false;
-          }
-        }
-
         if (button.dataset.widgetDeleteSectionId !== undefined && sectionId) {
           button.dataset.widgetDeleteSectionId = sectionId;
         }
@@ -541,7 +543,7 @@
       }
 
       const buttons = widgetEl.querySelectorAll(
-        '[data-widget-action],[data-widget-action-id],[data-widget-action-name],[data-widget-delete-section-id]',
+          '[data-widget-action],[data-widget-action-id],[data-widget-action-name],[data-widget-delete-section-id]',
       );
 
       buttons.forEach((btn) => {
@@ -551,9 +553,9 @@
           btn.setAttribute('aria-disabled', 'true');
         } else {
           btn.removeAttribute('aria-disabled');
-          }
-        });
-      }
+        }
+      });
+    }
 
     function shouldDisableWidgetButtons(widgetKey, actionId) {
       const normalizedKey = (widgetKey || '').toLowerCase();
@@ -640,6 +642,7 @@
         timeoutId: null,
         context: options,
         stopped: false,
+        hasSeenNonFinishedStatus: false,
       };
       executionPollers.set(pollKey, state);
 
@@ -669,14 +672,17 @@
           return;
         }
         state.attempts += 1;
+
         let snapshot = null;
         try {
           snapshot = await fetchStatus();
         } catch (error) {
           console.error('[TopicWidgets][Shell] Failed to fetch widget section status', error);
         }
+
         const actionId = state.context ? state.context.actionId : null;
         const actionBanner = (phase) => resolveActionBanner(actionId, phase);
+
         if (!snapshot) {
           if (state.attempts >= MAX_POLL_ATTEMPTS) {
             if (state.context.statusEl) {
@@ -693,33 +699,48 @@
         }
 
         const { status, content, error_message: errorMessage, section_id: responseSectionId } = snapshot;
-          if (responseSectionId && state.context && state.context.widgetEl && !state.context.widgetEl.dataset.widgetSectionId) {
-            state.context.widgetEl.dataset.widgetSectionId = responseSectionId;
-            updateActionVisibility(state.context.widgetEl);
-          }
 
-          if (content && state.context.widgetEl) {
-            updateWidgetContent(state.context.widgetEl, content, state.context.widgetKey);
-            updateActionVisibility(state.context.widgetEl);
-          }
+        // Keep section id in sync if backend created/changed it
+        if (
+          responseSectionId &&
+          state.context &&
+          state.context.widgetEl &&
+          !state.context.widgetEl.dataset.widgetSectionId
+        ) {
+          state.context.widgetEl.dataset.widgetSectionId = responseSectionId;
+          updateActionVisibility(state.context.widgetEl);
+        }
 
-        if (status === 'finished' || (!status && content)) {
+        // Always apply the latest content if present
+        if (content && state.context.widgetEl) {
+          updateWidgetContent(state.context.widgetEl, content, state.context.widgetKey);
+          updateActionVisibility(state.context.widgetEl);
+        }
+
+        // Track whether we've seen a non-finished status for this execution
+        if (status && status !== 'finished') {
+          state.hasSeenNonFinishedStatus = true;
+        }
+
+        // SUCCESS: only when we have seen a non-finished status first
+        if (status === 'finished' && state.hasSeenNonFinishedStatus) {
           if (state.context.statusEl) {
             setValidationState(state.context.statusEl, actionBanner('success'), 'success');
           }
 
           if (state.context) {
-            const { widgetEl, widgetKey, actionId } = state.context;
+            const { widgetEl, widgetKey, actionId: currentActionId } = state.context;
             const normalizedWidgetKey = (widgetKey || '').toLowerCase();
-            const normalizedActionId = actionId != null ? String(actionId).toLowerCase() : '';
+            const normalizedActionId = currentActionId != null ? String(currentActionId).toLowerCase() : '';
 
             if (widgetEl) {
               setWidgetButtonsDisabled(widgetEl, false);
             }
 
+            // Special case: paragraph generate → hide button & clear instructions
             if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
               if (widgetEl) {
-                hideActionButton(widgetEl, actionId);
+                hideActionButton(widgetEl, currentActionId);
                 const instructionField = widgetEl.querySelector('[name="instructions"]');
                 if (instructionField) {
                   setFieldValue(instructionField, '');
@@ -734,6 +755,25 @@
           return;
         }
 
+        if (status === 'finished' && !state.hasSeenNonFinishedStatus) {
+          if (state.context.statusEl) {
+            setValidationState(state.context.statusEl, actionBanner('running'), 'info');
+          }
+          if (state.attempts >= MAX_POLL_ATTEMPTS) {
+            if (state.context && state.context.statusEl) {
+              setValidationState(state.context.statusEl, actionBanner('timeout'), 'warning');
+            }
+            if (state.context && state.context.widgetEl) {
+              setWidgetButtonsDisabled(state.context.widgetEl, false);
+            }
+            finish();
+            return;
+          }
+          scheduleNext();
+          return;
+        }
+
+        // FAILURE
         if (status === 'failed' || status === 'error') {
           if (state.context.statusEl) {
             const failureMessage = errorMessage || actionBanner('failure');
@@ -746,10 +786,14 @@
           return;
         }
 
-        if (status === 'running' && state.context.statusEl) {
-          setValidationState(state.context.statusEl, actionBanner('running'), 'info');
+        // RUNNING / QUEUED
+        if (status === 'running' || status === 'queued') {
+          if (state.context.statusEl) {
+            setValidationState(state.context.statusEl, actionBanner('running'), 'info');
+          }
         }
 
+        // TIMEOUT check
         if (state.attempts >= MAX_POLL_ATTEMPTS) {
           if (state.context && state.context.statusEl) {
             setValidationState(state.context.statusEl, actionBanner('timeout'), 'warning');
