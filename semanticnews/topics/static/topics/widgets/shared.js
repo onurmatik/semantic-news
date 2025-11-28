@@ -13,11 +13,42 @@
 
   function setValidationState(wrapper, message, variant) {
     if (!wrapper) return;
-    const classes = ['alert-info', 'alert-success', 'alert-danger', 'alert-warning', 'alert-secondary'];
+
+    const classes = [
+      'alert-info',
+      'alert-success',
+      'alert-danger',
+      'alert-warning',
+      'alert-secondary'
+    ];
+
     wrapper.classList.remove('d-none');
     wrapper.classList.remove(...classes);
     wrapper.classList.add(`alert-${variant || 'info'}`);
-    wrapper.textContent = message || '';
+
+    // Clear old content
+    wrapper.innerHTML = '';
+
+    // Add message span
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message || '';
+    wrapper.appendChild(textSpan);
+
+    // Add close button ONLY for success variant
+    if ((variant || '').toLowerCase() === 'success') {
+      wrapper.classList.add('alert-dismissible');
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'btn-close ms-2';
+      closeBtn.setAttribute('aria-label', 'Close');
+
+      closeBtn.addEventListener('click', () => {
+        clearValidation(wrapper);
+      });
+
+      wrapper.appendChild(closeBtn);
+    }
   }
 
   function clearValidation(wrapper) {

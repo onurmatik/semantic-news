@@ -51,6 +51,42 @@
     syncRichTextField(field, normalized);
   }
 
+  function resolveActionBanner(actionId, phase) {
+    const normalizedAction = (actionId || '').toLowerCase();
+    const normalizedPhase = (phase || '').toLowerCase();
+
+    const banners = {
+      summarize: {
+        queued: 'Summarizing paragraph…',
+        running: 'Summarizing paragraph…',
+        success: 'Paragraph summarized',
+        timeout: 'Timed out while summarizing paragraph',
+        failure: 'Unable to summarize paragraph',
+      },
+      expand: {
+        queued: 'Expanding paragraph…',
+        running: 'Expanding paragraph…',
+        success: 'Paragraph expanded',
+        timeout: 'Timed out while expanding paragraph',
+        failure: 'Unable to expand paragraph',
+      },
+      generate: {
+        queued: 'Generating paragraph…',
+        running: 'Generating paragraph…',
+        success: 'Paragraph generated',
+        timeout: 'Timed out while generating paragraph',
+        failure: 'Unable to generate paragraph',
+      },
+    };
+
+    const defaults = banners.generate;
+    return (
+      (banners[normalizedAction] && banners[normalizedAction][normalizedPhase])
+      || defaults[normalizedPhase]
+      || 'Action in progress'
+    );
+  }
+
   function updateFormFields(container, content) {
     if (!container || !content || typeof content !== 'object') {
       return;
@@ -305,6 +341,15 @@
     return context;
   }
 
+  function getParagraphInstructions(widgetEl) {
+    if (!widgetEl) {
+      return '';
+    }
+    const instructionField = widgetEl.querySelector('[name="instructions"]');
+    const value = instructionField ? getFieldValue(instructionField) : '';
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
   function serializeWidgetContext(widgetEl) {
     if (!widgetEl) {
       return {};
@@ -508,6 +553,15 @@
       });
     }
 
+    function shouldDisableWidgetButtons(widgetKey, actionId) {
+      const normalizedKey = (widgetKey || '').toLowerCase();
+      const normalizedAction = (actionId || '').toLowerCase();
+      if (normalizedKey !== 'paragraph') {
+        return false;
+      }
+      return ['generate', 'summarize', 'expand'].includes(normalizedAction);
+    }
+
     function performDeleteRequest(sectionId) {
       return fetch(`/api/topics/widgets/sections/${sectionId}`, {
         method: 'DELETE',
@@ -619,10 +673,15 @@
         } catch (error) {
           console.error('[TopicWidgets][Shell] Failed to fetch widget section status', error);
         }
+        const actionId = state.context ? state.context.actionId : null;
+        const actionBanner = (phase) => resolveActionBanner(actionId, phase);
         if (!snapshot) {
           if (state.attempts >= MAX_POLL_ATTEMPTS) {
             if (state.context.statusEl) {
-              setValidationState(state.context.statusEl, 'Timed out while waiting for action', 'warning');
+              setValidationState(state.context.statusEl, actionBanner('timeout'), 'warning');
+            }
+            if (state.context && state.context.widgetEl) {
+              setWidgetButtonsDisabled(state.context.widgetEl, false);
             }
             finish();
             return;
@@ -644,7 +703,7 @@
 
         if (status === 'finished' || (!status && content)) {
           if (state.context.statusEl) {
-            setValidationState(state.context.statusEl, 'Action completed', 'success');
+            setValidationState(state.context.statusEl, actionBanner('success'), 'success');
           }
 
           if (state.context) {
@@ -675,7 +734,8 @@
 
         if (status === 'failed' || status === 'error') {
           if (state.context.statusEl) {
-            setValidationState(state.context.statusEl, errorMessage || 'Unable to complete action', 'danger');
+            const failureMessage = errorMessage || actionBanner('failure');
+            setValidationState(state.context.statusEl, failureMessage, 'danger');
           }
           if (state.context && state.context.widgetEl) {
             setWidgetButtonsDisabled(state.context.widgetEl, false);
@@ -685,12 +745,12 @@
         }
 
         if (status === 'running' && state.context.statusEl) {
-          setValidationState(state.context.statusEl, 'Processing action…', 'info');
+          setValidationState(state.context.statusEl, actionBanner('running'), 'info');
         }
 
         if (state.attempts >= MAX_POLL_ATTEMPTS) {
-          if (state.context.statusEl) {
-            setValidationState(state.context.statusEl, 'Timed out while waiting for action', 'warning');
+          if (state.context && state.context.statusEl) {
+            setValidationState(state.context.statusEl, actionBanner('timeout'), 'warning');
           }
           if (state.context && state.context.widgetEl) {
             setWidgetButtonsDisabled(state.context.widgetEl, false);
@@ -740,10 +800,10 @@
       });
 
       if (statusEl) {
-        setValidationState(statusEl, 'Queuing action…', 'info');
+        setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'info');
       }
 
-      if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+      if (shouldDisableWidgetButtons(normalizedWidgetKey, normalizedActionId)) {
         setWidgetButtonsDisabled(widgetEl, true);
       }
 
@@ -762,6 +822,16 @@
           action: actionId,
           section_id: sectionId,
         };
+
+        if (
+          normalizedWidgetKey === 'paragraph'
+          && (normalizedActionId === 'summarize' || normalizedActionId === 'expand')
+        ) {
+          const extraInstructions = getParagraphInstructions(widgetEl);
+          if (extraInstructions) {
+            requestBody.extra_instructions = extraInstructions;
+          }
+        }
 
         if (Object.keys(contextPayload).length > 0) {
           requestBody.metadata = { context: contextPayload };
@@ -784,7 +854,7 @@
         widgetEl.dataset.widgetSectionId = payload.section_id;
         updateActionVisibility(widgetEl);
         if (statusEl) {
-          setValidationState(statusEl, 'Action queued', 'success');
+          setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'success');
         }
         startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
       } catch (error) {
@@ -792,7 +862,7 @@
         if (statusEl) {
           setValidationState(statusEl, 'Unable to queue action', 'danger');
         }
-        if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
+        if (shouldDisableWidgetButtons(normalizedWidgetKey, normalizedActionId)) {
           setWidgetButtonsDisabled(widgetEl, false);
         }
       }

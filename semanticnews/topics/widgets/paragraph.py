@@ -48,22 +48,54 @@ class GenerateAction(WidgetAction):
 
 class SummarizeAction(WidgetAction):
     name = "summarize"
-    icon = "bi bi-arrow-down-short"
+    icon = "bi bi-sort-down"
 
     def build_prompt(self, context: Dict[str, Any]) -> str:
-        topic = context.get("topic")
-        text = context.get("text", "")
-        return f"Summarize the following text in the context of '{topic}':\n\n{text}"
+        topic = context.get("topic_title") or context.get("topic") or ""
+        text = (context.get("text") or "").strip()
+        instructions = (context.get("instructions") or "").strip()
+
+        parts = ["You are refining a paragraph for this topic."]
+        if topic:
+            parts.append(f"Topic title: {topic}")
+        if text:
+            parts.append("Paragraph to summarize:\n" + text)
+        parts.append(
+            "Summarize the paragraph concisely while keeping the original voice and"
+            " avoiding markdown formatting."
+        )
+        if instructions:
+            parts.append(
+                "Follow these optional user instructions while summarizing:\n" + instructions
+            )
+
+        return "\n\n".join(parts)
 
 
 class ExpandAction(WidgetAction):
     name = "expand"
-    icon = "bi bi-arrow-up-short"
+    icon = "bi bi-sort-up"
 
     def build_prompt(self, context: Dict[str, Any]) -> str:
-        topic = context.get("topic")
-        text = context.get("text", "")
-        return f"Expand the following text with more detail about '{topic}':\n\n{text}"
+        topic = context.get("topic_title") or context.get("topic") or ""
+        text = (context.get("text") or "").strip()
+        instructions = (context.get("instructions") or "").strip()
+
+        parts = ["You are enriching a paragraph for this topic."]
+        if topic:
+            parts.append(f"Topic title: {topic}")
+        if text:
+            parts.append("Paragraph to expand:\n" + text)
+        parts.append(
+            "Expand the paragraph with relevant details while keeping the original"
+            " tone and avoiding markdown formatting or headings."
+        )
+        if instructions:
+            parts.append(
+                "Follow these optional user instructions while expanding:\n" + instructions
+            )
+
+        return "\n\n".join(parts)
 
 
 class ParagraphWidget(Widget):

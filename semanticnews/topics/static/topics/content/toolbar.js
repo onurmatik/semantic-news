@@ -147,8 +147,8 @@
           );
 
           [
-            { id: 'summarize', name: 'summarize', icon: 'bi bi-arrow-down-short' },
-            { id: 'expand', name: 'expand', icon: 'bi bi-arrow-up-short' },
+            { id: 'summarize', name: 'summarize', icon: 'bi bi-sort-down' },
+            { id: 'expand', name: 'expand', icon: 'bi bi-sort-up' },
           ].forEach((fallback) => {
             const identifier = (fallback.id || fallback.name || '').trim().toLowerCase();
             if (!identifier || existingActions.has(identifier)) {
