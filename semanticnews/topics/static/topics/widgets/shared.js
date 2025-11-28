@@ -29,6 +29,15 @@
     // Clear old content
     wrapper.innerHTML = '';
 
+    // Loading spinner for informational states
+    if ((variant || '').toLowerCase() === 'info') {
+      const spinner = document.createElement('span');
+      spinner.className = 'spinner-border spinner-border-sm me-2 align-text-bottom';
+      spinner.setAttribute('role', 'status');
+      spinner.setAttribute('aria-hidden', 'true');
+      wrapper.appendChild(spinner);
+    }
+
     // Add message span
     const textSpan = document.createElement('span');
     textSpan.textContent = message || '';

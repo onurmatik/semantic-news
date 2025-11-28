@@ -156,7 +156,13 @@
     if (resolved) {
       const paragraph = document.createElement('p');
       paragraph.className = 'mb-0';
-      paragraph.textContent = resolved;
+      const lines = resolved.replace(/\r\n/g, '\n').split('\n');
+      lines.forEach((line, index) => {
+        paragraph.appendChild(document.createTextNode(line));
+        if (index < lines.length - 1) {
+          paragraph.appendChild(document.createElement('br'));
+        }
+      });
       preview.appendChild(paragraph);
       return;
     }
@@ -540,18 +546,14 @@
 
       buttons.forEach((btn) => {
         if (!btn) return;
-        // Only act on visible buttons
-        if (btn.classList.contains('d-none')) {
-          return;
-        }
         btn.disabled = disabled;
         if (disabled) {
           btn.setAttribute('aria-disabled', 'true');
         } else {
           btn.removeAttribute('aria-disabled');
-        }
-      });
-    }
+          }
+        });
+      }
 
     function shouldDisableWidgetButtons(widgetKey, actionId) {
       const normalizedKey = (widgetKey || '').toLowerCase();
