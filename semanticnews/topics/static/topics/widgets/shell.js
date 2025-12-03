@@ -430,6 +430,8 @@
       return null;
     }
 
+    const reorderState = { pending: false };
+
     const deleteModalEl = document.getElementById('confirmDeleteWidgetModal');
     const deleteModal = deleteModalEl && window.bootstrap
       ? window.bootstrap.Modal.getOrCreateInstance(deleteModalEl)
@@ -564,6 +566,137 @@
         return false;
       }
       return ['generate', 'summarize', 'expand'].includes(normalizedAction);
+    }
+
+    function parseSectionId(value) {
+      if (value == null) {
+        return null;
+      }
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function getEntrySectionId(entry) {
+      if (!entry || !entry.dataset) {
+        return null;
+      }
+      return parseSectionId(entry.dataset.widgetSectionId);
+    }
+
+    function getWidgetEntries() {
+      return Array.from(element.querySelectorAll('[data-topic-widget-entry]'));
+    }
+
+    function getMovableEntries() {
+      return getWidgetEntries().filter((entry) => getEntrySectionId(entry) != null);
+    }
+
+    function updateMoveButtonStates() {
+      const movableEntries = getMovableEntries();
+      const lastMovableIndex = movableEntries.length - 1;
+      getWidgetEntries().forEach((entry) => {
+        const sectionId = getEntrySectionId(entry);
+        const index = sectionId != null ? movableEntries.indexOf(entry) : -1;
+        const upButton = entry.querySelector('[data-widget-move="up"]');
+        const downButton = entry.querySelector('[data-widget-move="down"]');
+
+        const disableUp = reorderState.pending || index <= 0;
+        const disableDown = reorderState.pending || index === -1 || index >= lastMovableIndex;
+
+        if (upButton) {
+          upButton.disabled = disableUp || sectionId == null;
+          if (upButton.disabled) {
+            upButton.setAttribute('aria-disabled', 'true');
+          } else {
+            upButton.removeAttribute('aria-disabled');
+          }
+        }
+
+        if (downButton) {
+          downButton.disabled = disableDown || sectionId == null;
+          if (downButton.disabled) {
+            downButton.setAttribute('aria-disabled', 'true');
+          } else {
+            downButton.removeAttribute('aria-disabled');
+          }
+        }
+      });
+    }
+
+    function captureWidgetOrder() {
+      return getWidgetEntries();
+    }
+
+    function restoreWidgetOrder(snapshot) {
+      if (!Array.isArray(snapshot)) {
+        return;
+      }
+      snapshot.forEach((node) => {
+        if (node && node.parentNode === element) {
+          element.appendChild(node);
+        }
+      });
+    }
+
+    async function persistWidgetOrder() {
+      const entries = getMovableEntries();
+      if (!entries.length) {
+        throw new Error('Unable to determine widget section order');
+      }
+
+      const sectionIds = entries
+        .map((entry) => getEntrySectionId(entry))
+        .filter((sectionId) => sectionId != null);
+
+      if (!sectionIds.length) {
+        throw new Error('No section identifiers available');
+      }
+
+      const response = await fetch('/api/topics/widgets/sections/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          topic_uuid: topicUuid,
+          section_ids: sectionIds,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reorder widget sections');
+      }
+    }
+
+    function moveEntry(entry, direction) {
+      if (!entry) {
+        return false;
+      }
+
+      const entries = getWidgetEntries();
+      const index = entries.indexOf(entry);
+      if (index === -1) {
+        return false;
+      }
+
+      if (direction === 'up' && index > 0) {
+        const previousEntry = entries[index - 1];
+        if (previousEntry) {
+          element.insertBefore(entry, previousEntry);
+          return true;
+        }
+      }
+
+      if (direction === 'down' && index < entries.length - 1) {
+        const nextEntry = entries[index + 1];
+        if (nextEntry) {
+          element.insertBefore(entry, nextEntry.nextSibling);
+          return true;
+        }
+      }
+
+      return false;
     }
 
     function performDeleteRequest(sectionId) {
@@ -898,7 +1031,13 @@
         }
         const payload = await response.json();
         widgetEl.dataset.widgetSectionId = payload.section_id;
+        if (entryEl) {
+          entryEl.dataset.widgetSectionId = payload.section_id != null
+            ? String(payload.section_id)
+            : '';
+        }
         updateActionVisibility(widgetEl);
+        updateMoveButtonStates();
         if (statusEl) {
           setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'info');
         }
@@ -1008,6 +1147,7 @@
           if (statusEl) {
             clearValidation(statusEl);
           }
+          updateMoveButtonStates();
           finish();
           return;
         }
@@ -1019,6 +1159,7 @@
           if (statusEl) {
             clearValidation(statusEl);
           }
+          updateMoveButtonStates();
           document.dispatchEvent(new CustomEvent('topic:changed'));
         })
         .catch((error) => {
@@ -1036,6 +1177,8 @@
       element.querySelectorAll('[data-topic-widget]').forEach((widgetNode) => {
         updateActionVisibility(widgetNode);
       });
+
+      updateMoveButtonStates();
 
       element.addEventListener('widget-editor:init', (event) => {
         const widgetEl = event.detail && event.detail.element ? event.detail.element : null;
@@ -1093,6 +1236,73 @@
           evt.preventDefault();
           onDeleteClick(deleteButton);
         }
+      }, { capture: true });
+
+      document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+
+        const moveButton = event.target.closest('[data-widget-move]');
+        if (!moveButton || !element.contains(moveButton)) {
+          return;
+        }
+
+        event.preventDefault();
+        if (reorderState.pending) {
+          return;
+        }
+
+        const entry = moveButton.closest('[data-topic-widget-entry]');
+        const sectionId = getEntrySectionId(entry);
+        if (!entry || sectionId == null) {
+          updateMoveButtonStates();
+          return;
+        }
+
+        const direction = (moveButton.dataset && moveButton.dataset.widgetMove === 'up') ? 'up' : 'down';
+        const snapshot = captureWidgetOrder();
+        const moved = moveEntry(entry, direction);
+        if (!moved) {
+          updateMoveButtonStates();
+          return;
+        }
+
+        reorderState.pending = true;
+        updateMoveButtonStates();
+
+        const statusEl = entry.querySelector('[data-widget-validation]');
+        if (statusEl) {
+          clearValidation(statusEl);
+        }
+
+        persistWidgetOrder()
+          .then(() => {
+            document.dispatchEvent(new CustomEvent('topic:changed'));
+          })
+          .catch((error) => {
+            // eslint-disable-next-line no-console
+            console.error('[TopicWidgets][Shell] Failed to reorder sections', error);
+            restoreWidgetOrder(snapshot);
+            if (statusEl) {
+              setValidationState(
+                statusEl,
+                statusEl.dataset && statusEl.dataset.reorderError
+                  ? statusEl.dataset.reorderError
+                  : 'Unable to reorder sections. Please try again.',
+                'danger',
+              );
+            }
+          })
+          .finally(() => {
+            reorderState.pending = false;
+            updateMoveButtonStates();
+            window.requestAnimationFrame(() => {
+              if (typeof moveButton.focus === 'function') {
+                moveButton.focus();
+              }
+            });
+          });
       }, { capture: true });
 
       if (deleteConfirmBtn) {
