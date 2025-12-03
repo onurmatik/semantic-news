@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Type, Optional, Any, Dict, List
+from typing import Any, Dict, List, Optional, Type
 
 
 @dataclass
@@ -25,6 +25,26 @@ class WidgetAction:
         """
         prompt = self.build_prompt(context)
         return {"prompt": prompt, "result": f"Simulated result for '{self.name}'"}
+
+
+class GenericGenerateAction(WidgetAction):
+    """Shared plumbing for "generate" style widget actions."""
+
+    name = "generate"
+    icon = "bi bi-stars"
+    tools: List[str] = []
+    schema: Optional[Type] = None
+
+    def build_prompt(self, context: Dict[str, Any]) -> str:
+        return self.build_generate_prompt(context)
+
+    def build_generate_prompt(self, context: Dict[str, Any]) -> str:
+        raise NotImplementedError("Subclasses must implement prompt construction")
+
+    def get_schema(self) -> Optional[Type]:
+        """Optional hook for subclasses to provide a schema for this action."""
+
+        return self.schema
 
 
 @dataclass

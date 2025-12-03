@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel
 
-from .base import Widget, WidgetAction
+from .base import GenericGenerateAction, Widget, WidgetAction
 
 
 class ParagraphSchema(BaseModel):
@@ -10,11 +10,8 @@ class ParagraphSchema(BaseModel):
     instructions: str = ""
 
 
-class GenerateAction(WidgetAction):
-    name = "generate"
-    icon = "bi bi-stars"
-
-    def build_prompt(self, context: Dict[str, Any]) -> str:
+class GenerateAction(GenericGenerateAction):
+    def build_generate_prompt(self, context: Dict[str, Any]) -> str:
         topic = context.get("topic_title") or context.get("topic") or ""
         recap = (context.get("latest_recap") or "").strip()
         raw_paragraphs = context.get("paragraphs")

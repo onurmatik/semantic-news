@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, HttpUrl
 
-from .base import Widget, WidgetAction
+from .base import GenericGenerateAction, Widget, WidgetAction
 
 
 class ImageSchema(BaseModel):
@@ -13,12 +13,10 @@ class ImageSchema(BaseModel):
     image_url: HttpUrl | None = None
 
 
-class GenerateImageAction(WidgetAction):
-    name = "generate"
-    icon = "bi bi-stars"
+class GenerateImageAction(GenericGenerateAction):
     tools = ["image_generation"]
 
-    def build_prompt(self, context: Dict[str, Any]) -> str:
+    def build_generate_prompt(self, context: Dict[str, Any]) -> str:
         prompt_text = context.get("prompt", "")
         return f"Generate a high-quality image based on the following description:\n\n{prompt_text}"
 
