@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
@@ -83,6 +85,20 @@ class WidgetExecutionResponse(Schema):
 
 class WidgetSectionDeleteResponse(Schema):
     success: bool
+
+
+class WidgetSectionOrderItem(Schema):
+    id: int
+    display_order: int
+
+
+class WidgetSectionReorderRequest(Schema):
+    topic_uuid: uuid.UUID
+    section_ids: List[int]
+
+
+class WidgetSectionReorderResponse(Schema):
+    sections: List[WidgetSectionOrderItem]
 
 
 def _serialize_widget(widget: Widget) -> WidgetDefinition:
@@ -223,9 +239,18 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
             raise HttpError(400, "Topic section is linked to a different widget")
 
     if section is None:
+        max_order = (
+            TopicSection.objects.filter(
+                topic=topic, is_deleted=False, is_draft_deleted=False
+            )
+            .aggregate(max_order=Max("display_order"))
+            .get("max_order")
+            or 0
+        )
         section = TopicSection.objects.create(
             topic=topic,
             widget_name=widget.name,
+            display_order=max_order + 1,
         )
 
     execute_widget_action_task.delay(
@@ -238,6 +263,60 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
     )
     execution = _execution_service.get_state(section=section)
     return _serialize_execution(execution, topic_uuid=str(topic.uuid))
+
+
+@router.post("/sections/reorder", response=WidgetSectionReorderResponse)
+def reorder_widget_sections(request, payload: WidgetSectionReorderRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    if not payload.section_ids:
+        raise HttpError(400, "Section identifiers are required")
+
+    if len(payload.section_ids) != len(set(payload.section_ids)):
+        raise HttpError(400, "Section identifiers must be unique")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    sections = list(
+        TopicSection.objects.filter(
+            topic=topic,
+            is_deleted=False,
+            is_draft_deleted=False,
+            id__in=payload.section_ids,
+        )
+    )
+
+    section_map = {section.id: section for section in sections}
+    if len(section_map) != len(payload.section_ids):
+        raise HttpError(400, "One or more sections are invalid for this topic")
+
+    with transaction.atomic():
+        updates: list[TopicSection] = []
+        for order, section_id in enumerate(payload.section_ids, start=1):
+            section = section_map[section_id]
+            original_order = section.display_order
+            section.display_order = order
+            if original_order != order:
+                updates.append(section)
+
+        if updates:
+            TopicSection.objects.bulk_update(updates, ["display_order"])
+
+    ordered_sections = sorted(sections, key=lambda item: item.display_order)
+    return WidgetSectionReorderResponse(
+        sections=[
+            WidgetSectionOrderItem(id=section.id, display_order=section.display_order)
+            for section in ordered_sections
+        ]
+    )
 
 
 @router.get("/sections/{section_id}", response=WidgetExecutionResponse)
