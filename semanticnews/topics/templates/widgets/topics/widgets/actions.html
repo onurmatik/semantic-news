@@ -100,28 +100,45 @@
             {% trans "paragraph" as delete_target %}
         {% endif %}
         {% blocktrans asvar delete_label with target=delete_target %}Delete {{ target }}{% endblocktrans %}
-        <button
-            type="button"
-            class="btn btn-outline-secondary btn-sm {% if section.id %}d-none{% endif %}"
-            data-widget-close
-            data-widget-visibility="draft"
-            title="{% trans "Close editor" %}"
-            aria-label="{% trans "Close editor" %}"
-        >
-            <i class="bi bi-x" aria-hidden="true"></i>
-            <span class="visually-hidden">{% trans "Close editor" %}</span>
-        </button>
-        <button
-            type="button"
-            class="btn btn-outline-danger btn-sm {% if not section.id %}d-none{% endif %}"
-            data-widget-delete-section-id="{{ section.id|default_if_none:'' }}"
-            data-widget-delete-label="{{ delete_target }}"
-            data-widget-visibility="saved"
-            title="{{ delete_label }}"
-            aria-label="{{ delete_label }}"
-        >
-            <i class="bi bi-trash" aria-hidden="true"></i>
-            <span class="visually-hidden">{{ delete_label }}</span>
-        </button>
+        {% blocktrans asvar move_up_label with target=delete_target %}Move {{ target }} up{% endblocktrans %}
+        {% blocktrans asvar move_down_label with target=delete_target %}Move {{ target }} down{% endblocktrans %}
+        <div class="btn-group {% if not section.id %}d-none{% endif %}" role="group" aria-label="{% trans "Section ordering controls" %}">
+            <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                data-widget-move="up"
+                data-widget-section-id="{{ section.id|default_if_none:'' }}"
+                title="{{ move_up_label }}"
+                aria-label="{{ move_up_label }}"
+                {% if not section.id %}disabled{% endif %}
+            >
+                <i class="bi bi-arrow-up" aria-hidden="true"></i>
+                <span class="visually-hidden">{{ move_up_label }}</span>
+            </button>
+            <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                data-widget-move="down"
+                data-widget-section-id="{{ section.id|default_if_none:'' }}"
+                title="{{ move_down_label }}"
+                aria-label="{{ move_down_label }}"
+                {% if not section.id %}disabled{% endif %}
+            >
+                <i class="bi bi-arrow-down" aria-hidden="true"></i>
+                <span class="visually-hidden">{{ move_down_label }}</span>
+            </button>
+            <button
+                type="button"
+                class="btn btn-outline-danger btn-sm"
+                data-widget-delete-section-id="{{ section.id|default_if_none:'' }}"
+                data-widget-delete-label="{{ delete_target }}"
+                data-widget-visibility="saved"
+                title="{{ delete_label }}"
+                aria-label="{{ delete_label }}"
+            >
+                <i class="bi bi-trash" aria-hidden="true"></i>
+                <span class="visually-hidden">{{ delete_label }}</span>
+            </button>
+        </div>
     {% endif %}
 {% endif %}
