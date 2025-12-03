@@ -43,6 +43,7 @@ class TopicSectionAdmin(admin.ModelAdmin):
         "topic",
         "widget_name",
         "status",
+        "draft_display_order",
         "display_order",
         "language_code",
         "published_at",

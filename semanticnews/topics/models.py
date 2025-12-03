@@ -269,23 +269,28 @@ class Topic(models.Model):
         cache = getattr(self, "_prefetched_objects_cache", {})
         prefetched = cache.get("sections")
         if prefetched is not None:
-            return list(prefetched)
+            sections = list(prefetched)
+        else:
+            sections = list(
+                self.sections.select_related("draft_content", "published_content")
+            )
 
-        return list(
-            self.sections.select_related("draft_content", "published_content")
+        return sorted(
+            sections, key=lambda section: (section.draft_display_order, section.id or 0)
         )
 
     @cached_property
     def active_sections(self):
         """Return an ordered list of published, non-deleted sections."""
 
-        return [
+        sections = [
             s
             for s in self.sections_ordered
             if not s.is_deleted
             and not s.is_draft_deleted
             and s.published_at is not None
         ]
+        return sorted(sections, key=lambda section: (section.display_order, section.id or 0))
 
     @cached_property
     def published_sections(self):
@@ -304,7 +309,9 @@ class Topic(models.Model):
             clone._apply_content_override(snapshot)
             published.append(clone)
 
-        return published
+        return sorted(
+            published, key=lambda section: (section.display_order, section.id or 0)
+        )
 
     @property
     def active_related_entities(self):
@@ -702,7 +709,9 @@ class TopicSectionQuerySet(models.QuerySet):
     def published(self):
         """Return sections that have been published."""
 
-        return self.active().filter(published_at__isnull=False)
+        return self.active().filter(published_at__isnull=False).order_by(
+            "display_order", "id"
+        )
 
     def in_language(self, language_code: Optional[str]):
         """Filter sections by their language code (if provided)."""
@@ -716,6 +725,7 @@ class TopicSectionQuerySet(models.QuerySet):
 class TopicSection(models.Model):
     topic = models.ForeignKey(Topic, related_name="sections", on_delete=models.CASCADE)
     widget_name = models.CharField(max_length=100, db_index=True)
+    draft_display_order = models.PositiveSmallIntegerField(default=0)
     display_order = models.PositiveSmallIntegerField(default=0)
 
     draft_content = models.ForeignKey(
@@ -819,17 +829,22 @@ class TopicSection(models.Model):
         delattr(self, "_pending_draft_state_data")
 
     def save(self, *args, **kwargs):  # pragma: no cover - exercised via integration tests
+        if self._state.adding and not self.draft_display_order:
+            self.draft_display_order = self.display_order
+
         pending = getattr(self, "_pending_draft_state_data", None)
         super().save(*args, **kwargs)
         if pending:
             self._apply_pending_draft_updates()
 
     class Meta:
-        ordering = ("display_order", "published_at", "id")
+        ordering = ("draft_display_order", "published_at", "id")
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         widget_name = self.widget_name or "unknown"
-        return f"{self.topic_id}:{widget_name}:{self.display_order}"
+        return (
+            f"{self.topic_id}:{widget_name}:{self.draft_display_order}/{self.display_order}"
+        )
 
     # ---- properties that use the pending draft state ----
 

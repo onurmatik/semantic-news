@@ -138,13 +138,18 @@ def _publish_sections(topic: Topic, published_at) -> List[TopicSection]:
     queryset = (
         topic.sections.filter(is_deleted=False, is_draft_deleted=False)
         .select_related("draft_content", "published_content")
-        .order_by("display_order", "id")
+        .order_by("draft_display_order", "id")
     )
 
     sections: List[TopicSection] = []
     for section in queryset:
-        snapshot = section.snapshot_content(published_at=published_at)
+        new_display_order = section.draft_display_order
         updates: List[str] = ["published_content"]
+        if section.display_order != new_display_order:
+            section.display_order = new_display_order
+            updates.append("display_order")
+
+        snapshot = section.snapshot_content(published_at=published_at)
         section.published_content = snapshot
 
         if getattr(section, "published_at", None) != published_at:

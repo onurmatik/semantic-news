@@ -38,11 +38,19 @@ RELATED_ENTITIES_PREFETCH = Prefetch(
     to_attr="prefetched_related_entities",
 )
 
-SECTIONS_PREFETCH = Prefetch(
+PUBLISHED_SECTIONS_PREFETCH = Prefetch(
     "sections",
     queryset=(
         TopicSection.objects.select_related("draft_content", "published_content")
         .order_by("display_order", "published_at", "id")
+    ),
+)
+
+DRAFT_SECTIONS_PREFETCH = Prefetch(
+    "sections",
+    queryset=(
+        TopicSection.objects.select_related("draft_content", "published_content")
+        .order_by("draft_display_order", "published_at", "id")
     ),
 )
 
@@ -132,7 +140,7 @@ def topics_list(request):
         Topic.objects.filter(status="published")
         .annotate(ordering_activity=Coalesce("last_published_at", "created_at"))
         .select_related("created_by")
-        .prefetch_related("recaps", SECTIONS_PREFETCH)
+        .prefetch_related("recaps", PUBLISHED_SECTIONS_PREFETCH)
         .order_by("-ordering_activity", "-created_at")
     )
 
@@ -155,7 +163,7 @@ def topics_detail(request, slug, username):
     queryset = Topic.objects.prefetch_related(
         "events",
         "recaps",
-        SECTIONS_PREFETCH,
+        PUBLISHED_SECTIONS_PREFETCH,
         RELATED_ENTITIES_PREFETCH,
         Prefetch(
             "topic_related_topics",
@@ -437,7 +445,7 @@ def _build_topic_metadata(request, topic, context):
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
-        Topic,
+        Topic.objects.prefetch_related(DRAFT_SECTIONS_PREFETCH),
         uuid=topic_uuid,
         created_by__username=username,
     )
@@ -461,7 +469,7 @@ def topics_detail_edit(request, topic_uuid, username):
 
 @login_required
 def topics_detail_preview(request, topic_uuid, username):
-    queryset = Topic.objects.filter(
+    queryset = Topic.objects.prefetch_related(DRAFT_SECTIONS_PREFETCH).filter(
         uuid=topic_uuid,
         created_by__username=username,
     )

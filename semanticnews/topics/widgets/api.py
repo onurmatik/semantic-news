@@ -243,13 +243,14 @@ def execute_widget_action(request, payload: WidgetExecutionRequest):
             TopicSection.objects.filter(
                 topic=topic, is_deleted=False, is_draft_deleted=False
             )
-            .aggregate(max_order=Max("display_order"))
+            .aggregate(max_order=Max("draft_display_order"))
             .get("max_order")
             or 0
         )
         section = TopicSection.objects.create(
             topic=topic,
             widget_name=widget.name,
+            draft_display_order=max_order + 1,
             display_order=max_order + 1,
         )
 
@@ -302,18 +303,22 @@ def reorder_widget_sections(request, payload: WidgetSectionReorderRequest):
         updates: list[TopicSection] = []
         for order, section_id in enumerate(payload.section_ids, start=1):
             section = section_map[section_id]
-            original_order = section.display_order
-            section.display_order = order
+            original_order = section.draft_display_order
+            section.draft_display_order = order
             if original_order != order:
                 updates.append(section)
 
         if updates:
-            TopicSection.objects.bulk_update(updates, ["display_order"])
+            TopicSection.objects.bulk_update(updates, ["draft_display_order"])
 
-    ordered_sections = sorted(sections, key=lambda item: item.display_order)
+    ordered_sections = sorted(
+        sections, key=lambda item: (item.draft_display_order, item.id)
+    )
     return WidgetSectionReorderResponse(
         sections=[
-            WidgetSectionOrderItem(id=section.id, display_order=section.display_order)
+            WidgetSectionOrderItem(
+                id=section.id, display_order=section.draft_display_order
+            )
             for section in ordered_sections
         ]
     )
