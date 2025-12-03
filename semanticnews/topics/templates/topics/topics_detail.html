@@ -166,8 +166,6 @@
             <div class="d-flex flex-column gap-4" data-topic-primary-widgets>
                 {% for renderable in sections %}
                     {% include "widgets/topics/widgets/section.html" with renderable=renderable edit_mode=edit_mode %}
-                {% empty %}
-                    <p class="text-secondary fst-italic mb-0">{% trans "This topic does not have any published sections yet." %}</p>
                 {% endfor %}
             </div>
         </div>
