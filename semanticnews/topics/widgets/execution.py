@@ -82,6 +82,107 @@ class WidgetExecutionResult:
     log_entry: WidgetExecutionLogEntry | None = None
 
 
+def build_generate_context(section: "TopicSection") -> dict[str, Any]:
+    """Assemble the default context used by widget actions."""
+
+    topic = section.topic
+    context: dict[str, Any] = {
+        "topic": getattr(topic, "title", None) or str(getattr(topic, "uuid", "")),
+        "topic_title": getattr(topic, "title", ""),
+        "topic_uuid": str(getattr(topic, "uuid", "")),
+        "topic_id": getattr(topic, "id", None),
+        "section_id": section.id,
+    }
+
+    if section.language_code:
+        context["language_code"] = section.language_code
+    if section.content:
+        context["content"] = section.content
+
+    latest_recap = _get_latest_recap_text(topic)
+    if latest_recap:
+        context["latest_recap"] = latest_recap
+
+    context["sections"] = _build_sections_context(topic)
+
+    return context
+
+
+def _get_latest_recap_text(topic: Any) -> str | None:
+    recaps_rel = getattr(topic, "recaps", None)
+    if recaps_rel is None:
+        return None
+
+    latest = recaps_rel.filter(is_deleted=False).order_by("-created_at").first()
+    recap_text = getattr(latest, "recap", None) if latest is not None else None
+    if recap_text is None:
+        return None
+    return str(recap_text)
+
+
+def _build_sections_context(topic: Any) -> list[Mapping[str, Any]]:
+    ordered_sections = getattr(topic, "sections_ordered", []) or []
+    sections: list[Mapping[str, Any]] = []
+
+    for section in ordered_sections:
+        section_payload = _serialise_section_for_context(section)
+        if section_payload is not None:
+            sections.append(section_payload)
+
+    return sections
+
+
+def _serialise_section_for_context(section: "TopicSection") -> Mapping[str, Any] | None:
+    if section is None:
+        return None
+
+    payload: dict[str, Any] = {
+        "id": section.id,
+        "widget": section.widget_name,
+        "display_order": section.draft_display_order,
+    }
+
+    raw_content = section.content
+    content: dict[str, Any] = dict(raw_content) if isinstance(raw_content, Mapping) else {}
+
+    if section.widget_name == "image":
+        image_url = _select_image_url_for_context(content, section.metadata)
+        content = {"image_url": image_url} if image_url else {}
+
+    payload["content"] = content
+
+    metadata = section.metadata
+    if isinstance(metadata, Mapping) and metadata:
+        payload["metadata"] = dict(metadata)
+
+    return payload
+
+
+def _select_image_url_for_context(
+    content: Mapping[str, Any], metadata: Mapping[str, Any] | None
+) -> str | None:
+    def _extract_url(source: Mapping[str, Any]) -> str | None:
+        for key in ("image_url", "url", "thumbnail_url", "result"):
+            candidate = source.get(key)
+            if isinstance(candidate, str):
+                cleaned = candidate.strip()
+                if cleaned.startswith(("http://", "https://")):
+                    return cleaned
+        return None
+
+    if isinstance(content, Mapping):
+        url = _extract_url(content)
+        if url:
+            return url
+
+    if isinstance(metadata, Mapping):
+        url = _extract_url(metadata)
+        if url:
+            return url
+
+    return None
+
+
 def resolve_widget_action(widget: Widget, identifier: str) -> WidgetAction:
     """Return the action matching the provided identifier."""
 
@@ -152,25 +253,13 @@ class WidgetExecutionPipeline:
 
     def build_context(self, request: WidgetExecutionRequest) -> dict[str, Any]:
         section = request.section
-        topic = section.topic
         metadata = dict(request.metadata or {})
+        generate_context = build_generate_context(section)
         context_payload = metadata.get("context")
-        context: dict[str, Any]
-        if isinstance(context_payload, Mapping):
-            context = dict(context_payload)
-        else:
-            context = dict(metadata)
 
-        if "topic" not in context:
-            context["topic"] = getattr(topic, "title", None) or str(getattr(topic, "uuid", ""))
-        context.setdefault("topic_title", getattr(topic, "title", ""))
-        context.setdefault("topic_uuid", str(getattr(topic, "uuid", "")))
-        context.setdefault("topic_id", getattr(topic, "id", None))
-        context.setdefault("section_id", section.id)
-        if section.language_code:
-            context.setdefault("language_code", section.language_code)
-        if section.content:
-            context.setdefault("content", section.content)
+        context = {**generate_context, **metadata}
+        if isinstance(context_payload, Mapping):
+            context.update(dict(context_payload))
 
         return context
 
@@ -331,6 +420,7 @@ __all__ = [
     "WidgetExecutionResult",
     "WidgetExecutionLogEntry",
     "WidgetExecutionError",
+    "build_generate_context",
     "resolve_widget_action",
     "normalise_tools",
 ]
