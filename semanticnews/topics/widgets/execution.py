@@ -86,9 +86,11 @@ def build_generate_context(section: "TopicSection") -> dict[str, Any]:
     """Assemble the default context used by widget actions."""
 
     topic = section.topic
+    current_title = _get_current_topic_title(topic)
     context: dict[str, Any] = {
-        "topic": getattr(topic, "title", None) or str(getattr(topic, "uuid", "")),
-        "topic_title": getattr(topic, "title", ""),
+        "topic": current_title or str(getattr(topic, "uuid", "")),
+        "topic_title": current_title,
+        "current_topic_title": current_title,
         "topic_uuid": str(getattr(topic, "uuid", "")),
         "topic_id": getattr(topic, "id", None),
         "section_id": section.id,
@@ -102,10 +104,22 @@ def build_generate_context(section: "TopicSection") -> dict[str, Any]:
     latest_recap = _get_latest_recap_text(topic)
     if latest_recap:
         context["latest_recap"] = latest_recap
+        context["latest_recap_text"] = latest_recap
+
+    paragraph_texts = _collect_paragraph_texts(topic)
+    if paragraph_texts:
+        context["paragraphs"] = paragraph_texts
 
     context["sections"] = _build_sections_context(topic)
 
     return context
+
+
+def _get_current_topic_title(topic: Any) -> str:
+    title = getattr(topic, "title", None)
+    if title is None:
+        return ""
+    return str(title)
 
 
 def _get_latest_recap_text(topic: Any) -> str | None:
@@ -125,6 +139,8 @@ def _build_sections_context(topic: Any) -> list[Mapping[str, Any]]:
     sections: list[Mapping[str, Any]] = []
 
     for section in ordered_sections:
+        if getattr(section, "is_draft_deleted", False) or getattr(section, "is_deleted", False):
+            continue
         section_payload = _serialise_section_for_context(section)
         if section_payload is not None:
             sections.append(section_payload)
@@ -136,6 +152,9 @@ def _serialise_section_for_context(section: "TopicSection") -> Mapping[str, Any]
     if section is None:
         return None
 
+    if section.widget_name == "image":
+        return None
+
     payload: dict[str, Any] = {
         "id": section.id,
         "widget": section.widget_name,
@@ -145,9 +164,9 @@ def _serialise_section_for_context(section: "TopicSection") -> Mapping[str, Any]
     raw_content = section.content
     content: dict[str, Any] = dict(raw_content) if isinstance(raw_content, Mapping) else {}
 
-    if section.widget_name == "image":
-        image_url = _select_image_url_for_context(content, section.metadata)
-        content = {"image_url": image_url} if image_url else {}
+    #if section.widget_name == "image":
+    #    image_url = _select_image_url_for_context(content, section.metadata)
+    #    content = {"image_url": image_url} if image_url else {}
 
     payload["content"] = content
 
@@ -156,6 +175,30 @@ def _serialise_section_for_context(section: "TopicSection") -> Mapping[str, Any]
         payload["metadata"] = dict(metadata)
 
     return payload
+
+
+def _collect_paragraph_texts(topic: Any) -> list[str]:
+    ordered_sections = getattr(topic, "sections_ordered", []) or []
+    paragraphs: list[str] = []
+
+    for section in ordered_sections:
+        if getattr(section, "is_draft_deleted", False) or getattr(section, "is_deleted", False):
+            continue
+        if getattr(section, "widget_name", "") != "paragraph":
+            continue
+
+        content = getattr(section, "content", None)
+        text: str | None = None
+        if isinstance(content, Mapping):
+            raw_text = content.get("text") or content.get("result")
+            text = str(raw_text).strip() if raw_text is not None else None
+        elif isinstance(content, str):
+            text = content.strip()
+
+        if text:
+            paragraphs.append(text)
+
+    return paragraphs
 
 
 def _select_image_url_for_context(
