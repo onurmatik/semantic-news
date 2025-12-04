@@ -874,10 +874,9 @@
               setWidgetButtonsDisabled(widgetEl, false);
             }
 
-            // Special case: paragraph generate → hide button & clear instructions
+            // Special case: paragraph generate → clear instructions
             if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
               if (widgetEl) {
-                hideActionButton(widgetEl, currentActionId);
                 const instructionField = widgetEl.querySelector('[name="instructions"]');
                 if (instructionField) {
                   setFieldValue(instructionField, '');
