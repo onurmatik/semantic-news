@@ -14,10 +14,15 @@ class GenerateAction(GenericGenerateAction):
     def build_generate_prompt(self, context: Dict[str, Any]) -> str:
         topic = context.get("topic_title") or context.get("topic") or ""
         recap = (context.get("latest_recap") or "").strip()
-        raw_paragraphs = context.get("paragraphs")
-        paragraphs: List[str] = []
-        if isinstance(raw_paragraphs, list):
-            paragraphs = [str(item).strip() for item in raw_paragraphs if str(item).strip()]
+        previous_paragraphs = self._normalise_paragraphs(
+            context.get("previous_paragraphs")
+        )
+        next_paragraphs = self._normalise_paragraphs(context.get("next_paragraphs"))
+        if not previous_paragraphs and not next_paragraphs:
+            # Backward compatibility for contexts that only expose the full list.
+            all_paragraphs = self._normalise_paragraphs(context.get("paragraphs"))
+            previous_paragraphs = all_paragraphs
+            next_paragraphs = []
         instructions = (context.get("instructions") or "").strip()
 
         prompt_parts = [
@@ -27,9 +32,13 @@ class GenerateAction(GenericGenerateAction):
 
         if recap:
             prompt_parts.append("Latest recap of the topic:\n" + recap)
-        if paragraphs:
+        if previous_paragraphs:
             prompt_parts.append(
-                "Existing paragraphs for context:\n" + "\n\n".join(paragraphs)
+                "Earlier paragraphs for context:\n" + "\n\n".join(previous_paragraphs)
+            )
+        if next_paragraphs:
+            prompt_parts.append(
+                "Upcoming paragraphs to stay consistent with:\n" + "\n\n".join(next_paragraphs)
             )
 
         prompt_parts.append(
@@ -41,6 +50,17 @@ class GenerateAction(GenericGenerateAction):
             prompt_parts.append("Follow these user instructions only in context of the topic:\n" + instructions)
 
         return "\n\n".join(filter(None, prompt_parts))
+
+    @staticmethod
+    def _normalise_paragraphs(raw_paragraphs: Any) -> List[str]:
+        if not isinstance(raw_paragraphs, list):
+            return []
+        paragraphs: List[str] = []
+        for item in raw_paragraphs:
+            text = str(item).strip()
+            if text:
+                paragraphs.append(text)
+        return paragraphs
 
 
 class SummarizeAction(WidgetAction):

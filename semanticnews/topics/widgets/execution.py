@@ -106,9 +106,11 @@ def build_generate_context(section: "TopicSection") -> dict[str, Any]:
         context["latest_recap"] = latest_recap
         context["latest_recap_text"] = latest_recap
 
-    paragraph_texts = _collect_paragraph_texts(topic)
-    if paragraph_texts:
-        context["paragraphs"] = paragraph_texts
+    paragraph_context = _collect_paragraph_context(topic, section)
+    if paragraph_context["paragraphs"]:
+        context["paragraphs"] = paragraph_context["paragraphs"]
+    context["previous_paragraphs"] = paragraph_context["previous_paragraphs"]
+    context["next_paragraphs"] = paragraph_context["next_paragraphs"]
 
     context["sections"] = _build_sections_context(topic)
 
@@ -177,13 +179,26 @@ def _serialise_section_for_context(section: "TopicSection") -> Mapping[str, Any]
     return payload
 
 
-def _collect_paragraph_texts(topic: Any) -> list[str]:
+def _collect_paragraph_context(topic: Any, current_section: "TopicSection") -> Mapping[str, list[str]]:
     ordered_sections = getattr(topic, "sections_ordered", []) or []
-    paragraphs: list[str] = []
+    all_paragraphs: list[str] = []
+    previous_paragraphs: list[str] = []
+    next_paragraphs: list[str] = []
+
+    current_found = False
+    current_id = getattr(current_section, "id", None)
 
     for section in ordered_sections:
         if getattr(section, "is_draft_deleted", False) or getattr(section, "is_deleted", False):
             continue
+
+        is_current = section is current_section or (
+            current_id is not None and getattr(section, "id", None) == current_id
+        )
+        if is_current:
+            current_found = True
+            continue
+
         if getattr(section, "widget_name", "") != "paragraph":
             continue
 
@@ -195,10 +210,25 @@ def _collect_paragraph_texts(topic: Any) -> list[str]:
         elif isinstance(content, str):
             text = content.strip()
 
-        if text:
-            paragraphs.append(text)
+        if not text:
+            continue
 
-    return paragraphs
+        all_paragraphs.append(text)
+        if current_found:
+            next_paragraphs.append(text)
+        else:
+            previous_paragraphs.append(text)
+
+    # Fall back to treating all paragraphs as leading context for backward compatibility.
+    if not current_found:
+        previous_paragraphs = list(all_paragraphs)
+        next_paragraphs = []
+
+    return {
+        "paragraphs": all_paragraphs,
+        "previous_paragraphs": previous_paragraphs,
+        "next_paragraphs": next_paragraphs,
+    }
 
 
 def _select_image_url_for_context(
