@@ -1,11 +1,11 @@
 {% load i18n %}
 {% if actions %}
-    {% with widget_name=widget.name|default_if_none:''|lower is_saved=section.id|default_if_none:'' %}
-        {% with has_image=content.image_url|default_if_none:'' has_text=content.text|default:'' %}
-            {% for action in actions %}
-                {% with action_id=action.id action_name=action.name action_icon=action.icon action_key=action.name|default:''|lower %}
-                    {% if widget_name == 'paragraph' %}
-                        {% if action_key == 'generate' %}
+    {% with widget_name=widget.name|default_if_none:''|lower %}
+        {% with has_image=content.image_url|default_if_none:'' %}
+            {% if widget_name == 'paragraph' %}
+                <div class="btn-group" role="group" aria-label="{% trans "Paragraph actions" %}">
+                    {% for action in actions %}
+                        {% with action_id=action.id action_name=action.name action_icon=action.icon %}
                             <button
                                 type="button"
                                 class="btn btn-outline-primary btn-sm"
@@ -19,22 +19,12 @@
                                     <span class="visually-hidden">{{ action_name }}</span>
                                 {% endif %}
                             </button>
-                        {% else %}
-                            <button
-                                type="button"
-                                class="btn btn-outline-primary btn-sm"
-                                data-widget-action="{{ action_id }}"
-                                data-widget-action-id="{{ action_id }}"
-                                {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
-                                {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
-                            >
-                                <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
-                                {% if action_name %}
-                                    <span class="visually-hidden">{{ action_name }}</span>
-                                {% endif %}
-                            </button>
-                        {% endif %}
-                    {% elif widget_name == 'image' %}
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+            {% elif widget_name == 'image' %}
+                {% for action in actions %}
+                    {% with action_id=action.id action_name=action.name action_icon=action.icon action_key=action.name|default:''|lower %}
                         {% if action_key == 'generate' %}
                             {% with hidden_class=has_image|yesno:'d-none,' %}
                                 <button
@@ -70,23 +60,29 @@
                                 </button>
                             {% endwith %}
                         {% endif %}
-                    {% else %}
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary btn-sm"
-                            data-widget-action="{{ action_id }}"
-                            data-widget-action-id="{{ action_id }}"
-                            {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
-                            {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
-                        >
-                            <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
-                            {% if action_name %}
-                                <span class="visually-hidden">{{ action_name }}</span>
-                            {% endif %}
-                        </button>
-                    {% endif %}
-                {% endwith %}
-            {% endfor %}
+                    {% endwith %}
+                {% endfor %}
+            {% else %}
+                <div class="btn-group" role="group" aria-label="{% trans "Widget actions" %}">
+                    {% for action in actions %}
+                        {% with action_id=action.id action_name=action.name action_icon=action.icon %}
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                data-widget-action="{{ action_id }}"
+                                data-widget-action-id="{{ action_id }}"
+                                {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
+                                {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
+                            >
+                                <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
+                                {% if action_name %}
+                                    <span class="visually-hidden">{{ action_name }}</span>
+                                {% endif %}
+                            </button>
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+            {% endif %}
         {% endwith %}
     {% endwith %}
     {% if widget.name == "paragraph" or widget.name == "image" %}

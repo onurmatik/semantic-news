@@ -1202,6 +1202,7 @@
           updateParagraphPreview(contentContainer, typeof value === 'string' ? value : '');
         }
         updateActionVisibility(widgetEl);
+        updateMoveButtonStates();
       });
 
       element.addEventListener('input', (event) => {
