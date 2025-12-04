@@ -1,7 +1,9 @@
 (function () {
   const CATALOG_SCRIPT_ID = 'widget-catalog-data';
   const DEFINITIONS_ENDPOINT = '/api/topics/widgets/definitions';
+  const DEFAULT_SECTIONS_ENDPOINT = '/api/topics/widgets/sections';
   const registry = () => window.TopicWidgetRegistry;
+  const shared = () => window.TopicWidgetShared;
 
   function ready(callback) {
     if (document.readyState === 'loading') {
@@ -321,6 +323,61 @@
     entry.dispatchEvent(new CustomEvent('widget-editor:init', { detail, bubbles: true }));
   }
 
+  function resolveSectionsEndpoint(definition) {
+    if (!definition) {
+      return DEFAULT_SECTIONS_ENDPOINT;
+    }
+    const identifier = definition.key || definition.id;
+    if (identifier) {
+      const encoded = encodeURIComponent(String(identifier));
+      return `/api/topics/widgets/${encoded}/sections`;
+    }
+    return DEFAULT_SECTIONS_ENDPOINT;
+  }
+
+  async function requestServerSection(definition, topicUuid) {
+    if (!definition || !topicUuid) {
+      return null;
+    }
+
+    const { getCsrfToken } = shared() || {};
+    const endpoint = resolveSectionsEndpoint(definition);
+    const payload = {
+      topic_uuid: topicUuid,
+      widget_id: definition.key || definition.id || null,
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': typeof getCsrfToken === 'function' ? getCsrfToken() : '',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to create widget section (status ${response.status})`);
+    }
+
+    const data = await response.json();
+    return data && data.shell ? String(data.shell) : '';
+  }
+
+  function buildEntryFromShell(shell) {
+    if (!shell) {
+      return null;
+    }
+    const container = document.createElement('div');
+    container.innerHTML = shell;
+    const entry = container.querySelector('[data-topic-widget-entry]') || container.firstElementChild;
+    if (entry) {
+      entry.dataset.topicWidgetEntry = entry.dataset.topicWidgetEntry || '';
+    }
+    return entry || null;
+  }
+
   ready(async () => {
     const toolbar = document.querySelector('[data-widget-toolbar]');
     if (!toolbar) {
@@ -375,7 +432,7 @@
     console.info('[TopicWidgets][Toolbar] Catalog map ready', {
       keys: Array.from(catalogMap.keys()),
     });
-    buttonsContainer.addEventListener('click', (event) => {
+    buttonsContainer.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-toolbar-button]');
       if (!button) {
         return;
@@ -395,9 +452,11 @@
       if (!definition) {
         const name = button.textContent ? button.textContent.trim() : '';
         const idAttr = button.getAttribute('data-widget-definition-id');
-        const id = idAttr ? parseInt(idAttr, 10) : null;
+        const rawId = idAttr && idAttr.trim();
+
         definition = {
-          id: Number.isFinite(id) ? id : null,
+          // prefer an explicit ID from markup; otherwise fall back to the key
+          id: rawId || key,
           key,
           name,
         };
@@ -411,18 +470,41 @@
         hasTemplate: Boolean(template),
         definition,
       });
-      if (!definition || !template) {
+      if (!definition) {
         // eslint-disable-next-line no-console
-        console.warn('[TopicWidgets][Toolbar] Missing definition or template for key', {
+        console.warn('[TopicWidgets][Toolbar] Missing definition for key', {
           key,
           hasDefinition: Boolean(definition),
           hasTemplate: Boolean(template),
         });
         return;
       }
-
       event.preventDefault();
-      const entry = createEntry(definition, template, widgetList);
+
+      let entry = null;
+      const resetButtonState = () => {
+        button.removeAttribute('aria-busy');
+      };
+
+      button.setAttribute('aria-busy', 'true');
+
+      try {
+        const shell = await requestServerSection(definition, topicUuid);
+        entry = buildEntryFromShell(shell);
+
+        if (!entry) {
+          // eslint-disable-next-line no-console
+          console.warn('[TopicWidgets][Toolbar] Server did not provide widget shell, falling back to template render');
+          entry = createEntry(definition, template, widgetList);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[TopicWidgets][Toolbar] Failed to create widget section', error);
+        entry = createEntry(definition, template, widgetList);
+      } finally {
+        resetButtonState();
+      }
+
       // eslint-disable-next-line no-console
       console.info('[TopicWidgets][Toolbar] Entry creation result', {
         key,
@@ -430,7 +512,14 @@
         widgetDefinitionId: definition.id,
         widgetKey: definition.key,
       });
+
       if (entry) {
+        if (!entry.dataset.widgetDefinitionId && definition.id != null) {
+          entry.dataset.widgetDefinitionId = String(definition.id);
+        }
+        if (entry.parentNode !== widgetList) {
+          widgetList.appendChild(entry);
+        }
         notifyInit(entry, definition, topicUuid);
         if (typeof entry.scrollIntoView === 'function') {
           entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
