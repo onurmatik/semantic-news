@@ -1,0 +1,303 @@
+{
+  "repo_notes": [
+    {
+      "content": ""
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "Introduce the Semantic News platform, explaining its purpose as an AI-powered news aggregation and analysis system with semantic search capabilities",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "purpose": "Guide users through initial setup, configuration, and running the application locally",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Installation and Dependencies",
+      "purpose": "Detail the required dependencies, Python packages, and external services (PostgreSQL with pgvector, Redis, OpenAI API)",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Configuration and Environment Variables",
+      "purpose": "Explain environment-based configuration, .env file setup, and settings module structure",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Core Architecture",
+      "purpose": "Explain the overall system architecture, including Django structure, Celery integration, and database design",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "URL Routing and Views",
+      "purpose": "Document the URL structure, routing patterns, and how views are organized across the application",
+      "parent": "Core Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "User Management and Profiles",
+      "purpose": "Explain user authentication, profile system, and content visibility permissions",
+      "parent": "Core Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Asynchronous Task Processing",
+      "purpose": "Document the Celery setup, task queuing, and background job processing for AI operations",
+      "parent": "Core Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Topics System",
+      "purpose": "Introduce the Topics system as the core content aggregation feature, explaining how topics serve as containers for curated information",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Topic Lifecycle and Management",
+      "purpose": "Document topic creation, editing, status transitions (draft/published/archived), and publication snapshots",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Topic Layout System",
+      "purpose": "Explain the dynamic module layout system, MODULE_REGISTRY, drag-and-drop editing, and placement management",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Topic Modules Overview",
+      "purpose": "Provide an overview of the nine topic module types and how they extend topic functionality",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Recaps and Text Modules",
+      "purpose": "Document AI-generated recap creation and custom text block functionality",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Data Module - Upload and Storage",
+      "purpose": "Explain tabular data fetching from URLs, search-based data discovery, and data storage",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Data Module - Analysis and Visualization",
+      "purpose": "Document AI-powered data analysis, insight generation, and Chart.js visualization creation",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Images and Cover Generation",
+      "purpose": "Document AI-powered cover image generation with DALL-E and image management",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Timeline and Event Integration",
+      "purpose": "Explain how events are associated with topics, AI event suggestions, and timeline visualization",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Entity Relations Module",
+      "purpose": "Document AI extraction of entity relationships and relation graph visualization",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Embeds and Media Modules",
+      "purpose": "Explain YouTube video integration, tweet embedding, and other external media types",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Topic API Reference",
+      "purpose": "Provide comprehensive API endpoint documentation for topic operations",
+      "parent": "Topics System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Events System (Agenda)",
+      "purpose": "Introduce the Events system for managing factual occurrences with semantic deduplication",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event Model and Semantic Search",
+      "purpose": "Document the Event model structure, embedding generation, and vector similarity queries",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event Creation and Validation",
+      "purpose": "Explain event creation workflow, AI validation, semantic deduplication, and the EventManager",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event Discovery and Suggestions",
+      "purpose": "Document AI-powered event suggestion system, web search integration, and find_major_events functionality",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event Display and Timeline Views",
+      "purpose": "Explain event listing views, detail pages, filtering by category/domain, and similar events display",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event Categories, Sources, and Localities",
+      "purpose": "Document the category system, source tracking, and locality-based filtering",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Event API Reference",
+      "purpose": "Provide comprehensive API endpoint documentation for event operations",
+      "parent": "Events System (Agenda)",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "AI Integration and Semantic Search",
+      "purpose": "Explain how OpenAI is integrated throughout the system for embeddings, content generation, and validation",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Vector Embeddings and Similarity Search",
+      "purpose": "Document embedding generation, pgvector usage, L2Distance and CosineDistance queries, and HNSW indexing",
+      "parent": "AI Integration and Semantic Search",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "AI Content Generation",
+      "purpose": "Explain structured output parsing, prompt engineering, and the various AI generation endpoints",
+      "parent": "AI Integration and Semantic Search",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    }
+  ]
+}
