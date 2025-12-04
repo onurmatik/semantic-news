@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 from django.utils.timezone import make_naive
+from django.template.loader import render_to_string
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from slugify import slugify
@@ -17,6 +18,7 @@ from slugify import slugify
 from semanticnews.topics.models import Topic, TopicSection
 from semanticnews.topics.widgets import WIDGET_REGISTRY, get_widget, load_widgets
 from semanticnews.topics.widgets.base import Widget, WidgetAction
+from semanticnews.topics.widgets.rendering import build_renderable_section
 
 from .execution import WidgetExecutionError, resolve_widget_action
 from .services import (
@@ -85,6 +87,18 @@ class WidgetExecutionResponse(Schema):
 
 class WidgetSectionDeleteResponse(Schema):
     success: bool
+
+
+class WidgetSectionCreateRequest(Schema):
+    topic_uuid: uuid.UUID
+    widget_id: Optional[str] = None
+    content: Optional[Any] = None
+
+
+class WidgetSectionCreateResponse(Schema):
+    id: int
+    draft_display_order: int
+    shell: Optional[str] = None
 
 
 class WidgetSectionOrderItem(Schema):
@@ -207,6 +221,78 @@ def widget_details(request, identifier: str) -> WidgetDetailResponse:
         schema=schema,
         actions=actions,
     )
+
+
+def _resolve_widget_identifier(
+    identifier: str | None = None, *, payload: WidgetSectionCreateRequest | None = None
+) -> Widget:
+    widget_identifier = identifier or None
+    if widget_identifier is None and payload is not None:
+        widget_identifier = payload.widget_id
+
+    if widget_identifier is None:
+        raise HttpError(400, "Widget identifier is required")
+
+    return _resolve_widget(str(widget_identifier))
+
+
+def _create_widget_section(
+    request, payload: WidgetSectionCreateRequest, *, identifier: str | None = None
+) -> WidgetSectionCreateResponse:
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=payload.topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    widget = _resolve_widget_identifier(identifier, payload=payload)
+
+    max_order = (
+        TopicSection.objects.filter(topic=topic, is_deleted=False, is_draft_deleted=False)
+        .aggregate(max_order=Max("draft_display_order"))
+        .get("max_order")
+        or 0
+    )
+
+    section = TopicSection.objects.create(
+        topic=topic,
+        widget_name=widget.name,
+        draft_display_order=max_order + 1,
+        display_order=max_order + 1,
+    )
+    section._get_or_create_draft_record()
+
+    content = payload.content if payload.content is not None else {}
+    section.content = content
+
+    renderable = build_renderable_section(section, edit_mode=True)
+    renderable.key = f"section:{section.id}"
+    shell = render_to_string(
+        "widgets/topics/widgets/section.html",
+        {"renderable": renderable, "edit_mode": True},
+    )
+
+    return WidgetSectionCreateResponse(
+        id=section.id, draft_display_order=section.draft_display_order, shell=shell
+    )
+
+
+@router.post("/sections", response=WidgetSectionCreateResponse)
+def create_widget_section(request, payload: WidgetSectionCreateRequest):
+    return _create_widget_section(request, payload)
+
+
+@router.post("/{identifier}/sections", response=WidgetSectionCreateResponse)
+def create_widget_section_for_identifier(
+    request, identifier: str, payload: WidgetSectionCreateRequest
+):
+    return _create_widget_section(request, payload, identifier=identifier)
 
 
 @router.post("/execute", response=WidgetExecutionResponse)
