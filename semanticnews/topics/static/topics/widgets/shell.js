@@ -491,7 +491,7 @@
 
       const controls = widgetEl.querySelectorAll(
         '[data-widget-action],[data-widget-action-id],[data-widget-action-name],'
-        + '[data-widget-delete-section-id],[data-widget-close]',
+        + '[data-widget-delete-section-id]',
       );
 
       const isParagraph = widgetKey === 'paragraph';
@@ -504,12 +504,6 @@
         const visibility = (button.dataset.widgetVisibility || 'always').toLowerCase();
         let shouldShow = true;
         switch (visibility) {
-          case 'draft':
-            shouldShow = !sectionId;
-            break;
-          case 'saved':
-            shouldShow = Boolean(sectionId);
-            break;
           case 'needs-image':
             shouldShow = !hasImage;
             break;
@@ -527,6 +521,16 @@
 
         if (button.dataset.widgetDeleteSectionId !== undefined && sectionId) {
           button.dataset.widgetDeleteSectionId = sectionId;
+        }
+
+        if (button.dataset.widgetDeleteSectionId !== undefined) {
+          const canDelete = sectionId != null;
+          button.disabled = !canDelete;
+          if (button.disabled) {
+            button.setAttribute('aria-disabled', 'true');
+          } else {
+            button.removeAttribute('aria-disabled');
+          }
         }
       });
 

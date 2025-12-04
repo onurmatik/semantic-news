@@ -6,29 +6,25 @@
                 {% with action_id=action.id action_name=action.name action_icon=action.icon action_key=action.name|default:''|lower %}
                     {% if widget_name == 'paragraph' %}
                         {% if action_key == 'generate' %}
-                            {% with hidden_class=is_saved|yesno:'d-none,' %}
-                                <button
-                                    type="button"
-                                    class="btn btn-outline-primary btn-sm {{ hidden_class }}"
-                                    data-widget-action="{{ action_id }}"
-                                    data-widget-action-id="{{ action_id }}"
-                                    data-widget-visibility="draft"
-                                    {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
-                                    {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
-                                >
-                                    <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
-                                    {% if action_name %}
-                                        <span class="visually-hidden">{{ action_name }}</span>
-                                    {% endif %}
-                                </button>
-                            {% endwith %}
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                data-widget-action="{{ action_id }}"
+                                data-widget-action-id="{{ action_id }}"
+                                {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
+                                {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
+                            >
+                                <i class="{{ action_icon|default:'bi bi-stars' }}" aria-hidden="true"></i>
+                                {% if action_name %}
+                                    <span class="visually-hidden">{{ action_name }}</span>
+                                {% endif %}
+                            </button>
                         {% else %}
                             <button
                                 type="button"
-                                class="btn btn-outline-primary btn-sm {% if not is_saved or not has_text %}d-none{% endif %}"
+                                class="btn btn-outline-primary btn-sm"
                                 data-widget-action="{{ action_id }}"
                                 data-widget-action-id="{{ action_id }}"
-                                data-widget-visibility="saved-with-text"
                                 {% if action_name %}data-widget-action-name="{{ action_name }}"{% endif %}
                                 {% if action_name %}title="{{ action_name }}" aria-label="{{ action_name }}"{% else %}aria-label="{% trans "Widget action" %}"{% endif %}
                             >
@@ -102,7 +98,7 @@
         {% blocktrans asvar delete_label with target=delete_target %}Delete {{ target }}{% endblocktrans %}
         {% blocktrans asvar move_up_label with target=delete_target %}Move {{ target }} up{% endblocktrans %}
         {% blocktrans asvar move_down_label with target=delete_target %}Move {{ target }} down{% endblocktrans %}
-        <div class="btn-group {% if not section.id %}d-none{% endif %}" role="group" aria-label="{% trans "Section ordering controls" %}">
+        <div class="btn-group" role="group" aria-label="{% trans "Section ordering controls" %}">
             <button
                 type="button"
                 class="btn btn-outline-secondary btn-sm"
@@ -132,9 +128,9 @@
                 class="btn btn-outline-danger btn-sm"
                 data-widget-delete-section-id="{{ section.id|default_if_none:'' }}"
                 data-widget-delete-label="{{ delete_target }}"
-                data-widget-visibility="saved"
                 title="{{ delete_label }}"
                 aria-label="{{ delete_label }}"
+                {% if not section.id %}disabled{% endif %}
             >
                 <i class="bi bi-trash" aria-hidden="true"></i>
                 <span class="visually-hidden">{{ delete_label }}</span>
