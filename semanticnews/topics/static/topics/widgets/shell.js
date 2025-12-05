@@ -143,35 +143,6 @@
     preview.appendChild(placeholder);
   }
 
-  function updateParagraphPreview(container, text) {
-    if (!container) {
-      return;
-    }
-    const preview = container.querySelector('[data-widget-paragraph-preview]');
-    if (!preview) {
-      return;
-    }
-    const resolved = typeof text === 'string' ? text.trim() : '';
-    preview.innerHTML = '';
-    if (resolved) {
-      const paragraph = document.createElement('p');
-      paragraph.className = 'mb-0';
-      const lines = resolved.replace(/\r\n/g, '\n').split('\n');
-      lines.forEach((line, index) => {
-        paragraph.appendChild(document.createTextNode(line));
-        if (index < lines.length - 1) {
-          paragraph.appendChild(document.createElement('br'));
-        }
-      });
-      preview.appendChild(paragraph);
-      return;
-    }
-    const placeholder = document.createElement('p');
-    placeholder.className = 'text-muted mb-0';
-    placeholder.textContent = 'Paragraph preview will appear here.';
-    preview.appendChild(placeholder);
-  }
-
   function normaliseWidgetContent(widgetKey, content) {
     if (!content || typeof content !== 'object') {
       return {};
@@ -181,11 +152,11 @@
     const key = widgetKey || '';
 
     if (key === 'paragraph') {
-      const resultVal =
-        typeof normalized.result === 'string' ? normalized.result.trim() : '';
-
-      if (resultVal) {
-        normalized.text = resultVal;
+      const resultVal = normalized.result;
+      if (typeof resultVal === 'string') {
+        normalized.text = resultVal.trim();
+      } else if (resultVal != null) {
+        normalized.text = String(resultVal).trim();
       } else if (typeof normalized.text === 'string') {
         normalized.text = normalized.text.trim();
       }
@@ -250,8 +221,6 @@
     const resolvedKey = widgetKey || widgetEl.dataset.topicWidgetKey || '';
     if (resolvedKey === 'image') {
       updateImagePreview(contentContainer, normalizedContent.image_url || normalizedContent.imageUrl || '');
-    } else if (resolvedKey === 'paragraph') {
-      updateParagraphPreview(contentContainer, normalizedContent.text || '');
     }
   }
 
@@ -533,14 +502,6 @@
           }
         }
       });
-
-      if (widgetKey === 'paragraph') {
-        const textField = widgetEl.querySelector('[name="text"]');
-        if (textField && sectionId) {
-          textField.setAttribute('readonly', 'true');
-          textField.setAttribute('aria-readonly', 'true');
-        }
-      }
     }
 
     function setWidgetButtonsDisabled(widgetEl, disabled) {
@@ -1195,10 +1156,6 @@
             || contentContainer.querySelector('[name="url"]');
           const value = imageField ? getFieldValue(imageField) : '';
           updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
-        } else if (widgetKey === 'paragraph' && contentContainer) {
-          const textField = contentContainer.querySelector('[name="text"]');
-          const value = textField ? getFieldValue(textField) : '';
-          updateParagraphPreview(contentContainer, typeof value === 'string' ? value : '');
         }
         updateActionVisibility(widgetEl);
         updateMoveButtonStates();
@@ -1218,10 +1175,6 @@
             || contentContainer.querySelector('[name="url"]');
           const value = imageField ? getFieldValue(imageField) : '';
           updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
-        } else if (widgetKey === 'paragraph' && contentContainer) {
-          const textField = contentContainer.querySelector('[name="text"]');
-          const value = textField ? getFieldValue(textField) : '';
-          updateParagraphPreview(contentContainer, typeof value === 'string' ? value : '');
         }
         updateActionVisibility(widgetEl);
       });

@@ -1,21 +1,15 @@
 {% load i18n %}
 <div class="topic-widget-form" data-widget-form="paragraph">
     <div class="mb-3">
-        <div class="border rounded bg-body-secondary-subtle p-3" data-widget-paragraph-preview>
-            {% if content.text %}
-                <p class="mb-0">{{ content.text|default_if_none:''|linebreaksbr }}</p>
-            {% else %}
-                <p class="text-muted mb-0">{% trans "Paragraph preview will appear here." %}</p>
-            {% endif %}
-        </div>
-        <input
-            type="hidden"
+        <label class="form-label" for="widget-paragraph-text">{% trans "Paragraph text" %}</label>
+        <textarea
+            id="widget-paragraph-text"
+            class="form-control"
             name="text"
-            value="{{ content.text|default_if_none:'' }}"
-            aria-readonly="true"
-            readonly
-            data-widget-protected="true"
-        >
+            rows="6"
+            placeholder="{% trans 'Write or edit your paragraph here…' %}"
+        >{{ content.text|default_if_none:'' }}</textarea>
+        <div class="form-text text-muted">{% trans "You can edit the paragraph or use the generator buttons." %}</div>
     </div>
 
     <div class="mb-3">
