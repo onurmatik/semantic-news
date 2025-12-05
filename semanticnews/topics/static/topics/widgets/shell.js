@@ -285,6 +285,24 @@
     return String(value).replace(/\r\n/g, '\n').trim();
   }
 
+  function collectParagraphContext(widgetEl, baseContext) {
+    const context = { ...(baseContext || {}) };
+
+    const textField = widgetEl ? widgetEl.querySelector('[name="text"]') : null;
+    const textValue = textField ? normaliseTextValue(getFieldValue(textField)) : '';
+    context.text = textValue;
+
+    const instructionField = widgetEl ? widgetEl.querySelector('[name="instructions"]') : null;
+    const instructionValue = instructionField
+      ? normaliseTextValue(getFieldValue(instructionField))
+      : '';
+    if (instructionValue) {
+      context.instructions = instructionValue;
+    }
+
+    return context;
+  }
+
   function collectParagraphGenerationContext(widgetEl, baseContext) {
     const context = { ...(baseContext || {}) };
 
@@ -958,6 +976,10 @@
 
       try {
         let contextPayload = serializeWidgetContext(widgetEl);
+
+        if (normalizedWidgetKey === 'paragraph') {
+          contextPayload = collectParagraphContext(widgetEl, contextPayload);
+        }
 
         if (normalizedWidgetKey === 'paragraph' && normalizedActionId === 'generate') {
           contextPayload = collectParagraphGenerationContext(widgetEl, contextPayload);
