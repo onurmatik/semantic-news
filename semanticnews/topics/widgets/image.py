@@ -1,24 +1,84 @@
 import base64
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, HttpUrl
 
 from .base import GenericGenerateAction, Widget, WidgetAction
+from .paragraph import _normalise_paragraphs
 
 
 class ImageSchema(BaseModel):
-    prompt: str
+    prompt: str = ""
     image_url: HttpUrl | None = None
+
+
+def _build_image_context(context: Dict[str, Any]) -> Dict[str, Any]:
+    topic = (context.get("topic_title") or context.get("topic") or "").strip()
+    recap = (context.get("latest_recap") or "").strip()
+    prompt = (context.get("prompt") or "").strip()
+    image_url = (context.get("image_url") or context.get("url") or "").strip()
+    previous_paragraphs = _normalise_paragraphs(context.get("previous_paragraphs"))
+    next_paragraphs = _normalise_paragraphs(context.get("next_paragraphs"))
+
+    if not previous_paragraphs and not next_paragraphs:
+        all_paragraphs = _normalise_paragraphs(context.get("paragraphs"))
+        previous_paragraphs = all_paragraphs
+        next_paragraphs = []
+
+    return {
+        "topic": topic,
+        "recap": recap,
+        "prompt": prompt,
+        "image_url": image_url,
+        "previous_paragraphs": previous_paragraphs,
+        "next_paragraphs": next_paragraphs,
+    }
 
 
 class GenerateImageAction(GenericGenerateAction):
     tools = ["image_generation"]
 
     def build_generate_prompt(self, context: Dict[str, Any]) -> str:
-        prompt_text = context.get("prompt", "")
-        return f"Generate a high-quality image based on the following description:\n\n{prompt_text}"
+        image_context = _build_image_context(context)
+        topic = image_context["topic"]
+        recap = image_context["recap"]
+        prompt_text = image_context["prompt"]
+        previous_paragraphs = image_context["previous_paragraphs"]
+        next_paragraphs = image_context["next_paragraphs"]
+        image_url = image_context["image_url"]
+
+        prompt_parts: List[str] = [
+            "You are creating a contextual illustration for this topic.",
+            f"Topic title: {topic}" if topic else "",
+        ]
+
+        if recap:
+            prompt_parts.append("Latest recap of the topic:\n" + recap)
+        if previous_paragraphs:
+            prompt_parts.append(
+                "Paragraphs before this image:\n" + "\n\n".join(previous_paragraphs)
+            )
+        if next_paragraphs:
+            prompt_parts.append(
+                "Paragraphs after this image:\n" + "\n\n".join(next_paragraphs)
+            )
+
+        if prompt_text:
+            prompt_parts.append("Use this image prompt as creative guidance:\n" + prompt_text)
+        if image_url:
+            prompt_parts.append(
+                "If it helps, use this existing image as a reference for the new artwork:\n"
+                + image_url
+            )
+
+        prompt_parts.append(
+            "The illustration should match the flow of the surrounding paragraphs and the topic recap."
+            " Provide a single high-quality image output that fits at this position."
+        )
+
+        return "\n\n".join(filter(None, prompt_parts))
 
     def postprocess(
         self,

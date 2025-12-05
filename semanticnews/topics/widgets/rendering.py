@@ -157,6 +157,11 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
         content["image_url"] = image_source or ""
         content.setdefault("url", "")
         content.setdefault("prompt", "")
+        has_image = bool(content.get("image_url"))
+        content["form_prompt"] = "" if has_image else content.get("prompt", "")
+        content["form_image_url"] = "" if has_image else (
+            content.get("form_image_url") or content.get("image_url") or content.get("url") or ""
+        )
 
     return content
 

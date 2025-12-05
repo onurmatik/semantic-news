@@ -1,47 +1,94 @@
 {% load i18n %}
-<div class="topic-widget-form" data-widget-form="image">
-    <div class="mb-3">
-        <div
-            class="border rounded bg-body-secondary-subtle p-3 text-center"
-            data-widget-image-preview
-        >
-            {% with image_src=content.image_url %}
-                {% if image_src %}
-                    <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
-                {% else %}
-                    <div class="d-inline-flex flex-column align-items-center gap-2 text-muted">
-                        <i class="bi bi-image fs-1" aria-hidden="true"></i>
-                        <span>{% trans "Image preview will appear here." %}</span>
-                    </div>
-                {% endif %}
-            {% endwith %}
+
+{% if content %}
+    {% with content=content %}
+    <div class="topic-widget-form" data-widget-form="image">
+        <div class="mb-3">
+            <div
+                class="border rounded bg-body-secondary-subtle p-3 text-center"
+                data-widget-image-preview
+            >
+                {% with image_src=content.image_url %}
+                    {% if image_src %}
+                        <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
+                    {% else %}
+                        <div class="d-inline-flex flex-column align-items-center gap-2 text-muted">
+                            <i class="bi bi-image fs-1" aria-hidden="true"></i>
+                            <span>{% trans "Image preview will appear here." %}</span>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="widget-image-prompt">{% trans "Image prompt" %}</label>
+            <textarea
+                id="widget-image-prompt"
+                class="form-control"
+                name="prompt"
+                rows="4"
+                placeholder="{% trans 'Describe the image you want to generate…' %}"
+            >{{ content.form_prompt|default_if_none:content.prompt|default_if_none:'' }}</textarea>
+            <div class="form-text text-muted">
+                {% blocktrans %}The prompt guides the image generation model.{% endblocktrans %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="widget-image-url">{% trans "Image URL" %}</label>
+            <input
+                type="url"
+                id="widget-image-url"
+                class="form-control"
+                name="image_url"
+                value="{{ content.form_image_url|default_if_none:content.image_url|default_if_none:'' }}"
+                placeholder="https://"
+            />
+            <div class="form-text text-muted">
+                {% blocktrans %}Provide an existing image URL or leave blank to generate a new image.{% endblocktrans %}
+            </div>
         </div>
     </div>
-    <div class="mb-3">
-        <label class="form-label" for="widget-image-prompt">{% trans "Image prompt" %}</label>
-        <textarea
-            id="widget-image-prompt"
-            class="form-control"
-            name="prompt"
-            rows="4"
-            placeholder="{% trans 'Describe the image you want to generate…' %}"
-        >{{ content.prompt|default_if_none:'' }}</textarea>
-        <div class="form-text text-muted">
-            {% blocktrans %}The prompt guides the image generation model.{% endblocktrans %}
+    {% endwith %}
+{% else %}
+    {# brand-new widget or empty content: no lookups on content at all #}
+    <div class="topic-widget-form" data-widget-form="image">
+        <div class="mb-3">
+            <div
+                class="border rounded bg-body-secondary-subtle p-3 text-center"
+                data-widget-image-preview
+            >
+                <div class="d-inline-flex flex-column align-items-center gap-2 text-muted">
+                    <i class="bi bi-image fs-1" aria-hidden="true"></i>
+                    <span>{% trans "Image preview will appear here." %}</span>
+                </div>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="widget-image-prompt">{% trans "Image prompt" %}</label>
+            <textarea
+                id="widget-image-prompt"
+                class="form-control"
+                name="prompt"
+                rows="4"
+                placeholder="{% trans 'Describe the image you want to generate…' %}"
+            ></textarea>
+            <div class="form-text text-muted">
+                {% blocktrans %}The prompt guides the image generation model.{% endblocktrans %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="widget-image-url">{% trans "Image URL" %}</label>
+            <input
+                type="url"
+                id="widget-image-url"
+                class="form-control"
+                name="image_url"
+                value=""
+                placeholder="https://"
+            />
+            <div class="form-text text-muted">
+                {% blocktrans %}Provide an existing image URL or leave blank to generate a new image.{% endblocktrans %}
+            </div>
         </div>
     </div>
-    <div class="mb-3">
-        <label class="form-label" for="widget-image-url">{% trans "Image URL" %}</label>
-        <input
-            type="url"
-            id="widget-image-url"
-            class="form-control"
-            name="image_url"
-            value="{{ content.image_url|default_if_none:'' }}"
-            placeholder="https://"
-        />
-        <div class="form-text text-muted">
-            {% blocktrans %}Provide an existing image URL or leave blank to generate a new image.{% endblocktrans %}
-        </div>
-    </div>
-</div>
+{% endif %}

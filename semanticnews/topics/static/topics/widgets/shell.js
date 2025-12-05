@@ -51,9 +51,11 @@
     syncRichTextField(field, normalized);
   }
 
-  function resolveActionBanner(actionId, phase) {
+  function resolveActionBanner(actionId, phase, widgetKey) {
     const normalizedAction = (actionId || '').toLowerCase();
     const normalizedPhase = (phase || '').toLowerCase();
+    const normalizedWidget = (widgetKey || '').toLowerCase();
+    const isImageWidget = normalizedWidget === 'image' || normalizedAction === 'variate';
 
     const banners = {
       summarize: {
@@ -70,19 +72,45 @@
         timeout: 'Timed out while expanding paragraph',
         failure: 'Unable to expand paragraph',
       },
-      generate: {
+      paragraphGenerate: {
         queued: 'Generating paragraph…',
         running: 'Generating paragraph…',
         success: 'Paragraph generated',
         timeout: 'Timed out while generating paragraph',
         failure: 'Unable to generate paragraph',
       },
+      imageGenerate: {
+        queued: 'Generating image…',
+        running: 'Generating image…',
+        success: 'Image generated',
+        timeout: 'Timed out while generating image',
+        failure: 'Unable to generate image',
+      },
+      imageVariate: {
+        queued: 'Generating image variation…',
+        running: 'Generating image variation…',
+        success: 'Image variation ready',
+        timeout: 'Timed out while generating image variation',
+        failure: 'Unable to generate image variation',
+      },
     };
 
-    const defaults = banners.generate;
+    const defaults = isImageWidget ? banners.imageGenerate : banners.paragraphGenerate;
+
+    let resolved = defaults;
+    if (normalizedAction === 'summarize') {
+      resolved = banners.summarize;
+    } else if (normalizedAction === 'expand') {
+      resolved = banners.expand;
+    } else if (normalizedAction === 'variate') {
+      resolved = banners.imageVariate;
+    } else if (normalizedAction === 'generate') {
+      resolved = isImageWidget ? banners.imageGenerate : banners.paragraphGenerate;
+    }
+
     return (
-      (banners[normalizedAction] && banners[normalizedAction][normalizedPhase])
-      || defaults[normalizedPhase]
+      (resolved && resolved[normalizedPhase])
+      || (defaults && defaults[normalizedPhase])
       || 'Action in progress'
     );
   }
@@ -131,6 +159,9 @@
       return;
     }
     preview.innerHTML = '';
+    if (preview.dataset) {
+      preview.dataset.widgetImageValue = imageUrl || '';
+    }
     if (imageUrl) {
       const img = document.createElement('img');
       img.src = imageUrl;
@@ -201,6 +232,17 @@
           }
         }
       }
+
+      const hasImage = Boolean(normalized.image_url);
+      const promptForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_prompt')
+        ? normalized.form_prompt
+        : normalized.prompt;
+      const urlForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_image_url')
+        ? normalized.form_image_url
+        : normalized.image_url || normalized.imageUrl;
+
+      normalized.form_prompt = hasImage ? '' : promptForInput || '';
+      normalized.form_image_url = hasImage ? '' : urlForInput || '';
     }
 
     return normalized;
@@ -216,11 +258,26 @@
     }
 
     const normalizedContent = normaliseWidgetContent(widgetKey || widgetEl.dataset.topicWidgetKey, content);
-    updateFormFields(contentContainer, normalizedContent);
 
     const resolvedKey = widgetKey || widgetEl.dataset.topicWidgetKey || '';
+    let imagePreviewUrl = '';
     if (resolvedKey === 'image') {
-      updateImagePreview(contentContainer, normalizedContent.image_url || normalizedContent.imageUrl || '');
+      imagePreviewUrl = normalizedContent.image_url || normalizedContent.imageUrl || '';
+      const promptValue = Object.prototype.hasOwnProperty.call(normalizedContent, 'form_prompt')
+        ? normalizedContent.form_prompt
+        : normalizedContent.prompt;
+      const urlValue = Object.prototype.hasOwnProperty.call(normalizedContent, 'form_image_url')
+        ? normalizedContent.form_image_url
+        : normalizedContent.image_url || normalizedContent.imageUrl;
+
+      normalizedContent.prompt = promptValue == null ? '' : String(promptValue);
+      normalizedContent.image_url = urlValue == null ? '' : String(urlValue);
+    }
+
+    updateFormFields(contentContainer, normalizedContent);
+
+    if (resolvedKey === 'image') {
+      updateImagePreview(contentContainer, imagePreviewUrl);
     }
   }
 
@@ -459,13 +516,28 @@
         : null);
       const imageField = findField('image_url') || findField('url');
       const imageValue = imageField ? getFieldValue(imageField) : '';
+      const previewContainer = contentContainer
+        ? contentContainer.querySelector('[data-widget-image-preview]')
+        : null;
+      const previewValue = previewContainer && previewContainer.dataset
+        ? previewContainer.dataset.widgetImageValue
+        : '';
+      const previewImage = previewContainer
+        ? previewContainer.querySelector('img')
+        : null;
+      const previewSrc = previewImage
+        ? previewImage.getAttribute('src') || previewImage.src || ''
+        : '';
+      const effectivePreview = previewValue || previewSrc;
       const textField = findField('text');
       const textValue = textField ? getFieldValue(textField) : '';
 
       return {
         widgetKey,
         sectionId,
-        hasImage: typeof imageValue === 'string' ? imageValue.trim().length > 0 : false,
+        hasImage:
+          (typeof imageValue === 'string' ? imageValue.trim().length > 0 : false)
+          || (typeof effectivePreview === 'string' ? effectivePreview.trim().length > 0 : false),
         hasText: typeof textValue === 'string' ? textValue.trim().length > 0 : false,
       };
     }
@@ -803,7 +875,7 @@
         }
 
         const actionId = state.context ? state.context.actionId : null;
-        const actionBanner = (phase) => resolveActionBanner(actionId, phase);
+        const actionBanner = (phase) => resolveActionBanner(actionId, phase, state.context ? state.context.widgetKey : null);
 
         if (!snapshot) {
           if (state.attempts >= MAX_POLL_ATTEMPTS) {
@@ -967,7 +1039,7 @@
       });
 
       if (statusEl) {
-        setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'info');
+        setValidationState(statusEl, resolveActionBanner(actionId, 'queued', widgetKey), 'info');
       }
 
       if (shouldDisableWidgetButtons(normalizedWidgetKey, normalizedActionId)) {
@@ -1031,7 +1103,7 @@
         updateActionVisibility(widgetEl);
         updateMoveButtonStates();
         if (statusEl) {
-          setValidationState(statusEl, resolveActionBanner(actionId, 'queued'), 'info');
+          setValidationState(statusEl, resolveActionBanner(actionId, 'queued', widgetKey), 'info');
         }
         startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
       } catch (error) {
