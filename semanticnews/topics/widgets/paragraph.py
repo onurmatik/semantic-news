@@ -14,6 +14,7 @@ class GenerateAction(GenericGenerateAction):
     def build_generate_prompt(self, context: Dict[str, Any]) -> str:
         topic = context.get("topic_title") or context.get("topic") or ""
         recap = (context.get("latest_recap") or "").strip()
+        draft_text = (context.get("text") or "").strip()
         previous_paragraphs = self._normalise_paragraphs(
             context.get("previous_paragraphs")
         )
@@ -41,13 +42,30 @@ class GenerateAction(GenericGenerateAction):
                 "Upcoming paragraphs to stay consistent with:\n" + "\n\n".join(next_paragraphs)
             )
 
-        prompt_parts.append(
-            "Write a new paragraph that fits naturally with the existing content."
-            " Avoid markdown formatting or headings."
-        )
+        if draft_text:
+            prompt_parts.append("Draft paragraph to refine:\n" + draft_text)
 
         if instructions:
-            prompt_parts.append("Follow these user instructions only in context of the topic:\n" + instructions)
+            prompt_parts.append(
+                "MANDATORY user guidance (apply before writing):\n" + instructions
+            )
+
+        prompt_parts.append(
+            "Style requirements:\n- Maintain continuity with the topic and surrounding paragraphs."
+            "\n- Avoid markdown formatting or headings."
+        )
+
+        if draft_text:
+            prompt_parts.append(
+                "Revise and improve the draft paragraph so it fits naturally with the"
+                " existing content."
+                "\n Do not include earlier and upcoming paragraphs to the response."
+            )
+        else:
+            prompt_parts.append(
+                "Write a new paragraph that fits naturally with the existing content."
+                "\n Do not include earlier and upcoming paragraphs to the response."
+            )
 
         return "\n\n".join(filter(None, prompt_parts))
 
