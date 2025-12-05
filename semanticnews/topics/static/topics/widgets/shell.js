@@ -300,6 +300,12 @@
       context.latest_recap = recapValue;
     }
 
+    const textField = widgetEl ? widgetEl.querySelector('[name="text"]') : null;
+    const textValue = textField ? normaliseTextValue(getFieldValue(textField)) : '';
+    if (textValue) {
+      context.text = textValue;
+    }
+
     const otherParagraphs = [];
     const currentEntry = widgetEl ? widgetEl.closest('[data-topic-widget-entry]') : null;
     document.querySelectorAll('[data-topic-widget-entry][data-topic-widget-key="paragraph"]').forEach((entry) => {
