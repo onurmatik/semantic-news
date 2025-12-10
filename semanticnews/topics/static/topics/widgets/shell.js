@@ -1263,16 +1263,7 @@
         if (!widgetEl || !element.contains(widgetEl)) {
           return;
         }
-        const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
-        const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
-        if (widgetKey === 'image' && contentContainer) {
-          const imageField =
-            contentContainer.querySelector('[name="image_url"]')
-            || contentContainer.querySelector('[name="form_image_url"]')
-            || contentContainer.querySelector('[name="url"]');
-          const value = imageField ? getFieldValue(imageField) : '';
-          updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
-        }
+
         updateActionVisibility(widgetEl);
         updateMoveButtonStates();
       });
@@ -1281,19 +1272,11 @@
         const widgetEl = event.target && typeof event.target.closest === 'function'
           ? event.target.closest('[data-topic-widget]')
           : null;
+
         if (!widgetEl || !element.contains(widgetEl)) {
           return;
         }
-        const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
-        const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
-        if (widgetKey === 'image' && contentContainer) {
-          const imageField =
-            contentContainer.querySelector('[name="image_url"]')
-            || contentContainer.querySelector('[name="form_image_url"]')
-            || contentContainer.querySelector('[name="url"]');
-          const value = imageField ? getFieldValue(imageField) : '';
-          updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
-        }
+
         updateActionVisibility(widgetEl);
       });
 
