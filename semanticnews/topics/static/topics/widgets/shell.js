@@ -525,7 +525,10 @@
       const findField = (name) => (contentContainer
         ? contentContainer.querySelector(`[name="${name}"]`)
         : null);
-      const imageField = findField('image_url') || findField('url');
+      const imageField =
+        findField('image_url')
+        || findField('form_image_url')
+        || findField('url');
       const imageValue = imageField ? getFieldValue(imageField) : '';
       const previewContainer = contentContainer
         ? contentContainer.querySelector('[data-widget-image-preview]')
@@ -1263,7 +1266,9 @@
         const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
         const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
         if (widgetKey === 'image' && contentContainer) {
-          const imageField = contentContainer.querySelector('[name="image_url"]')
+          const imageField =
+            contentContainer.querySelector('[name="image_url"]')
+            || contentContainer.querySelector('[name="form_image_url"]')
             || contentContainer.querySelector('[name="url"]');
           const value = imageField ? getFieldValue(imageField) : '';
           updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
@@ -1282,7 +1287,9 @@
         const contentContainer = widgetEl.querySelector('[data-widget-editor-content]');
         const widgetKey = (widgetEl.dataset.topicWidgetKey || '').toLowerCase();
         if (widgetKey === 'image' && contentContainer) {
-          const imageField = contentContainer.querySelector('[name="image_url"]')
+          const imageField =
+            contentContainer.querySelector('[name="image_url"]')
+            || contentContainer.querySelector('[name="form_image_url"]')
             || contentContainer.querySelector('[name="url"]');
           const value = imageField ? getFieldValue(imageField) : '';
           updateImagePreview(contentContainer, typeof value === 'string' ? value : '');
