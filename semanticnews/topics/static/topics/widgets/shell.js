@@ -925,6 +925,23 @@
           updateActionVisibility(state.context.widgetEl);
         }
 
+        if (
+          status !== 'finished'
+          && state.context
+          && state.context.pendingInputs
+          && state.context.widgetEl
+        ) {
+          const { prompt: pendingPrompt, form_image_url: pendingUrl } = state.context.pendingInputs;
+          const promptField = state.context.widgetEl.querySelector('[name="prompt"]');
+          const urlField = state.context.widgetEl.querySelector('[name="form_image_url"]');
+          if (promptField && typeof pendingPrompt === 'string') {
+            setFieldValue(promptField, pendingPrompt);
+          }
+          if (urlField && typeof pendingUrl === 'string') {
+            setFieldValue(urlField, pendingUrl);
+          }
+        }
+
         // Track whether we've seen a non-finished status for this execution
         if (status && status !== 'finished') {
           state.hasSeenNonFinishedStatus = true;
@@ -943,6 +960,24 @@
 
             if (widgetEl) {
               setWidgetButtonsDisabled(widgetEl, false);
+            }
+
+            if (normalizedWidgetKey === 'image') {
+              const promptField = widgetEl ? widgetEl.querySelector('[name="prompt"]') : null;
+              const urlField = widgetEl ? widgetEl.querySelector('[name="form_image_url"]') : null;
+              if (promptField) {
+                setFieldValue(promptField, '');
+                promptField.dispatchEvent(new Event('input', { bubbles: true }));
+                promptField.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              if (urlField) {
+                setFieldValue(urlField, '');
+                urlField.dispatchEvent(new Event('input', { bubbles: true }));
+                urlField.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              if (state.context) {
+                state.context.pendingInputs = null;
+              }
             }
 
             // Special case: paragraph generate → clear instructions
@@ -1071,6 +1106,16 @@
           contextPayload = collectParagraphGenerationContext(widgetEl, contextPayload);
         }
 
+        if (normalizedWidgetKey === 'image') {
+          const previewContainer = widgetEl.querySelector('[data-widget-image-preview]');
+          const previewValue = previewContainer && previewContainer.dataset
+            ? previewContainer.dataset.widgetImageValue
+            : '';
+          if (typeof previewValue === 'string' && previewValue.trim()) {
+            contextPayload.image_data = contextPayload.image_data || previewValue.trim();
+          }
+        }
+
         console.log('[TopicWidgets][Shell] contextPayload', contextPayload);
 
         const requestBody = {
@@ -1096,6 +1141,15 @@
 
         console.log('[TopicWidgets][Shell] requestBody', requestBody);
 
+        const pendingInputs = normalizedWidgetKey === 'image'
+          ? {
+              prompt: typeof contextPayload.prompt === 'string' ? contextPayload.prompt : '',
+              form_image_url: typeof contextPayload.form_image_url === 'string'
+                ? contextPayload.form_image_url
+                : '',
+            }
+          : null;
+
         const response = await fetch('/api/topics/widgets/execute', {
           method: 'POST',
           headers: {
@@ -1119,7 +1173,13 @@
         if (statusEl) {
           setValidationState(statusEl, resolveActionBanner(actionId, 'queued', widgetKey), 'info');
         }
-        startPolling(payload.section_id, { widgetEl, statusEl, widgetKey, actionId });
+        startPolling(payload.section_id, {
+          widgetEl,
+          statusEl,
+          widgetKey,
+          actionId,
+          pendingInputs,
+        });
       } catch (error) {
         console.error(error);
         if (statusEl) {
