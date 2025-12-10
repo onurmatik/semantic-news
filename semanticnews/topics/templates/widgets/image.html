@@ -1,24 +1,27 @@
 {% load i18n %}
-{% with image_src=content.image_data|default:content.form_image_url|default:content.url %}
-<figure class="topic-widget-image text-center">
-    {% if image_src %}
-        <img
-            src="{{ image_src }}"
-            class="img-fluid rounded"
-            alt="{{ content.prompt|default:_('Generated illustration') }}"
-            loading="lazy"
-        />
-    {% elif content.result %}
-        <div class="alert alert-warning" role="status">
-            <p class="mb-0">{{ content.result }}</p>
-        </div>
-    {% else %}
-        {% if content.prompt %}
-            <div class="alert alert-info" role="status">
-                <p class="mb-1">{% blocktrans %}Awaiting an image for:{% endblocktrans %}</p>
-                <p class="mb-0"><strong>{{ content.prompt }}</strong></p>
+
+{% if content %}
+    {% with image_src=content.image_data|default_if_none:content.form_image_url %}
+    <figure class="topic-widget-image text-center">
+        {% if image_src %}
+            <img
+                src="{{ image_src }}"
+                class="img-fluid rounded"
+                alt="{{ content.prompt|default:_('Generated illustration') }}"
+                loading="lazy"
+            />
+        {% elif content.result %}
+            <div class="alert alert-warning" role="status">
+                <p class="mb-0">{{ content.result }}</p>
             </div>
+        {% else %}
+            {% if content.prompt %}
+                <div class="alert alert-info" role="status">
+                    <p class="mb-1">{% blocktrans %}Awaiting an image for:{% endblocktrans %}</p>
+                    <p class="mb-0"><strong>{{ content.prompt }}</strong></p>
+                </div>
+            {% endif %}
         {% endif %}
-    {% endif %}
-</figure>
-{% endwith %}
+    </figure>
+    {% endwith %}
+{% endif %}
