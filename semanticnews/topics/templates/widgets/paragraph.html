@@ -2,7 +2,5 @@
 <div class="topic-widget-paragraph">
     {% if content.text %}
         <p class="mb-0">{{ content.text|default_if_none:''|linebreaksbr }}</p>
-    {% else %}
-        <p class="text-muted mb-0">{% trans "No content available." %}</p>
     {% endif %}
 </div>
