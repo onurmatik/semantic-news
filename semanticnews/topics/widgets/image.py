@@ -96,8 +96,48 @@ class VariateImageAction(WidgetAction):
     tools = ["image_generation"]
 
     def build_prompt(self, context: Dict[str, Any]) -> str:
-        image_url = context.get("image_url")
-        return f"Create a variation of the existing image: {image_url}"
+        image_context = _build_image_context(context)
+        topic = image_context["topic"]
+        recap = image_context["recap"]
+        prompt_text = image_context["prompt"]
+        previous_paragraphs = image_context["previous_paragraphs"]
+        next_paragraphs = image_context["next_paragraphs"]
+        image_url = image_context["image_url"]
+
+        prompt_parts: List[str] = [
+            "Create a contextual variation of an existing illustration.",
+            f"Topic title: {topic}" if topic else "",
+        ]
+
+        if recap:
+            prompt_parts.append("Latest recap of the topic:\n" + recap)
+        if previous_paragraphs:
+            prompt_parts.append(
+                "Paragraphs before this image:\n" + "\n\n".join(previous_paragraphs)
+            )
+        if next_paragraphs:
+            prompt_parts.append(
+                "Paragraphs after this image:\n" + "\n\n".join(next_paragraphs)
+            )
+
+        if prompt_text:
+            prompt_parts.append("Use this image prompt as creative guidance:\n" + prompt_text)
+
+        if image_url:
+            prompt_parts.append(
+                "Use the following image URL as the base for your variation; keep the scene coherent with the surrounding context:\n"
+                + image_url
+            )
+        else:
+            prompt_parts.append(
+                "No base image URL is available. Create a new illustration that fits this position and respects the contextual details above."
+            )
+
+        prompt_parts.append(
+            "Provide a single high-quality image output that matches the flow of the surrounding paragraphs and the topic recap."
+        )
+
+        return "\n\n".join(filter(None, prompt_parts))
 
     def postprocess(
         self,
