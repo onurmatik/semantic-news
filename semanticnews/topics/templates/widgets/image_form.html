@@ -8,7 +8,7 @@
                 class="border rounded bg-body-secondary-subtle p-3 text-center"
                 data-widget-image-preview
             >
-                {% with image_src=content.image_url %}
+                {% with image_src=content.image_data|default:content.form_image_url %}
                     {% if image_src %}
                         <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
                     {% else %}
@@ -39,8 +39,8 @@
                 type="url"
                 id="widget-image-url"
                 class="form-control"
-                name="image_url"
-                value="{{ content.form_image_url|default_if_none:content.image_url|default_if_none:'' }}"
+                name="form_image_url"
+                value="{{ content.form_image_url|default_if_none:content.image_data|default_if_none:'' }}"
                 placeholder="https://"
             />
             <div class="form-text text-muted">
@@ -82,7 +82,7 @@
                 type="url"
                 id="widget-image-url"
                 class="form-control"
-                name="image_url"
+                name="form_image_url"
                 value=""
                 placeholder="https://"
             />

@@ -195,7 +195,12 @@
 
     if (key === 'image') {
       const resultVal = normalized.result;
-      const providedImage = normalized.image_url || normalized.imageUrl;
+      const providedImage =
+        normalized.image_data ||
+        normalized.image ||
+        normalized.image_url ||
+        normalized.imageUrl ||
+        normalized.url;
       const hasValidProvidedImage =
         typeof providedImage === 'string' &&
         (providedImage.trim().startsWith('http://') ||
@@ -203,22 +208,19 @@
           providedImage.trim().toLowerCase().startsWith('data:image/'));
 
       if (hasValidProvidedImage) {
-        normalized.image_url = providedImage.trim();
+        normalized.image_data = providedImage.trim();
       } else {
-        delete normalized.image_url;
-        if (Object.prototype.hasOwnProperty.call(normalized, 'imageUrl')) {
-          delete normalized.imageUrl;
-        }
+        delete normalized.image_data;
       }
 
-      if (!normalized.image_url && typeof resultVal === 'string') {
+      if (!normalized.image_data && typeof resultVal === 'string') {
         const cleaned = resultVal.trim();
         const lowerCleaned = cleaned.toLowerCase();
         const isLikelyUrl =
           cleaned.startsWith('http://') || cleaned.startsWith('https://');
         const isLikelyDataUrl = lowerCleaned.startsWith('data:image/');
         if (isLikelyUrl || isLikelyDataUrl) {
-          normalized.image_url = cleaned;
+          normalized.image_data = cleaned;
         } else if (
           /^[a-z0-9+/=\n\r]+$/i.test(cleaned) &&
           !/\s/.test(cleaned) &&
@@ -226,23 +228,26 @@
         ) {
           try {
             window.atob(cleaned);
-            normalized.image_url = `data:image/png;base64,${cleaned}`;
+            normalized.image_data = `data:image/png;base64,${cleaned}`;
           } catch (error) {
             // Not a valid base64 image payload; leave as text.
           }
         }
       }
 
-      const hasImage = Boolean(normalized.image_url);
       const promptForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_prompt')
         ? normalized.form_prompt
         : normalized.prompt;
       const urlForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_image_url')
         ? normalized.form_image_url
-        : normalized.image_url || normalized.imageUrl;
+        : normalized.image_url || normalized.imageUrl || normalized.url;
 
-      normalized.form_prompt = hasImage ? '' : promptForInput || '';
-      normalized.form_image_url = hasImage ? '' : urlForInput || '';
+      normalized.form_prompt = promptForInput == null ? '' : promptForInput;
+      normalized.form_image_url = urlForInput == null ? '' : urlForInput;
+
+      if (normalized.image_data) {
+        normalized.image_url = normalized.image_data;
+      }
     }
 
     return normalized;
@@ -262,7 +267,11 @@
     const resolvedKey = widgetKey || widgetEl.dataset.topicWidgetKey || '';
     let imagePreviewUrl = '';
     if (resolvedKey === 'image') {
-      imagePreviewUrl = normalizedContent.image_url || normalizedContent.imageUrl || '';
+      imagePreviewUrl =
+        normalizedContent.image_data ||
+        normalizedContent.image_url ||
+        normalizedContent.imageUrl ||
+        '';
       const promptValue = Object.prototype.hasOwnProperty.call(normalizedContent, 'form_prompt')
         ? normalizedContent.form_prompt
         : normalizedContent.prompt;
@@ -271,7 +280,12 @@
         : normalizedContent.image_url || normalizedContent.imageUrl;
 
       normalizedContent.prompt = promptValue == null ? '' : String(promptValue);
-      normalizedContent.image_url = urlValue == null ? '' : String(urlValue);
+      normalizedContent.form_image_url = urlValue == null ? '' : String(urlValue);
+      if (normalizedContent.image_data == null) {
+        normalizedContent.image_data = '';
+      } else {
+        normalizedContent.image_data = String(normalizedContent.image_data);
+      }
     }
 
     updateFormFields(contentContainer, normalizedContent);

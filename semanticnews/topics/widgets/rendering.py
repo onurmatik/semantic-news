@@ -111,7 +111,12 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
             content["text"] = result_val
 
     if widget_name == "image":
-        image_source = content.get("image_url") or content.get("url")
+        image_source = (
+            content.get("image_data")
+            or content.get("image")
+            or content.get("image_url")
+            or content.get("url")
+        )
         result_val = content.get("result")
 
         def _is_valid_image_source(value: str) -> bool:
@@ -154,13 +159,15 @@ def normalise_section_content(widget: Widget, section: "TopicSection") -> Dict[s
                 if base64_candidate:
                     image_source = base64_candidate
 
-        content["image_url"] = image_source or ""
-        content.setdefault("url", "")
+        content["image_data"] = image_source or ""
         content.setdefault("prompt", "")
-        has_image = bool(content.get("image_url"))
-        content["form_prompt"] = "" if has_image else content.get("prompt", "")
-        content["form_image_url"] = "" if has_image else (
-            content.get("form_image_url") or content.get("image_url") or content.get("url") or ""
+        content.setdefault("form_prompt", content.get("form_prompt", content.get("prompt", "")))
+        content.setdefault(
+            "form_image_url",
+            content.get("form_image_url")
+            or content.get("image_url")
+            or content.get("url")
+            or "",
         )
 
     return content
