@@ -237,17 +237,13 @@
 
       const promptForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_prompt')
         ? normalized.form_prompt
-        : normalized.prompt;
+        : null;
       const urlForInput = Object.prototype.hasOwnProperty.call(normalized, 'form_image_url')
         ? normalized.form_image_url
-        : normalized.image_url || normalized.imageUrl || normalized.url;
+        : null;
 
       normalized.form_prompt = promptForInput == null ? '' : promptForInput;
       normalized.form_image_url = urlForInput == null ? '' : urlForInput;
-
-      if (normalized.image_data) {
-        normalized.image_url = normalized.image_data;
-      }
     }
 
     return normalized;
@@ -271,13 +267,14 @@
         normalizedContent.image_data ||
         normalizedContent.image_url ||
         normalizedContent.imageUrl ||
+        normalizedContent.form_image_url ||
         '';
       const promptValue = Object.prototype.hasOwnProperty.call(normalizedContent, 'form_prompt')
         ? normalizedContent.form_prompt
-        : normalizedContent.prompt;
+        : null;
       const urlValue = Object.prototype.hasOwnProperty.call(normalizedContent, 'form_image_url')
         ? normalizedContent.form_image_url
-        : normalizedContent.image_url || normalizedContent.imageUrl;
+        : null;
 
       normalizedContent.prompt = promptValue == null ? '' : String(promptValue);
       normalizedContent.form_image_url = urlValue == null ? '' : String(urlValue);

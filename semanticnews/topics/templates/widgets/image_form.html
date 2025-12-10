@@ -28,7 +28,7 @@
                 name="prompt"
                 rows="4"
                 placeholder="{% trans 'Describe the image you want to generate…' %}"
-            >{{ content.form_prompt|default_if_none:content.prompt|default_if_none:'' }}</textarea>
+            >{{ content.form_prompt|default_if_none:'' }}</textarea>
             <div class="form-text text-muted">
                 {% blocktrans %}The prompt guides the image generation model.{% endblocktrans %}
             </div>
@@ -40,7 +40,7 @@
                 id="widget-image-url"
                 class="form-control"
                 name="form_image_url"
-                value="{{ content.form_image_url|default_if_none:content.image_data|default_if_none:'' }}"
+                value="{{ content.form_image_url|default_if_none:'' }}"
                 placeholder="https://"
             />
             <div class="form-text text-muted">
