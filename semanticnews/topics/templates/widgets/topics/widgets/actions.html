@@ -1,7 +1,7 @@
 {% load i18n %}
 {% if actions %}
     {% with widget_name=widget.name|default_if_none:''|lower %}
-        {% with has_image=content.image_url|default_if_none:'' %}
+        {% with has_image=content.image_data|default_if_none:'' %}
             {% if widget_name == 'paragraph' %}
                 <div class="btn-group" role="group" aria-label="{% trans "Paragraph actions" %}">
                     {% for action in actions %}

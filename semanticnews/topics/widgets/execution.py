@@ -294,6 +294,7 @@ class WidgetExecutionPipeline:
                 model=model_name,
                 tools=tools,
                 schema=getattr(request.action, "schema", None),
+                context=context,
             )
         else:
             parsed_response = request.action.run(context)
@@ -352,12 +353,14 @@ class WidgetExecutionPipeline:
         model: str,
         tools: Sequence[Mapping[str, Any]] | None,
         schema: Any | None,
+        context: Mapping[str, Any] | None = None,
     ) -> tuple[Any, Any]:
+        model_input = self._build_model_input(prompt=prompt, tools=tools, context=context)
         with OpenAI() as client:
             if schema:
                 response = client.responses.parse(
                     model=model,
-                    input=prompt,
+                    input=model_input,
                     tools=list(tools) or None,
                     text_format=schema,
                 )
@@ -365,7 +368,7 @@ class WidgetExecutionPipeline:
             else:
                 response = client.responses.create(
                     model=model,
-                    input=prompt,
+                    input=model_input,
                     tools=list(tools) or None,
                 )
                 parsed = _extract_response_payload(response)
@@ -382,6 +385,32 @@ class WidgetExecutionPipeline:
 
         raw_payload = response.model_dump() if hasattr(response, "model_dump") else _ensure_json_serializable(response)
         return raw_payload, parsed_payload
+
+    def _build_model_input(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[Mapping[str, Any]] | None,
+        context: Mapping[str, Any] | None,
+    ) -> Any:
+        tools = list(tools or [])
+        has_image_tool = any(_is_image_tool(tool) for tool in tools)
+
+        if not has_image_tool:
+            return prompt
+
+        content: list[Mapping[str, Any]] = [
+            {
+                "type": "input_text",
+                "text": prompt,
+            }
+        ]
+
+        image_source = _get_context_image_source(context)
+        if image_source:
+            content.append({"type": "input_image", "image_url": image_source})
+
+        return [{"role": "user", "content": content}]
 
     def postprocess(
         self,
@@ -448,6 +477,29 @@ def normalise_tools(tools: Sequence[str | Mapping[str, Any]]) -> list[Mapping[st
             if identifier:
                 normalised.append({"type": identifier})
     return normalised
+
+
+def _is_image_tool(tool: Any) -> bool:
+    if isinstance(tool, Mapping):
+        tool_type = str(tool.get("type") or "").lower()
+    else:
+        tool_type = str(tool).lower()
+
+    return "image" in tool_type
+
+
+def _get_context_image_source(context: Mapping[str, Any] | None) -> str | None:
+    if not isinstance(context, Mapping):
+        return None
+
+    for key in ("image_data", "form_image_url"):
+        value = context.get(key)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if cleaned:
+                return cleaned
+
+    return None
 
 
 def _ensure_json_serializable(value: Any) -> Any:

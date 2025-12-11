@@ -525,11 +525,11 @@
       const findField = (name) => (contentContainer
         ? contentContainer.querySelector(`[name="${name}"]`)
         : null);
-      const imageField =
-        findField('image_url')
-        || findField('form_image_url')
-        || findField('url');
-      const imageValue = imageField ? getFieldValue(imageField) : '';
+      const imageDataField = findField('image_data');
+      const imageDataValue = imageDataField ? getFieldValue(imageDataField) : '';
+
+      const imageUrlField = findField('form_image_url');
+      const imageUrlValue = imageUrlField ? getFieldValue(imageUrlField) : '';
       const previewContainer = contentContainer
         ? contentContainer.querySelector('[data-widget-image-preview]')
         : null;
@@ -543,6 +543,14 @@
         ? previewImage.getAttribute('src') || previewImage.src || ''
         : '';
       const effectivePreview = previewValue || previewSrc;
+      const hasGeneratedPreview = (() => {
+        if (!effectivePreview || typeof effectivePreview !== 'string') {
+          return false;
+        }
+        const trimmedPreview = effectivePreview.trim();
+        const trimmedUrl = typeof imageUrlValue === 'string' ? imageUrlValue.trim() : '';
+        return Boolean(trimmedPreview) && trimmedPreview !== trimmedUrl;
+      })();
       const textField = findField('text');
       const textValue = textField ? getFieldValue(textField) : '';
 
@@ -550,8 +558,8 @@
         widgetKey,
         sectionId,
         hasImage:
-          (typeof imageValue === 'string' ? imageValue.trim().length > 0 : false)
-          || (typeof effectivePreview === 'string' ? effectivePreview.trim().length > 0 : false),
+          (typeof imageDataValue === 'string' ? imageDataValue.trim().length > 0 : false)
+          || (hasGeneratedPreview && sectionId),
         hasText: typeof textValue === 'string' ? textValue.trim().length > 0 : false,
       };
     }
