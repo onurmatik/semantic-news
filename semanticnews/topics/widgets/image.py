@@ -323,7 +323,7 @@ def _build_image_content(
 
     content.setdefault("prompt", context.get("prompt", ""))
     content.setdefault("form_prompt", context.get("form_prompt", context.get("prompt", "")))
-    content.setdefault("form_image_url", content.get("image_url") or context.get("form_image_url", ""))
+    content.setdefault("form_image_url", context.get("form_image_url", ""))
     content.setdefault("image_data", context.get("image_data", ""))
     content.setdefault("image_url", context.get("image_url", ""))
     content.setdefault("thumbnail_url", context.get("thumbnail_url", ""))

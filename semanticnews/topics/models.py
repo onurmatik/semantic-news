@@ -4,6 +4,7 @@ import copy
 import json
 import uuid
 from typing import Optional
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -336,8 +337,51 @@ class Topic(models.Model):
 
     @cached_property
     def hero_image(self):
-        # FIXME: Return the first section with a widget type IMAGE
-        return
+        image_widget_name = get_widget("image").name
+
+        class _ImageRef:
+            def __init__(self, url: str | None):
+                self.url = url
+
+            def __str__(self):
+                return self.url or ""
+
+        def build_image_payload(section: "TopicSection"):
+            if section.widget_name != image_widget_name:
+                return None
+            content = section.content or {}
+            if not isinstance(content, dict):
+                return None
+
+            image_url = content.get("image_url") or content.get("image")
+            thumbnail_url = content.get("thumbnail_url") or content.get("thumbnail")
+            if image_url or thumbnail_url:
+                return SimpleNamespace(
+                    image=_ImageRef(image_url) if image_url else None,
+                    thumbnail=_ImageRef(thumbnail_url) if thumbnail_url else None,
+                )
+            return None
+
+        published_sections = [
+            section for section in self.published_sections if not section.is_deleted
+        ]
+        if self.status == "published" or published_sections:
+            for section in published_sections:
+                image_payload = build_image_payload(section)
+                if image_payload:
+                    return image_payload
+            if self.status == "published":
+                return None
+
+        for section in self.sections_ordered:
+            if section.is_deleted or section.is_draft_deleted:
+                continue
+
+            image_payload = build_image_payload(section)
+            if image_payload:
+                return image_payload
+
+        return None
 
     @cached_property
     def image(self):
