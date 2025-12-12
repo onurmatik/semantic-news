@@ -8,7 +8,7 @@
                 class="border rounded bg-body-secondary-subtle p-3 text-center"
                 data-widget-image-preview
             >
-                {% with image_src=content.image_data|default:content.form_image_url %}
+                {% with image_src=content.image_url|default_if_none:content.thumbnail_url %}
                     {% if image_src %}
                         <img src="{{ image_src }}" alt="" class="img-fluid rounded" />
                     {% else %}

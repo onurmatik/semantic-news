@@ -1,7 +1,7 @@
 {% load i18n %}
 
 {% if content %}
-    {% with image_src=content.image_data|default_if_none:content.form_image_url %}
+    {% with image_src=content.image_url|default_if_none:content.thumbnail_url %}
     <figure class="topic-widget-image text-center">
         {% if image_src %}
             <img

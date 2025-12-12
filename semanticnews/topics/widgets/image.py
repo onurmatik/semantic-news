@@ -1,12 +1,19 @@
 import base64
 import re
+import uuid
 from collections.abc import Mapping, Sequence
+from io import BytesIO
 from typing import Any, Dict, List
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, HttpUrl
 
 from .base import GenericGenerateAction, Widget, WidgetAction
 from .paragraph import _normalise_paragraphs
+
+THUMBNAIL_SIZE = (450, 300)
 
 
 class ImageSchema(BaseModel):
@@ -21,10 +28,7 @@ def _build_image_context(context: Dict[str, Any]) -> Dict[str, Any]:
     prompt = (context.get("prompt") or context.get("form_prompt") or "").strip()
     form_image_url = (context.get("form_image_url") or "").strip()
     image_data = (
-        context.get("image_data")
-        or context.get("image")
-        or context.get("image_url")
-        or context.get("url")
+        context.get("thumbnail_url")
         or ""
     )
     image_data = image_data.strip() if isinstance(image_data, str) else ""
@@ -170,6 +174,124 @@ class ImageWidget(Widget):
     actions = [GenerateImageAction, VariateImageAction]
 
 
+def _resolve_topic_and_section(context: Mapping[str, Any]):
+    from semanticnews.topics.models import Topic, TopicSection
+
+    section = None
+    topic = None
+
+    section_id = context.get("section_id")
+    if section_id:
+        section = (
+            TopicSection.objects.select_related("topic").filter(id=section_id).first()
+        )
+        topic = getattr(section, "topic", None)
+
+    if topic is None:
+        topic_id = context.get("topic_id")
+        if topic_id:
+            topic = Topic.objects.filter(id=topic_id).first()
+
+    if topic is None:
+        topic_uuid = context.get("topic_uuid")
+        if topic_uuid:
+            topic = Topic.objects.filter(uuid=topic_uuid).first()
+
+    return topic, section
+
+
+def _decode_image_bytes(value: str) -> tuple[bytes, str] | None:
+    if not value:
+        return None
+
+    cleaned = value.strip()
+    data_match = re.match(r"data:image/(?P<fmt>[A-Za-z0-9.+-]+);base64,(?P<data>.+)", cleaned)
+
+    if data_match:
+        fmt = data_match.group("fmt") or "png"
+        encoded = data_match.group("data")
+    else:
+        fmt = "png"
+        encoded = cleaned
+
+    try:
+        decoded = base64.b64decode(encoded, validate=True)
+    except Exception:
+        return None
+
+    if not decoded:
+        return None
+
+    return decoded, fmt
+
+
+def _build_thumbnail(image_bytes: bytes, fmt: str) -> bytes | None:
+    try:
+        with Image.open(BytesIO(image_bytes)) as img:
+            image = img.convert("RGB") if img.mode in {"RGBA", "P", "LA"} else img
+            image.thumbnail(THUMBNAIL_SIZE)
+            buffer = BytesIO()
+            image.save(buffer, format=(fmt or "png").upper())
+            return buffer.getvalue()
+    except (UnidentifiedImageError, OSError):
+        return None
+
+
+def _build_storage_path(
+    *, filename: str, extension: str, context: Mapping[str, Any]
+) -> str:
+    topic, _ = _resolve_topic_and_section(context)
+    user_id = getattr(topic, "created_by_id", None) or context.get("user_id") or "anonymous"
+    topic_uuid = (
+        getattr(topic, "uuid", None)
+        or context.get("topic_uuid")
+        or context.get("topic_id")
+        or "unknown"
+    )
+
+    safe_ext = extension.lstrip(".") or "png"
+    return f"topics/widgets/image/{user_id}/{topic_uuid}/{filename}.{safe_ext}"
+
+
+def _persist_image_value(image_value: str, *, context: Mapping[str, Any]) -> Dict[str, Any]:
+    persisted: Dict[str, Any] = {}
+    if not image_value:
+        return persisted
+
+    if image_value.startswith(("http://", "https://")):
+        persisted["image_url"] = image_value
+        persisted["image_data"] = image_value
+        return persisted
+
+    if not image_value.lower().startswith("data:image/"):
+        return persisted
+
+    decoded = _decode_image_bytes(image_value)
+    if decoded is None:
+        return persisted
+
+    raw_bytes, fmt = decoded
+    filename_base = uuid.uuid4().hex
+    extension = (fmt or "png").split("/")[-1].split("+")[0]
+
+    image_path = _build_storage_path(
+        filename=filename_base, extension=extension, context=context
+    )
+    saved_image_path = default_storage.save(image_path, ContentFile(raw_bytes))
+    persisted["image_url"] = default_storage.url(saved_image_path)
+
+    thumb_bytes = _build_thumbnail(raw_bytes, fmt)
+    if thumb_bytes:
+        thumb_path = _build_storage_path(
+            filename=f"{filename_base}_thumb", extension=extension, context=context
+        )
+        saved_thumb_path = default_storage.save(thumb_path, ContentFile(thumb_bytes))
+        persisted["thumbnail_url"] = default_storage.url(saved_thumb_path)
+
+    persisted["image_data"] = persisted.get("thumbnail_url") or persisted["image_url"]
+    return persisted
+
+
 def _build_image_content(
     *,
     context: Dict[str, Any],
@@ -184,13 +306,27 @@ def _build_image_content(
     image_source = _extract_image_source(raw_response) or _extract_image_source(response)
     normalised_image = _normalise_image_value(image_source)
 
-    if normalised_image:
+    persisted_image = (
+        _persist_image_value(normalised_image, context=context) if normalised_image else {}
+    )
+
+    for key, value in persisted_image.items():
+        if value is not None:
+            content[key] = value
+
+    if normalised_image and not persisted_image:
         content["image_data"] = normalised_image
+
+    preview_url = content.get("thumbnail_url") or content.get("image_url")
+    if preview_url:
+        content["image_data"] = preview_url
 
     content.setdefault("prompt", context.get("prompt", ""))
     content.setdefault("form_prompt", context.get("form_prompt", context.get("prompt", "")))
-    content.setdefault("form_image_url", context.get("form_image_url", ""))
+    content.setdefault("form_image_url", content.get("image_url") or context.get("form_image_url", ""))
     content.setdefault("image_data", context.get("image_data", ""))
+    content.setdefault("image_url", context.get("image_url", ""))
+    content.setdefault("thumbnail_url", context.get("thumbnail_url", ""))
     return content
 
 

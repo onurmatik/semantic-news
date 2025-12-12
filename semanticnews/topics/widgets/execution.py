@@ -492,7 +492,10 @@ def _get_context_image_source(context: Mapping[str, Any] | None) -> str | None:
     if not isinstance(context, Mapping):
         return None
 
-    for key in ("image_data", "form_image_url"):
+    for key in (
+        "image_url",
+        "thumbnail_url",
+    ):
         value = context.get(key)
         if isinstance(value, str):
             cleaned = value.strip()
