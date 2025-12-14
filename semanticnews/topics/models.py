@@ -331,9 +331,73 @@ class Topic(models.Model):
 
     @property
     def has_unpublished_changes(self) -> bool:
-        """Return whether the topic can be published again."""
+        """Return whether the topic needs republishing."""
 
-        return self.status in {"draft", "published"}
+        if not self.pk:
+            return True
+
+        if self.status != "published":
+            return True
+
+        if not self.last_published_at:
+            return True
+
+        draft_title = self._get_draft_title_record()
+        if draft_title:
+            published_title = self._get_published_title_record()
+            if published_title is None:
+                return True
+            if draft_title.title != published_title.title or draft_title.slug != published_title.slug:
+                return True
+
+        prefetched = getattr(self, "_prefetched_objects_cache", {}) or {}
+
+        recaps_iterable = prefetched.get("recaps")
+        if recaps_iterable is None:
+            recaps_iterable = list(self.recaps.filter(is_deleted=False))
+        else:
+            recaps_iterable = [recap for recap in recaps_iterable if not getattr(recap, "is_deleted", False)]
+
+        latest_published_recap = None
+        for recap in recaps_iterable:
+            if recap.published_at is None:
+                continue
+            if latest_published_recap is None:
+                latest_published_recap = recap
+                continue
+            if recap.published_at and recap.published_at > getattr(latest_published_recap, "published_at", None):
+                latest_published_recap = recap
+
+        for recap in recaps_iterable:
+            if recap.published_at is not None:
+                continue
+            if recap.status != "finished":
+                continue
+            if latest_published_recap is None or recap.recap != latest_published_recap.recap:
+                return True
+
+        sections = prefetched.get("sections")
+        if sections is None:
+            sections = (
+                self.sections.select_related("draft_content", "published_content")
+                .all()
+            )
+
+        for section in sections:
+            if section.is_deleted:
+                continue
+            if section.is_draft_deleted:
+                return True
+            if section.published_at is None:
+                return True
+            if section.display_order != section.draft_display_order:
+                return True
+            draft_record = section.draft_content
+            if draft_record and draft_record.updated_at and section.published_at:
+                if draft_record.updated_at > section.published_at:
+                    return True
+
+        return False
 
     @cached_property
     def hero_image(self):

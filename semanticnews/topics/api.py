@@ -429,12 +429,24 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     if payload.status not in valid_statuses:
         raise HttpError(400, "Invalid status")
 
-    if payload.status == "published":
-        is_republishing_archived_topic = (
-            topic.status == "archived" and topic.last_published_at is not None
-        )
+    target_status = payload.status
+    current_status = topic.status
 
-        if not is_republishing_archived_topic:
+    if target_status == current_status:
+        return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
+
+    allowed_transitions = {
+        "draft": {"published"},
+        "published": {"archived"},
+        "archived": {"published"},
+    }
+    if target_status not in allowed_transitions.get(current_status, set()):
+        raise HttpError(400, "Invalid status transition")
+
+    if target_status == "published":
+        skip_content_checks = current_status == "archived" and topic.last_published_at is not None
+
+        if not skip_content_checks:
             if not topic.title:
                 raise HttpError(400, "A title is required to publish a topic.")
 
@@ -444,7 +456,7 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
 
         publish_topic(topic, user)
     else:
-        topic.status = payload.status
+        topic.status = target_status
         topic.save(update_fields=["status"])
 
     return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
@@ -1394,4 +1406,3 @@ def suggest_topics_post(request, payload: SuggestTopicsRequest):
     return suggest_topics(
         about=payload.about, limit=payload.limit, topic_uuid=payload.topic_uuid
     )
-

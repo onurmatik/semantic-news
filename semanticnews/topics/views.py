@@ -233,6 +233,7 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
         "latest_recap": latest_recap,
         "related_topic_links": active_related_topic_links,
         "related_topics": related_topics,
+        "has_unpublished_changes": topic.has_unpublished_changes,
         "sections": _build_renderable_sections(
             topic,
             edit_mode=edit_mode,

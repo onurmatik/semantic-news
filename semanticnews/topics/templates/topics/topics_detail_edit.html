@@ -19,6 +19,7 @@
         data-topic-title="{{ topic.title|default_if_none:'' }}"
         data-topic-detail-url="{{ topic.get_absolute_url }}"
         data-topic-detail-uuid-url="{% url 'topics_detail_redirect' topic_uuid=topic.uuid username=topic.created_by.username %}"
+        data-topic-has-unpublished-changes="{{ has_unpublished_changes|yesno:'true,false' }}"
     >
 
         <h3 class="fs-5 d-flex align-items-center">
@@ -55,6 +56,8 @@
                         <span class="badge bg-warning rounded-pill">{% trans "Draft" %}</span>
                     {% elif topic.status == "archived" %}
                         <span class="badge bg-secondary rounded-pill">{% trans "Archived" %}</span>
+                    {% elif topic.status == "published" and has_unpublished_changes and user == topic.created_by %}
+                        <span class="badge bg-warning text-dark rounded-pill">{% trans "Republish needed" %}</span>
                     {% endif %}
                 </div>
                 <div class="d-flex align-items-center gap-2">
