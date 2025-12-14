@@ -3,13 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!container) return;
   const topicUuid = container.getAttribute('data-topic-uuid');
 
-  const KEYS_TO_CHECK = ['recap', 'relation', 'image'];
+  const KEYS_TO_CHECK = ['recap', 'image'];
 
   const mapping = {
     recap: 'recapButton',
-    relation: 'relationButton',
     image: 'imageButton',
-    data: 'dataButton',
   };
 
   const updateButtonDataset = (buttonId, info) => {
@@ -78,37 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Fallback applier for relation (graph)
-  const applyRelationFallback = (entities) => {
-    const container = document.getElementById('topicRelationContainer');
-    const listEl = document.getElementById('topicRelatedEntities');
-    if (container) container.style.display = '';
-    if (listEl) {
-      const event = new CustomEvent('topics:relations:fallback', {
-        detail: { entities: entities || [] },
-      });
-      listEl.dispatchEvent(event);
-    }
-    const textarea = document.getElementById('relationText');
-    if (textarea) {
-      try {
-        const payload = Array.isArray(entities) ? entities : [];
-        textarea.value = JSON.stringify(payload, null, 2);
-      } catch (err) {
-        // ignore invalid data
-      }
-      const form = document.getElementById('relationForm');
-      const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
-      if (submitBtn) submitBtn.disabled = true;
-    }
-  };
-
   // Pull latest list for a given key and apply via hook or fallback
   const updateFromServer = async (key) => {
     const listUrl =
-      key === 'recap'      ? `/api/topics/recap/${topicUuid}/list` :
-      key === 'relation'   ? `/api/topics/relation/${topicUuid}/list` :
-                             `/api/topics/image/${topicUuid}/list`;
+      key === 'recap' ? `/api/topics/recap/${topicUuid}/list` :
+                        `/api/topics/image/${topicUuid}/list`;
 
     try {
       const res = await fetch(listUrl);
@@ -120,18 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const hookName = `__${key}ExternalApply`;
       if (typeof window[hookName] === 'function') {
-        if (key === 'relation') {
-          window[hookName](latest.relations, latest.created_at);
-        } else {
-          window[hookName](latest[key], latest.created_at);
-        }
+        window[hookName](latest[key], latest.created_at);
       } else {
-        // Fallback paint
-        if (key === 'relation') {
-          applyRelationFallback(latest.relations, latest.created_at);
-        } else {
-          applyTextFallback(key, latest[key], latest.created_at);
-        }
+        applyTextFallback(key, latest[key], latest.created_at);
       }
     } catch (e) {
       console.error(e);
@@ -196,70 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setController(buttonId, 'finished'); // neutral/default
-      }
-
-      const dataInfo = payload.data;
-      const dataButtonId = mapping.data;
-      if (dataButtonId && dataInfo) {
-        const entries = Object.values(dataInfo).filter(Boolean);
-        if (entries.length) {
-          let hasFreshInProgress = false;
-          let hasError = false;
-          let hasFinished = false;
-
-          for (const entry of entries) {
-            const entryStatus = entry.status;
-            if (!entryStatus) continue;
-
-            if (entryStatus === 'in_progress') {
-              const createdAt = entry.created_at ? new Date(entry.created_at) : null;
-              const isFresh = !createdAt || (now - createdAt) <= INPROGRESS_TIMEOUT_MS;
-              if (isFresh) {
-                hasFreshInProgress = true;
-              }
-              continue;
-            }
-
-            if (entryStatus === 'error') {
-              hasError = true;
-            } else if (entryStatus === 'finished') {
-              hasFinished = true;
-            }
-          }
-
-          let nextState = 'finished';
-          let datasetInfo = { status: 'finished' };
-
-          if (hasFreshInProgress) {
-            seenInProgress.data = true;
-            nextState = 'in_progress';
-            const inProgressEntry = entries.find((entry) => entry.status === 'in_progress');
-            datasetInfo = inProgressEntry ? { ...inProgressEntry, status: 'in_progress' } : { status: 'in_progress' };
-            anyStillInProgress = true;
-          } else if (hasError) {
-            nextState = 'error';
-            const errorEntry = entries.find((entry) => entry.status === 'error');
-            datasetInfo = errorEntry ? { ...errorEntry, status: 'error' } : { status: 'error' };
-          } else if (hasFinished) {
-            nextState = 'success';
-            const finishedEntry = entries.find((entry) => entry.status === 'finished');
-            if (finishedEntry) {
-              datasetInfo = { ...finishedEntry, status: 'success' };
-            } else {
-              datasetInfo = { status: 'success' };
-            }
-          } else if (seenInProgress.data) {
-            datasetInfo = { status: 'finished' };
-          } else {
-            datasetInfo = { status: 'finished' };
-          }
-
-          setController(dataButtonId, nextState);
-          updateButtonDataset(dataButtonId, datasetInfo);
-        } else {
-          setController(dataButtonId, 'finished');
-          updateButtonDataset(dataButtonId, { status: 'finished' });
-        }
       }
 
       if (!anyStillInProgress && intervalId) {
