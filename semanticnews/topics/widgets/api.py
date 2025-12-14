@@ -196,6 +196,8 @@ def _resolve_widget(identifier: str) -> Widget:
             return widget
 
     raise HttpError(404, "Widget not found")
+
+
 @router.get("/definitions", response=WidgetDefinitionListResponse)
 def list_widgets(request) -> WidgetDefinitionListResponse:
     widgets = list(load_widgets().values())
