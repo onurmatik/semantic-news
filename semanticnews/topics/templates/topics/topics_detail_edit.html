@@ -145,7 +145,6 @@
     </div>
     <div class="col-lg-4 col-xl-3">
         <div class="d-flex flex-column gap-3" data-topic-sidebar>
-            {% include "topics/relations/card.html" with edit_mode=True %}
             {% include "topics/related_topics/edit_card.html" with edit_mode=True %}
             {% include "topics/timeline/related_events_card.html" with edit_mode=True %}
         </div>
@@ -153,14 +152,12 @@
 </div>
 {% include "topics/images/confirm_delete.html" %}
 {% include "topics/text/confirm_delete.html" %}
-{% include "topics/relations/confirm_delete.html" %}
 {% include "topics/timeline/confirm_delete.html" %}
 {% include "topics/widgets/confirm_delete_widget.html" %}
 
 
 {% comment %} Inline editors render in the content area {% endcomment %}
 {% include "topics/images/modal.html" %}
-{% include "topics/relations/modal.html" %}
 {% include "topics/timeline/modal.html" %}
 {% endblock %}
 
@@ -178,10 +175,7 @@
     <script src="{% static 'topics/widgets/registry.js' %}"></script>
     <script src="{% static 'topics/widgets/shell.js' %}"></script>
     <script src="{% static 'topics/content/toolbar.js' %}"></script>
-    <script src="{% static 'topics/content/external_content.js' %}"></script>
     <script src="{% static 'topics/widgets/text.js' %}"></script>
-    <script src="{% static 'topics/widgets/data.js' %}"></script>
-    <script src="{% static 'topics/widgets/url.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const container = document.querySelector('[data-topic-primary-widgets]');
@@ -198,7 +192,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
     {% include "topics/text/scripts.html" %}
     {% include "topics/images/scripts.html" %}
-    {% include "topics/relations/scripts.html" %}
     {% include "topics/timeline/scripts.html" %}
     <script src="{% static 'topics/status_checker.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,3 @@
-import json
-
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
 from django.db.models.functions import Coalesce
@@ -21,7 +19,6 @@ from semanticnews.topics.widgets import WIDGET_REGISTRY, load_widgets
 from semanticnews.topics.widgets.rendering import build_renderable_section
 
 from .models import (
-    RelatedEntity,
     RelatedEvent,
     RelatedTopic,
     Source,
@@ -29,14 +26,6 @@ from .models import (
     TopicSection,
 )
 
-
-RELATED_ENTITIES_PREFETCH = Prefetch(
-    "related_entities",
-    queryset=RelatedEntity.objects.filter(is_deleted=False)
-    .select_related("entity")
-    .order_by("-created_at"),
-    to_attr="prefetched_related_entities",
-)
 
 PUBLISHED_SECTIONS_PREFETCH = Prefetch(
     "sections",
@@ -164,7 +153,6 @@ def topics_detail(request, slug, username):
         "events",
         "recaps",
         PUBLISHED_SECTIONS_PREFETCH,
-        RELATED_ENTITIES_PREFETCH,
         Prefetch(
             "topic_related_topics",
             queryset=RelatedTopic.objects.select_related(
@@ -205,21 +193,6 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
                 .order_by("-published_at", "-created_at")
                 .first()
             )
-    related_entities = list(
-        getattr(topic, "prefetched_related_entities", None)
-        or topic.active_related_entities.select_related("entity").order_by("-created_at")
-    )
-    related_entities_payload = [
-        {
-            "name": relation.entity.name,
-            "role": relation.role,
-            "disambiguation": getattr(relation.entity, "disambiguation", None),
-        }
-        for relation in related_entities
-        if relation.entity is not None
-    ]
-    related_entities_json = json.dumps(related_entities_payload, separators=(",", ":"))
-    related_entities_json_pretty = json.dumps(related_entities_payload, indent=2)
 
     related_topic_links = list(
         getattr(topic, "prefetched_related_topic_links", None)
@@ -258,9 +231,6 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
         "suggested_events": suggested_events,
         "current_recap": current_recap,
         "latest_recap": latest_recap,
-        "related_entities": related_entities,
-        "related_entities_json": related_entities_json,
-        "related_entities_json_pretty": related_entities_json_pretty,
         "related_topic_links": active_related_topic_links,
         "related_topics": related_topics,
         "sections": _build_renderable_sections(

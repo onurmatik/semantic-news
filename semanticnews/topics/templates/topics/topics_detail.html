@@ -171,7 +171,6 @@
     </div>
     <div class="col-lg-4 col-xl-3">
         <div class="d-flex flex-column gap-4" data-topic-sidebar>
-            {% include "topics/relations/card.html" with edit_mode=False %}
             {% include "topics/related_topics/detail_card.html" with edit_mode=False %}
             {% include "topics/timeline/related_events_card.html" with edit_mode=False %}
         </div>
@@ -186,6 +185,5 @@
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
-    {% include "topics/relations/scripts.html" %}
     {% include "topics/timeline/scripts.html" %}
 {% endblock %}

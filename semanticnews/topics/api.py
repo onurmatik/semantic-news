@@ -37,7 +37,6 @@ from .widgets.api import router as widgets_router
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 relation_router = Router()
 api.add_router("/recap", recaps_router)
-api.add_router("/relation", relation_router)
 api.add_router("/widgets", widgets_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
@@ -1395,5 +1394,4 @@ def suggest_topics_post(request, payload: SuggestTopicsRequest):
     return suggest_topics(
         about=payload.about, limit=payload.limit, topic_uuid=payload.topic_uuid
     )
-
 
