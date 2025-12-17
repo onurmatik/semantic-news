@@ -6,6 +6,7 @@ import pgvector.django.vector
 import uuid
 from django.conf import settings
 from django.db import migrations, models
+from django.contrib.postgres.operations import CreateExtension
 
 
 class Migration(migrations.Migration):
@@ -17,6 +18,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        CreateExtension('vector'),
         migrations.CreateModel(
             name='Category',
             fields=[
