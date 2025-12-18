@@ -33,11 +33,13 @@ from .models import (
 from .publishing import publish_topic
 from .recaps.api import router as recaps_router
 from .widgets.api import router as widgets_router
+from semanticnews.references.api import router as references_router
 
 api = NinjaAPI(title="Topics API", urls_namespace="topics")
 relation_router = Router()
 api.add_router("/recap", recaps_router)
 api.add_router("/widgets", widgets_router)
+api.add_router("", references_router)
 
 StatusLiteral = Literal["in_progress", "finished", "error"]
 

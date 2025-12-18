@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'semanticnews.profiles',
     'semanticnews.agenda',
     'semanticnews.entities',
+    'semanticnews.references',
     'semanticnews.topics',
 ]
 

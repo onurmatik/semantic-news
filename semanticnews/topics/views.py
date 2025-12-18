@@ -15,6 +15,7 @@ from semanticnews.agenda.localities import (
     get_locality_options,
 )
 from semanticnews.agenda.models import Event
+from semanticnews.references.models import TopicReference
 from semanticnews.topics.widgets import WIDGET_REGISTRY, load_widgets
 from semanticnews.topics.widgets.rendering import build_renderable_section
 
@@ -41,6 +42,16 @@ DRAFT_SECTIONS_PREFETCH = Prefetch(
         TopicSection.objects.select_related("draft_content", "published_content")
         .order_by("draft_display_order", "published_at", "id")
     ),
+)
+
+TOPIC_REFERENCES_PREFETCH = Prefetch(
+    "topic_reference_links",
+    queryset=(
+        TopicReference.objects.select_related("reference", "added_by")
+        .filter(is_deleted=False)
+        .order_by("-added_at")
+    ),
+    to_attr="prefetched_topic_reference_links",
 )
 
 
@@ -153,6 +164,7 @@ def topics_detail(request, slug, username):
         "events",
         "recaps",
         PUBLISHED_SECTIONS_PREFETCH,
+        TOPIC_REFERENCES_PREFETCH,
         Prefetch(
             "topic_related_topics",
             queryset=RelatedTopic.objects.select_related(
@@ -225,6 +237,12 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
     else:
         suggested_events = Event.objects.none()
 
+    reference_links = getattr(topic, "prefetched_topic_reference_links", None) or (
+        TopicReference.objects.select_related("reference", "added_by")
+        .filter(topic=topic, is_deleted=False)
+        .order_by("-added_at")
+    )
+
     return {
         "topic": topic,
         "related_events": related_events,
@@ -239,6 +257,7 @@ def _build_topic_module_context(topic, user=None, *, edit_mode=False, include_un
             edit_mode=edit_mode,
             include_unpublished=include_unpublished_sections,
         ),
+        "reference_links": reference_links,
     }
 
 
@@ -416,7 +435,7 @@ def _build_topic_metadata(request, topic, context):
 @login_required
 def topics_detail_edit(request, topic_uuid, username):
     topic = get_object_or_404(
-        Topic.objects.prefetch_related(DRAFT_SECTIONS_PREFETCH),
+        Topic.objects.prefetch_related(DRAFT_SECTIONS_PREFETCH, TOPIC_REFERENCES_PREFETCH),
         uuid=topic_uuid,
         created_by__username=username,
     )
@@ -440,7 +459,10 @@ def topics_detail_edit(request, topic_uuid, username):
 
 @login_required
 def topics_detail_preview(request, topic_uuid, username):
-    queryset = Topic.objects.prefetch_related(DRAFT_SECTIONS_PREFETCH).filter(
+    queryset = Topic.objects.prefetch_related(
+        DRAFT_SECTIONS_PREFETCH,
+        TOPIC_REFERENCES_PREFETCH,
+    ).filter(
         uuid=topic_uuid,
         created_by__username=username,
     )

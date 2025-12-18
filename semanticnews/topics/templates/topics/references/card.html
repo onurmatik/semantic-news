@@ -1,0 +1,54 @@
+{% load i18n %}
+{% if reference_links or edit_mode %}
+<div class="card" data-topic-references-card data-topic-uuid="{{ topic.uuid }}">
+    <div class="card-body pb-2 d-flex align-items-center justify-content-between">
+        <h6 class="card-title mb-0">{% trans "References" %}</h6>
+    </div>
+
+    {% if edit_mode %}
+    <div class="px-3 pb-2">
+        <form class="d-flex flex-column gap-2" data-reference-form novalidate>
+            <label class="form-label small mb-0" for="topicReferenceUrl">{% trans "Add a source URL" %}</label>
+            <div class="input-group input-group-sm">
+                <input
+                    type="url"
+                    id="topicReferenceUrl"
+                    class="form-control"
+                    name="url"
+                    inputmode="url"
+                    autocomplete="off"
+                    placeholder="https://example.com/article"
+                    required
+                    data-reference-url-input
+                >
+                <button class="btn btn-primary" type="submit" data-reference-submit>{% trans "Add" %}</button>
+            </div>
+            <div class="invalid-feedback d-none" data-reference-error></div>
+            <p class="text-secondary small mb-0">{% trans "Add reference pages to use data in your topic." %}</p>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="list-group list-group-flush" data-reference-list data-empty-message="{% trans 'No references yet.' %}">
+        {% for link in reference_links %}
+        <div class="list-group-item d-flex gap-2 justify-content-between align-items-start" data-reference-item data-link-id="{{ link.id }}">
+            <div class="flex-grow-1">
+                <div class="fw-semibold small">{{ link.reference.meta_title|default_if_none:link.reference.url|default:link.reference.url }}</div>
+                <div class="text-secondary small">
+                    {{ link.reference.domain }}
+                    {% if link.reference.meta_published_at %}
+                        &middot; {{ link.reference.meta_published_at|date:"Y-m-d" }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex flex-column gap-1 align-items-end">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ link.reference.url }}" target="_blank" rel="noreferrer noopener">{% trans "Open" %}</a>
+                {% if edit_mode %}
+                <button class="btn btn-outline-danger btn-sm" type="button" data-remove-reference>{% trans "Remove" %}</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

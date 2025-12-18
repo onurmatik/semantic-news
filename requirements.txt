@@ -1,5 +1,6 @@
 boto3
 bleach
+beautifulsoup4
 celery[redis]
 flower
 django

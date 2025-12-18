@@ -150,6 +150,7 @@
         <div class="d-flex flex-column gap-3" data-topic-sidebar>
             {% include "topics/related_topics/edit_card.html" with edit_mode=True %}
             {% include "topics/timeline/related_events_card.html" with edit_mode=True %}
+            {% include "topics/references/card.html" with edit_mode=True %}
         </div>
     </div>
 </div>
@@ -173,6 +174,7 @@
     <script src="{% static 'topics/generation_button.js' %}"></script>
     <script src="{% static 'topics/related_topics.js' %}"></script>
     <script src="{% static 'topics/related_events.js' %}"></script>
+    <script src="{% static 'topics/references.js' %}"></script>
     {% include "topics/recaps/scripts.html" %}
     <script src="{% static 'topics/widgets/shared.js' %}"></script>
     <script src="{% static 'topics/widgets/registry.js' %}"></script>
