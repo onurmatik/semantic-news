@@ -9,6 +9,14 @@
   const errorEl = card.querySelector('[data-reference-error]');
   const submitBtn = card.querySelector('[data-reference-submit]');
   const _ = window.gettext || ((s) => s);
+  const confirmModalEl = document.getElementById('confirmDeleteReferenceModal');
+  const confirmModal = confirmModalEl && window.bootstrap
+    ? window.bootstrap.Modal.getOrCreateInstance(confirmModalEl)
+    : null;
+  const confirmBtn = document.getElementById('confirmDeleteReferenceBtn');
+  const confirmSpinner = document.getElementById('confirmDeleteReferenceSpinner');
+
+  let pendingDeleteId = null;
 
   async function api(url, options = {}) {
     const res = await fetch(url, options);
@@ -153,20 +161,20 @@
     }
   }
 
-  async function handleDelete(linkId, button) {
+  async function handleDelete(linkId) {
     if (!topicUuid || !linkId) return;
-    if (button) button.disabled = true;
-    try {
-      await api(`/api/topics/${topicUuid}/references/${linkId}`, { method: 'DELETE' });
-      const row = listEl?.querySelector(`[data-link-id="${linkId}"]`);
-      if (row) row.remove();
-      if (listEl && listEl.children.length === 0) {
-        renderEmptyState();
-      }
-    } catch (err) {
-      console.error(err);
-      if (button) button.disabled = false;
+    await api(`/api/topics/${topicUuid}/references/${linkId}`, { method: 'DELETE' });
+    const row = listEl?.querySelector(`[data-link-id="${linkId}"]`);
+    if (row) row.remove();
+    if (listEl && listEl.children.length === 0) {
+      renderEmptyState();
     }
+  }
+
+  function resetConfirmState() {
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (confirmSpinner) confirmSpinner.classList.add('d-none');
+    pendingDeleteId = null;
   }
 
   if (form) {
@@ -177,9 +185,41 @@
     listEl.addEventListener('click', (event) => {
       const btn = event.target.closest('button[data-remove-reference]');
       if (!btn) return;
+      event.preventDefault();
       const parent = btn.closest('[data-link-id]');
       const linkId = parent?.getAttribute('data-link-id');
-      handleDelete(linkId, btn);
+      if (!linkId) return;
+      pendingDeleteId = linkId;
+      if (confirmModal) {
+        confirmModal.show();
+      } else {
+        handleDelete(linkId).catch((err) => console.error(err));
+      }
+    });
+  }
+
+  if (confirmModalEl) {
+    confirmModalEl.addEventListener('hidden.bs.modal', resetConfirmState);
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      if (!pendingDeleteId) return;
+      confirmBtn.disabled = true;
+      if (confirmSpinner) confirmSpinner.classList.remove('d-none');
+      try {
+        await handleDelete(pendingDeleteId);
+        if (confirmModal) {
+          confirmModal.hide();
+        } else {
+          resetConfirmState();
+        }
+      } catch (err) {
+        console.error(err);
+        confirmBtn.disabled = false;
+        if (confirmSpinner) confirmSpinner.classList.add('d-none');
+      }
     });
   }
 
