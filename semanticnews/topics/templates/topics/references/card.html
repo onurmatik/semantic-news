@@ -31,7 +31,7 @@
 
     <div class="list-group list-group-flush" data-reference-list data-empty-message="{% trans 'No references yet.' %}">
         {% for link in reference_links %}
-        <div class="list-group-item d-flex gap-2 justify-content-between align-items-start" data-reference-item data-link-id="{{ link.id }}">
+        <div class="list-group-item d-flex gap-2 justify-content-between align-items-start" data-reference-item data-link-id="{{ link.id }}" data-reference-uuid="{{ link.reference.uuid }}">
             <div class="flex-grow-1">
                 <div class="fw-semibold small">{{ link.reference.meta_title|default_if_none:link.reference.url|default:link.reference.url }}</div>
                 <div class="text-secondary small">
@@ -42,7 +42,23 @@
                 </div>
             </div>
             <div class="d-flex flex-column gap-1 align-items-end">
-                <a class="btn btn-outline-secondary btn-sm" href="{{ link.reference.url }}" target="_blank" rel="noreferrer noopener">{% trans "Open" %}</a>
+                <button
+                    class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2"
+                    type="button"
+                    data-reference-run
+                >
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" data-reference-run-spinner></span>
+                    <span data-reference-run-label>{% trans "Fetch data" %}</span>
+                </button>
+                <button
+                    class="btn btn-outline-secondary btn-sm d-none"
+                    type="button"
+                    data-reference-add-section
+                    disabled
+                >
+                    {% trans "Add to topic section" %}
+                </button>
+                <div class="text-danger small text-end d-none" data-reference-run-error></div>
                 {% if edit_mode %}
                 <button class="btn btn-outline-danger btn-sm" type="button" data-remove-reference>{% trans "Remove" %}</button>
                 {% endif %}

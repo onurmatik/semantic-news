@@ -15,8 +15,10 @@
     : null;
   const confirmBtn = document.getElementById('confirmDeleteReferenceBtn');
   const confirmSpinner = document.getElementById('confirmDeleteReferenceSpinner');
+  const RUN_POLL_INTERVAL_MS = 2000;
 
   let pendingDeleteId = null;
+  const runPollers = new Map();
 
   async function api(url, options = {}) {
     const res = await fetch(url, options);
@@ -46,6 +48,163 @@
     errorEl.classList.add('d-none');
   }
 
+  function normalizeStatus(status) {
+    const value = (status || '').toString().toLowerCase();
+    if (['pending', 'queued', 'running', 'in_progress'].includes(value)) return 'running';
+    if (['finished', 'success', 'succeeded', 'completed', 'complete'].includes(value)) return 'finished';
+    if (['failed', 'error', 'canceled', 'cancelled'].includes(value)) return 'failed';
+    return 'idle';
+  }
+
+  function getRunElements(row) {
+    return {
+      button: row?.querySelector('[data-reference-run]'),
+      spinner: row?.querySelector('[data-reference-run-spinner]'),
+      label: row?.querySelector('[data-reference-run-label]'),
+      addButton: row?.querySelector('[data-reference-add-section]'),
+      error: row?.querySelector('[data-reference-run-error]'),
+    };
+  }
+
+  function setRunState(row, state = {}) {
+    if (!row) return;
+    const status = state.status || 'idle';
+    const runId = state.runId || null;
+    const error = state.error || null;
+
+    row.dataset.runStatus = status;
+    if (runId) row.dataset.runId = runId;
+    else delete row.dataset.runId;
+
+    const { button, spinner, label, addButton, error: errorElRow } = getRunElements(row);
+    const isRunning = status === 'running';
+    const isFinished = status === 'finished';
+    const isFailed = status === 'failed';
+
+    if (button) {
+      button.disabled = isRunning;
+      if (spinner) spinner.classList.toggle('d-none', !isRunning);
+      if (label) {
+        if (isRunning) label.textContent = _('Running…');
+        else if (isFinished) label.textContent = _('Re-fetch data');
+        else if (isFailed) label.textContent = _('Try again');
+        else label.textContent = _('Fetch data');
+      }
+    }
+
+    if (addButton) {
+      if (isFinished) {
+        addButton.classList.remove('d-none');
+        addButton.disabled = !runId;
+        if (runId) addButton.dataset.runId = runId;
+      } else {
+        addButton.classList.add('d-none');
+        addButton.disabled = true;
+        delete addButton.dataset.runId;
+      }
+    }
+
+    if (errorElRow) {
+      if (error) {
+        errorElRow.textContent = error;
+        errorElRow.classList.remove('d-none');
+      } else {
+        errorElRow.textContent = '';
+        errorElRow.classList.add('d-none');
+      }
+    }
+  }
+
+  function parseRunState(item) {
+    const run = item?.latest_run || item?.run || item?.analysis_run || null;
+    const runId = run?.id || run?.run_id || run?.uuid || item?.latest_run_id || item?.run_id || null;
+    const status = normalizeStatus(run?.status || run?.state || item?.run_status);
+    const error = run?.error || run?.error_message || item?.run_error || null;
+    const resolvedStatus = status || 'idle';
+    if (resolvedStatus === 'running' && !runId) {
+      return {
+        runId: null,
+        status: 'failed',
+        error: error || _('Missing run identifier.'),
+      };
+    }
+    return {
+      runId,
+      status: resolvedStatus,
+      error,
+    };
+  }
+
+  function stopPoller(runId) {
+    const key = `${runId}`;
+    const existing = runPollers.get(key);
+    if (existing?.timeoutId) {
+      clearTimeout(existing.timeoutId);
+    }
+    runPollers.delete(key);
+  }
+
+  function schedulePoll(runId, row) {
+    if (!runId || !row || !topicUuid) return;
+    const key = `${runId}`;
+
+    stopPoller(key);
+
+    const poll = async () => {
+      try {
+        const data = await api(`/api/topics/${topicUuid}/references/runs/${runId}`);
+        const status = normalizeStatus(data?.status || data?.run_status);
+        const error = data?.error || data?.error_message || null;
+        setRunState(row, { status, runId, error });
+        if (row && row.isConnected && status === 'running') {
+          const timeoutId = window.setTimeout(poll, RUN_POLL_INTERVAL_MS);
+          runPollers.set(key, { timeoutId });
+        } else {
+          stopPoller(key);
+        }
+      } catch (err) {
+        console.error(err);
+        setRunState(row, { status: 'failed', runId, error: err.message || _('Unable to load status.') });
+        stopPoller(key);
+      }
+    };
+
+    poll();
+  }
+
+  async function triggerRun(linkId, row) {
+    if (!topicUuid || !linkId) return;
+    setRunState(row, { status: 'running' });
+    try {
+      const data = await api(`/api/topics/${topicUuid}/references/${linkId}/run`, { method: 'POST' });
+      const runId = data?.id || data?.run_id || data?.uuid || null;
+      const status = normalizeStatus(data?.status || data?.run_status || 'running');
+      const error = data?.error || data?.error_message || null;
+      const nextStatus = status === 'running' && !runId ? 'failed' : status;
+      setRunState(row, { status: nextStatus, runId, error: error || (nextStatus === 'failed' && !runId ? _('Missing run identifier.') : null) });
+      if (status === 'running' && runId) {
+        schedulePoll(runId, row);
+      }
+    } catch (err) {
+      console.error(err);
+      setRunState(row, { status: 'failed', runId: null, error: err.message || _('Unable to fetch data.') });
+    }
+  }
+
+  function handleAddToSection(button, row) {
+    if (!button || !row) return;
+    const runId = button.getAttribute('data-run-id');
+    if (!runId) return;
+    const detail = {
+      topicUuid,
+      runId,
+      linkId: row.getAttribute('data-link-id') || null,
+      referenceUuid: row.getAttribute('data-reference-uuid') || null,
+    };
+    const customEvent = new CustomEvent('reference:add-to-section', { detail });
+    document.dispatchEvent(customEvent);
+  }
+
   function renderEmptyState() {
     if (!listEl) return;
     const message = listEl.getAttribute('data-empty-message') || _('No references yet.');
@@ -61,6 +220,8 @@
     el.className = 'list-group-item d-flex gap-2 justify-content-between align-items-start';
     el.dataset.referenceItem = 'true';
     el.dataset.linkId = item.id;
+    if (item.uuid) el.dataset.referenceUuid = item.uuid;
+    else if (item.reference_uuid) el.dataset.referenceUuid = item.reference_uuid;
 
     const content = document.createElement('div');
     content.className = 'flex-grow-1';
@@ -81,13 +242,28 @@
     const actions = document.createElement('div');
     actions.className = 'd-flex flex-column gap-1 align-items-end';
 
-    const openBtn = document.createElement('a');
-    openBtn.className = 'btn btn-outline-secondary btn-sm';
-    openBtn.href = item.url;
-    openBtn.target = '_blank';
-    openBtn.rel = 'noreferrer noopener';
-    openBtn.textContent = _('Open');
-    actions.appendChild(openBtn);
+    const runBtn = document.createElement('button');
+    runBtn.type = 'button';
+    runBtn.className = 'btn btn-outline-primary btn-sm d-flex align-items-center gap-2';
+    runBtn.dataset.referenceRun = 'true';
+    runBtn.innerHTML = `
+      <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" data-reference-run-spinner></span>
+      <span data-reference-run-label>${_('Fetch data')}</span>
+    `;
+    actions.appendChild(runBtn);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-outline-secondary btn-sm d-none';
+    addBtn.dataset.referenceAddSection = 'true';
+    addBtn.disabled = true;
+    addBtn.textContent = _('Add to topic section');
+    actions.appendChild(addBtn);
+
+    const runError = document.createElement('div');
+    runError.className = 'text-danger small text-end d-none';
+    runError.dataset.referenceRunError = 'true';
+    actions.appendChild(runError);
 
     if (form) {
       const removeBtn = document.createElement('button');
@@ -100,6 +276,12 @@
 
     el.appendChild(content);
     el.appendChild(actions);
+
+    const runState = parseRunState(item);
+    setRunState(el, runState);
+    if (runState.status === 'running' && runState.runId) {
+      schedulePoll(runState.runId, el);
+    }
     return el;
   }
 
@@ -183,10 +365,10 @@
 
   if (listEl && form) {
     listEl.addEventListener('click', (event) => {
-      const btn = event.target.closest('button[data-remove-reference]');
-      if (!btn) return;
+      const removeBtn = event.target.closest('button[data-remove-reference]');
+      if (!removeBtn) return;
       event.preventDefault();
-      const parent = btn.closest('[data-link-id]');
+      const parent = removeBtn.closest('[data-link-id]');
       const linkId = parent?.getAttribute('data-link-id');
       if (!linkId) return;
       pendingDeleteId = linkId;
@@ -194,6 +376,26 @@
         confirmModal.show();
       } else {
         handleDelete(linkId).catch((err) => console.error(err));
+      }
+    });
+  }
+
+  if (listEl) {
+    listEl.addEventListener('click', (event) => {
+      const runBtn = event.target.closest('button[data-reference-run]');
+      if (runBtn) {
+        event.preventDefault();
+        const row = runBtn.closest('[data-link-id]');
+        const linkId = row?.getAttribute('data-link-id');
+        triggerRun(linkId, row);
+        return;
+      }
+
+      const addBtn = event.target.closest('button[data-reference-add-section]');
+      if (addBtn && !addBtn.disabled) {
+        event.preventDefault();
+        const row = addBtn.closest('[data-link-id]');
+        handleAddToSection(addBtn, row);
       }
     });
   }
