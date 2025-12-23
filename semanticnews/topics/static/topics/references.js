@@ -82,10 +82,24 @@
 
     const meta = document.createElement('div');
     meta.className = 'text-secondary small';
-    const bits = [];
-    if (item.domain) bits.push(item.domain);
-    if (item.meta_published_at) bits.push(item.meta_published_at.split('T')[0]);
-    meta.textContent = bits.join(' · ');
+
+    if (item.url) {
+      const link = document.createElement('a');
+      link.className = 'link-secondary text-decoration-none';
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = item.domain || item.url;
+      meta.appendChild(link);
+    } else if (item.domain) {
+      meta.textContent = item.domain;
+    }
+
+    if (item.meta_published_at) {
+      const dateText = document.createTextNode(` · ${item.meta_published_at.split('T')[0]}`);
+      meta.appendChild(dateText);
+    }
+
     content.appendChild(meta);
 
     const actions = document.createElement('div');

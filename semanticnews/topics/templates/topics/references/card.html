@@ -35,7 +35,14 @@
             <div class="flex-grow-1">
                 <div class="fw-semibold small">{{ link.reference.meta_title|default_if_none:link.reference.url|default:link.reference.url }}</div>
                 <div class="text-secondary small">
-                    {{ link.reference.domain }}
+                    <a
+                        class="link-secondary text-decoration-none"
+                        href="{{ link.reference.url }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ link.reference.domain|default_if_none:link.reference.url|default:link.reference.url }}
+                    </a>
                     {% if link.reference.meta_published_at %}
                         &middot; {{ link.reference.meta_published_at|date:"Y-m-d" }}
                     {% endif %}
