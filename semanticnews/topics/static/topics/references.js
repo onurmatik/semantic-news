@@ -10,6 +10,10 @@
   const submitBtn = card.querySelector('[data-reference-submit]');
   const suggestionsSection = card.querySelector('[data-reference-suggestions]');
   const suggestionsBtn = card.querySelector('[data-reference-suggestions-btn]');
+  const suggestionsAlert = card.querySelector('[data-reference-suggestions-alert]');
+  const suggestionsAlertBody = card.querySelector('[data-reference-suggestions-alert-body]');
+  const suggestionsAlertMessage = card.querySelector('[data-reference-suggestions-message]');
+  const suggestionsAlertClose = card.querySelector('[data-reference-suggestions-close]');
   const _ = window.gettext || ((s) => s);
   const confirmModalEl = document.getElementById('confirmDeleteReferenceModal');
   const confirmModal = confirmModalEl && window.bootstrap
@@ -17,8 +21,11 @@
     : null;
   const confirmBtn = document.getElementById('confirmDeleteReferenceBtn');
   const confirmSpinner = document.getElementById('confirmDeleteReferenceSpinner');
+  const defaultSuggestionsLabel = suggestionsBtn ? suggestionsBtn.innerHTML : '';
+  const deleteButtonSelector = '[data-remove-reference]';
 
   let pendingDeleteId = null;
+  let suggestionsPollTimer = null;
 
   async function api(url, options = {}) {
     const res = await fetch(url, options);
@@ -62,6 +69,41 @@
     if (!suggestionsSection) return;
     const hasReferences = listEl?.querySelectorAll('[data-reference-item]').length > 0;
     suggestionsSection.classList.toggle('d-none', !hasReferences);
+  }
+
+  function hideSuggestionsAlert() {
+    if (!suggestionsAlert || !suggestionsAlertBody) return;
+    suggestionsAlert.classList.add('d-none');
+    suggestionsAlertBody.classList.remove('alert-success', 'alert-danger');
+    if (suggestionsAlertMessage) suggestionsAlertMessage.textContent = '';
+  }
+
+  function showSuggestionsAlert(type, message) {
+    if (!suggestionsAlert || !suggestionsAlertBody || !suggestionsAlertMessage) return;
+    suggestionsAlert.classList.remove('d-none');
+    suggestionsAlertBody.classList.remove('alert-success', 'alert-danger');
+    suggestionsAlertBody.classList.add(type === 'success' ? 'alert-success' : 'alert-danger');
+    suggestionsAlertMessage.textContent = message || '';
+  }
+
+  function setRemoveButtonsDisabled(disabled) {
+    if (!listEl) return;
+    listEl.querySelectorAll(deleteButtonSelector).forEach((btn) => {
+      btn.disabled = disabled;
+      btn.classList.toggle('disabled', disabled);
+    });
+  }
+
+  function setSuggestionsLoading(isLoading) {
+    if (!suggestionsBtn) return;
+    if (isLoading) {
+      suggestionsBtn.disabled = true;
+      suggestionsBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${_('Getting suggestions…')}`;
+    } else {
+      suggestionsBtn.disabled = false;
+      suggestionsBtn.innerHTML = defaultSuggestionsLabel || _('Get suggestions');
+    }
+    setRemoveButtonsDisabled(isLoading);
   }
 
   function buildItem(item) {
@@ -193,6 +235,77 @@
     updateSuggestionsVisibility();
   }
 
+  function clearSuggestionsPoll() {
+    if (suggestionsPollTimer) {
+      clearTimeout(suggestionsPollTimer);
+      suggestionsPollTimer = null;
+    }
+  }
+
+  async function pollSuggestionStatus(taskId, attempt = 0) {
+    if (!taskId || !topicUuid) return;
+
+    const maxAttempts = 20;
+    const pollInterval = 1500;
+
+    try {
+      const data = await api(`/api/topics/${topicUuid}/references/suggestions/${taskId}`);
+      const state = (data?.state || '').toLowerCase();
+
+      if (state === 'success' || state === 'succeeded') {
+        const message = data?.message || _('Suggestions generated successfully.');
+        showSuggestionsAlert('success', message);
+        setSuggestionsLoading(false);
+        clearSuggestionsPoll();
+        return;
+      }
+
+      if (state === 'failure' || state === 'failed') {
+        const message = data?.message || _('Unable to generate suggestions.');
+        showSuggestionsAlert('error', message);
+        setSuggestionsLoading(false);
+        clearSuggestionsPoll();
+        return;
+      }
+
+      if (attempt >= maxAttempts) {
+        showSuggestionsAlert('error', _('Suggestions are taking longer than expected. Please try again later.'));
+        setSuggestionsLoading(false);
+        clearSuggestionsPoll();
+        return;
+      }
+
+      suggestionsPollTimer = setTimeout(() => pollSuggestionStatus(taskId, attempt + 1), pollInterval);
+    } catch (err) {
+      console.error(err);
+      showSuggestionsAlert('error', err.message || _('Unable to generate suggestions.'));
+      setSuggestionsLoading(false);
+      clearSuggestionsPoll();
+    }
+  }
+
+  async function requestSuggestions(event) {
+    event.preventDefault();
+    if (!topicUuid) return;
+
+    hideSuggestionsAlert();
+    setSuggestionsLoading(true);
+    clearSuggestionsPoll();
+
+    try {
+      const data = await api(`/api/topics/${topicUuid}/references/suggestions/`, { method: 'POST' });
+      const taskId = data?.task_id;
+      if (!taskId) {
+        throw new Error(_('Unable to start suggestion request.'));
+      }
+      pollSuggestionStatus(taskId);
+    } catch (err) {
+      console.error(err);
+      showSuggestionsAlert('error', err.message || _('Unable to generate suggestions.'));
+      setSuggestionsLoading(false);
+    }
+  }
+
   function resetConfirmState() {
     if (confirmBtn) confirmBtn.disabled = false;
     if (confirmSpinner) confirmSpinner.classList.add('d-none');
@@ -246,10 +359,13 @@
   }
 
   if (suggestionsBtn) {
-    suggestionsBtn.addEventListener('click', (event) => {
+    suggestionsBtn.addEventListener('click', requestSuggestions);
+  }
+
+  if (suggestionsAlertClose) {
+    suggestionsAlertClose.addEventListener('click', (event) => {
       event.preventDefault();
-      const customEvent = new CustomEvent('reference:get-suggestions', { detail: { topicUuid } });
-      document.dispatchEvent(customEvent);
+      hideSuggestionsAlert();
     });
   }
 

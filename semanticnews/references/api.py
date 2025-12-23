@@ -5,10 +5,12 @@ from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
+from celery.result import AsyncResult
 
 from semanticnews.topics.models import Topic
 
 from .models import Reference, TopicReference
+from .tasks import generate_reference_suggestions
 
 router = Router()
 
@@ -28,6 +30,17 @@ class ReferenceDetail(Schema):
     last_fetched_at: Optional[datetime] = None
     fetch_status: Optional[str] = None
     added_at: datetime
+
+
+class ReferenceSuggestionTaskResponse(Schema):
+    task_id: str
+
+
+class ReferenceSuggestionStatusResponse(Schema):
+    task_id: str
+    state: str
+    success: Optional[bool] = None
+    message: Optional[str] = None
 
 
 def _require_owned_topic(request, topic_uuid: str) -> Topic:
@@ -153,3 +166,42 @@ def delete_topic_reference(request, topic_uuid: str, link_id: int):
     link.is_deleted = True
     link.save(update_fields=["is_deleted"])
     return 204, None
+
+
+@router.post(
+    "/{topic_uuid}/references/suggestions/",
+    response=ReferenceSuggestionTaskResponse,
+)
+def request_reference_suggestions(request, topic_uuid: str):
+    topic = _require_owned_topic(request, topic_uuid)
+
+    task = generate_reference_suggestions.delay(str(topic.uuid))
+    return ReferenceSuggestionTaskResponse(task_id=task.id)
+
+
+@router.get(
+    "/{topic_uuid}/references/suggestions/{task_id}",
+    response=ReferenceSuggestionStatusResponse,
+)
+def reference_suggestions_status(request, topic_uuid: str, task_id: str):
+    _require_owned_topic(request, topic_uuid)
+
+    result = AsyncResult(task_id)
+    state = result.state
+    success: Optional[bool] = None
+    message: Optional[str] = None
+
+    if result.successful():
+        payload = result.result or {}
+        success = bool(payload.get("success", True))
+        message = payload.get("message") or "Reference suggestions are ready."
+    elif result.failed():
+        success = False
+        message = str(result.result) or "Unable to generate reference suggestions."
+
+    return ReferenceSuggestionStatusResponse(
+        task_id=task_id,
+        state=state,
+        success=success,
+        message=message,
+    )
