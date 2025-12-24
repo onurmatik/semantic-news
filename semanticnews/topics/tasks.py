@@ -50,6 +50,7 @@ def _serialize_section(section) -> dict:
         "id": section.id,
         "widget_name": section.widget_name,
         "draft_display_order": section.draft_display_order,
+        "order": section.draft_display_order,
         "content": section.content or {},
     }
 
@@ -142,7 +143,10 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
         return {"success": False, "message": "Topic not found."}
 
     llm_input = _build_topic_llm_input(topic)
-    prompt = "Create/update/reorder/delete topic sections based on references."
+    prompt = (
+        "Create/update/reorder/delete topic sections based on references. "
+        "Use 1-based order values for any new sections."
+    )
     prompt = append_default_language_instruction(prompt)
     prompt += "\n\nInput:\n" + json.dumps(llm_input, ensure_ascii=False)
 

@@ -1,13 +1,21 @@
 from datetime import datetime
 from typing import List, Optional
 
+from django.db import transaction
 from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from celery.result import AsyncResult
 
-from semanticnews.topics.models import Topic
+from semanticnews.topics.models import (
+    Topic,
+    TopicSection,
+    TopicSectionSuggestion,
+    TopicSectionSuggestionStatus,
+)
+from semanticnews.topics.tasks import TopicSectionSuggestionsPayload, _validate_suggestions
+from semanticnews.topics.widgets import get_widget
 
 from .models import Reference, TopicReference
 from .tasks import generate_reference_suggestions
@@ -45,6 +53,25 @@ class ReferenceSuggestionStatusResponse(Schema):
     state: str
     success: Optional[bool] = None
     message: Optional[str] = None
+    suggestion_id: Optional[int] = None
+    payload: Optional[TopicSectionSuggestionsPayload] = None
+
+
+class ReferenceSuggestionLatestResponse(Schema):
+    has_suggestions: bool
+    suggestion_id: Optional[int] = None
+    status: Optional[str] = None
+    message: Optional[str] = None
+    payload: Optional[TopicSectionSuggestionsPayload] = None
+
+
+class ReferenceSuggestionApplyRequest(Schema):
+    suggestion_id: Optional[int] = None
+
+
+class ReferenceSuggestionApplyResponse(Schema):
+    success: bool
+    message: Optional[str] = None
 
 
 def _require_owned_topic(request, topic_uuid: str) -> Topic:
@@ -61,6 +88,82 @@ def _require_owned_topic(request, topic_uuid: str) -> Topic:
         raise HttpError(403, "Forbidden")
 
     return topic
+
+
+def _get_latest_section_suggestion(topic: Topic) -> Optional[TopicSectionSuggestion]:
+    return (
+        TopicSectionSuggestion.objects.filter(topic=topic)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+
+def _apply_section_suggestions(
+    topic: Topic, suggestions: TopicSectionSuggestionsPayload
+) -> None:
+    valid_section_ids = [
+        section.id
+        for section in topic.sections_ordered
+        if not section.is_deleted and not section.is_draft_deleted
+    ]
+    _validate_suggestions(suggestions, valid_section_ids)
+
+    delete_ids = set(suggestions.delete)
+    reorder_ids = list(suggestions.reorder)
+    create_entries = list(suggestions.create)
+
+    for entry in create_entries:
+        if entry.widget_name:
+            try:
+                get_widget(entry.widget_name)
+            except KeyError as exc:
+                raise HttpError(400, f"Unknown widget '{entry.widget_name}'.") from exc
+
+    with transaction.atomic():
+        if delete_ids:
+            TopicSection.objects.filter(
+                topic=topic, id__in=delete_ids, is_draft_deleted=False
+            ).update(is_draft_deleted=True)
+
+        for entry in suggestions.update:
+            section = TopicSection.objects.get(topic=topic, id=entry.section_id)
+            if section.is_deleted or section.is_draft_deleted:
+                continue
+            section.content = entry.content or {}
+
+        for entry in create_entries:
+            section = TopicSection.objects.create(
+                topic=topic,
+                widget_name=entry.widget_name,
+                draft_display_order=entry.order,
+                display_order=entry.order,
+            )
+            section._get_or_create_draft_record()
+            section.content = entry.content or {}
+
+        active_sections = list(
+            TopicSection.objects.filter(
+                topic=topic, is_deleted=False, is_draft_deleted=False
+            )
+        )
+        desired_order: dict[int, int] = {
+            section_id: index for index, section_id in enumerate(reorder_ids, start=1)
+        }
+        ordered_sections = sorted(
+            active_sections,
+            key=lambda item: (
+                desired_order.get(item.id, item.draft_display_order or 0),
+                item.id,
+            ),
+        )
+        updates: list[TopicSection] = []
+        for order, section in enumerate(ordered_sections, start=1):
+            if section.draft_display_order != order:
+                section.draft_display_order = order
+                updates.append(section)
+
+        if updates:
+            TopicSection.objects.bulk_update(updates, ["draft_display_order"])
 
 
 def _serialize_link(link: TopicReference) -> ReferenceDetail:
@@ -188,24 +291,96 @@ def request_reference_suggestions(request, topic_uuid: str):
     response=ReferenceSuggestionStatusResponse,
 )
 def reference_suggestions_status(request, topic_uuid: str, task_id: str):
-    _require_owned_topic(request, topic_uuid)
+    topic = _require_owned_topic(request, topic_uuid)
 
     result = AsyncResult(task_id)
     state = result.state
     success: Optional[bool] = None
     message: Optional[str] = None
+    payload_obj: Optional[TopicSectionSuggestionsPayload] = None
+    suggestion_id: Optional[int] = None
 
     if result.successful():
         payload = result.result or {}
         success = bool(payload.get("success", True))
         message = payload.get("message") or "Reference suggestions are ready."
+        payload_data = payload.get("payload")
+        if payload_data is not None:
+            payload_obj = TopicSectionSuggestionsPayload(**payload_data)
     elif result.failed():
         success = False
         message = str(result.result) or "Unable to generate reference suggestions."
+
+    latest_suggestion = _get_latest_section_suggestion(topic)
+    if latest_suggestion is not None:
+        suggestion_id = latest_suggestion.id
+        if payload_obj is None:
+            payload_obj = TopicSectionSuggestionsPayload(**latest_suggestion.payload)
+        if latest_suggestion.status == TopicSectionSuggestionStatus.ERROR:
+            success = False
+            message = latest_suggestion.error or message
+        else:
+            success = True if success is None else success
+            message = message or "Reference suggestions are ready."
 
     return ReferenceSuggestionStatusResponse(
         task_id=task_id,
         state=state,
         success=success,
         message=message,
+        suggestion_id=suggestion_id,
+        payload=payload_obj,
+    )
+
+
+@router.get(
+    "/{topic_uuid}/references/suggestions/latest",
+    response=ReferenceSuggestionLatestResponse,
+)
+def reference_suggestions_latest(request, topic_uuid: str):
+    topic = _require_owned_topic(request, topic_uuid)
+    latest_suggestion = _get_latest_section_suggestion(topic)
+    if latest_suggestion is None:
+        return ReferenceSuggestionLatestResponse(has_suggestions=False)
+
+    payload_obj = TopicSectionSuggestionsPayload(**latest_suggestion.payload)
+    message = "Reference suggestions are ready."
+    if latest_suggestion.status == TopicSectionSuggestionStatus.ERROR:
+        message = latest_suggestion.error or "Unable to generate reference suggestions."
+
+    return ReferenceSuggestionLatestResponse(
+        has_suggestions=True,
+        suggestion_id=latest_suggestion.id,
+        status=latest_suggestion.status,
+        message=message,
+        payload=payload_obj,
+    )
+
+
+@router.post(
+    "/{topic_uuid}/references/suggestions/apply",
+    response=ReferenceSuggestionApplyResponse,
+)
+def apply_reference_suggestions(request, topic_uuid: str, payload: ReferenceSuggestionApplyRequest):
+    topic = _require_owned_topic(request, topic_uuid)
+    suggestion: Optional[TopicSectionSuggestion] = None
+    if payload.suggestion_id:
+        suggestion = TopicSectionSuggestion.objects.filter(
+            topic=topic, id=payload.suggestion_id
+        ).first()
+    if suggestion is None:
+        suggestion = _get_latest_section_suggestion(topic)
+    if suggestion is None:
+        raise HttpError(404, "No suggestions found.")
+
+    suggestions = TopicSectionSuggestionsPayload(**suggestion.payload)
+    _apply_section_suggestions(topic, suggestions)
+
+    suggestion.status = TopicSectionSuggestionStatus.APPLIED
+    suggestion.applied_at = timezone.now()
+    suggestion.save(update_fields=["status", "applied_at"])
+
+    return ReferenceSuggestionApplyResponse(
+        success=True,
+        message="Reference suggestions applied successfully.",
     )

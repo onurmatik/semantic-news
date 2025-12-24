@@ -14,6 +14,28 @@
   const suggestionsAlertBody = card.querySelector('[data-reference-suggestions-alert-body]');
   const suggestionsAlertMessage = card.querySelector('[data-reference-suggestions-message]');
   const suggestionsAlertClose = card.querySelector('[data-reference-suggestions-close]');
+  const suggestionsModalEl = document.getElementById('referenceSuggestionsModal');
+  const suggestionsModal = suggestionsModalEl && window.bootstrap
+    ? window.bootstrap.Modal.getOrCreateInstance(suggestionsModalEl)
+    : null;
+  const suggestionsModalAlert = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-modal-alert]')
+    : null;
+  const suggestionsSummary = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-summary]')
+    : null;
+  const suggestionsPreview = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-preview]')
+    : null;
+  const suggestionsEmpty = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-empty]')
+    : null;
+  const suggestionsApplyBtn = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-apply]')
+    : null;
+  const suggestionsApplySpinner = suggestionsModalEl
+    ? suggestionsModalEl.querySelector('[data-reference-suggestions-apply-spinner]')
+    : null;
   const _ = window.gettext || ((s) => s);
   const confirmModalEl = document.getElementById('confirmDeleteReferenceModal');
   const confirmModal = confirmModalEl && window.bootstrap
@@ -26,6 +48,9 @@
 
   let pendingDeleteId = null;
   let suggestionsPollTimer = null;
+  let suggestionsState = 'idle';
+  let latestSuggestionPayload = null;
+  let latestSuggestionId = null;
 
   async function api(url, options = {}) {
     const res = await fetch(url, options);
@@ -86,6 +111,17 @@
     suggestionsAlertMessage.textContent = message || '';
   }
 
+  function setModalAlert(message) {
+    if (!suggestionsModalAlert) return;
+    if (message) {
+      suggestionsModalAlert.textContent = message;
+      suggestionsModalAlert.classList.remove('d-none');
+    } else {
+      suggestionsModalAlert.textContent = '';
+      suggestionsModalAlert.classList.add('d-none');
+    }
+  }
+
   function setRemoveButtonsDisabled(disabled) {
     if (!listEl) return;
     listEl.querySelectorAll(deleteButtonSelector).forEach((btn) => {
@@ -94,16 +130,25 @@
     });
   }
 
-  function setSuggestionsLoading(isLoading) {
+  function setSuggestionsState(nextState) {
     if (!suggestionsBtn) return;
-    if (isLoading) {
+    suggestionsState = nextState;
+    suggestionsBtn.classList.remove('btn-outline-primary', 'btn-success');
+    if (nextState === 'loading') {
       suggestionsBtn.disabled = true;
+      suggestionsBtn.classList.add('btn-outline-primary');
       suggestionsBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${_('Getting suggestions…')}`;
+    } else if (nextState === 'ready') {
+      const checkLabel = suggestionsBtn.getAttribute('data-check-label') || _('Check suggestions');
+      suggestionsBtn.disabled = false;
+      suggestionsBtn.classList.add('btn-success');
+      suggestionsBtn.innerHTML = checkLabel;
     } else {
       suggestionsBtn.disabled = false;
+      suggestionsBtn.classList.add('btn-outline-primary');
       suggestionsBtn.innerHTML = defaultSuggestionsLabel || _('Get suggestions');
     }
-    setRemoveButtonsDisabled(isLoading);
+    setRemoveButtonsDisabled(nextState === 'loading');
   }
 
   function buildItem(item) {
@@ -188,6 +233,172 @@
     }
   }
 
+  function getSectionEntries() {
+    return Array.from(document.querySelectorAll('[data-topic-widget-entry][data-widget-section-id]'));
+  }
+
+  function getCurrentSectionOrder() {
+    return getSectionEntries()
+      .map((el) => el.getAttribute('data-widget-section-id'))
+      .filter(Boolean);
+  }
+
+  function getSectionLabels() {
+    const labels = new Map();
+    getSectionEntries().forEach((el) => {
+      const sectionId = el.getAttribute('data-widget-section-id');
+      if (!sectionId) return;
+      const key = el.getAttribute('data-topic-widget-key');
+      labels.set(sectionId, key || _('Section'));
+    });
+    return labels;
+  }
+
+  function formatContentPreview(content) {
+    if (content == null) return '';
+    if (typeof content === 'string') return content;
+    try {
+      return JSON.stringify(content, null, 2);
+    } catch (err) {
+      return String(content);
+    }
+  }
+
+  function renderSuggestionsPreview(payload) {
+    if (!suggestionsPreview || !suggestionsEmpty) return;
+    suggestionsPreview.innerHTML = '';
+    setModalAlert('');
+
+    if (!payload) {
+      suggestionsEmpty.classList.remove('d-none');
+      if (suggestionsSummary) suggestionsSummary.textContent = _('No suggestions available.');
+      if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = true;
+      return;
+    }
+
+    const createEntries = Array.isArray(payload.create) ? payload.create : [];
+    const updateEntries = Array.isArray(payload.update) ? payload.update : [];
+    const reorderIds = Array.isArray(payload.reorder) ? payload.reorder.map(String) : [];
+    const deleteIds = new Set(Array.isArray(payload.delete) ? payload.delete.map(String) : []);
+    const updatesById = new Map(updateEntries.map((entry) => [String(entry.section_id), entry]));
+
+    const baseOrder = reorderIds.length
+      ? reorderIds
+      : getCurrentSectionOrder();
+    const filteredOrder = baseOrder.filter((id) => !deleteIds.has(String(id)));
+    const ordered = filteredOrder.map((id) => ({ type: 'existing', id: String(id) }));
+
+    const sortedCreates = [...createEntries].sort((a, b) => (a.order || 0) - (b.order || 0));
+    sortedCreates.forEach((entry) => {
+      const desiredOrder = Math.max(1, Number(entry.order || 1));
+      const position = Math.min(desiredOrder, ordered.length + 1);
+      ordered.splice(position - 1, 0, { type: 'new', entry });
+    });
+
+    if (!ordered.length) {
+      suggestionsEmpty.classList.remove('d-none');
+      if (suggestionsSummary) suggestionsSummary.textContent = _('No suggestions available.');
+      if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = true;
+      return;
+    }
+
+    suggestionsEmpty.classList.add('d-none');
+    if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = false;
+
+    const labels = getSectionLabels();
+    ordered.forEach((item, index) => {
+      const row = document.createElement('div');
+      row.className = 'list-group-item';
+
+      const title = document.createElement('div');
+      title.className = 'fw-semibold';
+      if (item.type === 'new') {
+        const widgetName = item.entry.widget_name || _('section');
+        title.textContent = `${index + 1}. ${_('New')} ${widgetName}`;
+      } else {
+        const label = labels.get(item.id) || _('Section');
+        const updateEntry = updatesById.get(item.id);
+        title.textContent = updateEntry
+          ? `${index + 1}. ${label} #${item.id} (${_('updated')})`
+          : `${index + 1}. ${label} #${item.id}`;
+      }
+      row.appendChild(title);
+
+      const detail = document.createElement('pre');
+      detail.className = 'small text-secondary mb-0 mt-2';
+      if (item.type === 'new') {
+        detail.textContent = formatContentPreview(item.entry.content);
+      } else {
+        const updateEntry = updatesById.get(item.id);
+        detail.textContent = updateEntry ? formatContentPreview(updateEntry.content) : _('No changes suggested.');
+      }
+      row.appendChild(detail);
+      suggestionsPreview.appendChild(row);
+    });
+
+    const summaryParts = [
+      `${_('Created')}: ${createEntries.length}`,
+      `${_('Updated')}: ${updateEntries.length}`,
+      `${_('Deleted')}: ${deleteIds.size}`,
+    ];
+    if (suggestionsSummary) suggestionsSummary.textContent = summaryParts.join(' · ');
+  }
+
+  async function fetchLatestSuggestions() {
+    if (!topicUuid) return null;
+    try {
+      const data = await api(`/api/topics/${topicUuid}/references/suggestions/latest`);
+      latestSuggestionPayload = data?.payload || null;
+      latestSuggestionId = data?.suggestion_id || null;
+      if (data?.has_suggestions) {
+        setSuggestionsState('ready');
+      } else {
+        setSuggestionsState('idle');
+      }
+      return data;
+    } catch (err) {
+      console.error(err);
+      setSuggestionsState('idle');
+      return null;
+    }
+  }
+
+  async function openSuggestionsModal() {
+    if (!suggestionsModal || !suggestionsModalEl) return;
+    if (!latestSuggestionPayload) {
+      const data = await fetchLatestSuggestions();
+      latestSuggestionPayload = data?.payload || null;
+      latestSuggestionId = data?.suggestion_id || null;
+    }
+    renderSuggestionsPreview(latestSuggestionPayload);
+    suggestionsModal.show();
+  }
+
+  async function applySuggestions() {
+    if (!topicUuid || !latestSuggestionId) {
+      setModalAlert(_('Unable to apply suggestions.'));
+      return;
+    }
+
+    if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = true;
+    if (suggestionsApplySpinner) suggestionsApplySpinner.classList.remove('d-none');
+    setModalAlert('');
+
+    try {
+      await api(`/api/topics/${topicUuid}/references/suggestions/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestion_id: latestSuggestionId }),
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      setModalAlert(err.message || _('Unable to apply suggestions.'));
+      if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = false;
+      if (suggestionsApplySpinner) suggestionsApplySpinner.classList.add('d-none');
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     if (!form || !input || !topicUuid) return;
@@ -255,7 +466,9 @@
       if (state === 'success' || state === 'succeeded') {
         const message = data?.message || _('Suggestions generated successfully.');
         showSuggestionsAlert('success', message);
-        setSuggestionsLoading(false);
+        latestSuggestionPayload = data?.payload || null;
+        latestSuggestionId = data?.suggestion_id || null;
+        setSuggestionsState('ready');
         clearSuggestionsPoll();
         return;
       }
@@ -263,14 +476,14 @@
       if (state === 'failure' || state === 'failed') {
         const message = data?.message || _('Unable to generate suggestions.');
         showSuggestionsAlert('error', message);
-        setSuggestionsLoading(false);
+        setSuggestionsState('idle');
         clearSuggestionsPoll();
         return;
       }
 
       if (attempt >= maxAttempts) {
         showSuggestionsAlert('error', _('Suggestions are taking longer than expected. Please try again later.'));
-        setSuggestionsLoading(false);
+        setSuggestionsState('idle');
         clearSuggestionsPoll();
         return;
       }
@@ -279,7 +492,7 @@
     } catch (err) {
       console.error(err);
       showSuggestionsAlert('error', err.message || _('Unable to generate suggestions.'));
-      setSuggestionsLoading(false);
+      setSuggestionsState('idle');
       clearSuggestionsPoll();
     }
   }
@@ -289,7 +502,7 @@
     if (!topicUuid) return;
 
     hideSuggestionsAlert();
-    setSuggestionsLoading(true);
+    setSuggestionsState('loading');
     clearSuggestionsPoll();
 
     try {
@@ -302,7 +515,7 @@
     } catch (err) {
       console.error(err);
       showSuggestionsAlert('error', err.message || _('Unable to generate suggestions.'));
-      setSuggestionsLoading(false);
+      setSuggestionsState('idle');
     }
   }
 
@@ -359,7 +572,14 @@
   }
 
   if (suggestionsBtn) {
-    suggestionsBtn.addEventListener('click', requestSuggestions);
+    suggestionsBtn.addEventListener('click', (event) => {
+      if (suggestionsState === 'ready') {
+        event.preventDefault();
+        openSuggestionsModal();
+        return;
+      }
+      requestSuggestions(event);
+    });
   }
 
   if (suggestionsAlertClose) {
@@ -369,5 +589,15 @@
     });
   }
 
+  if (suggestionsApplyBtn) {
+    suggestionsApplyBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      applySuggestions();
+    });
+  }
+
   loadReferences();
+  if (suggestionsBtn) {
+    fetchLatestSuggestions();
+  }
 })();
