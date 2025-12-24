@@ -14,7 +14,6 @@ from slugify import slugify
 
 from ninja import NinjaAPI, Router, Schema
 from ninja.errors import HttpError
-from celery.result import AsyncResult
 
 from pgvector.django import CosineDistance
 
@@ -23,10 +22,6 @@ from semanticnews.agenda.models import Category, Event, Source as AgendaSource
 from semanticnews.entities.models import Entity
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
-from semanticnews.topics.tasks import (
-    TopicSectionSuggestionsPayload,
-    generate_section_suggestions,
-)
 
 from .models import (
     Topic,
@@ -34,8 +29,6 @@ from .models import (
     RelatedEntity,
     RelatedEvent,
     Source,
-    TopicSectionSuggestion,
-    TopicSectionSuggestionStatus,
 )
 from .publishing import publish_topic
 from .recaps.api import router as recaps_router
@@ -70,18 +63,6 @@ class GenerationStatusResponse(Schema):
     relation: Optional[GenerationStatus] = None
     image: Optional[GenerationStatus] = None
     data: Optional[DataGenerationStatuses] = None
-
-
-class TopicSectionSuggestionTaskResponse(Schema):
-    task_id: str
-
-
-class TopicSectionSuggestionStatusResponse(Schema):
-    task_id: str
-    state: str
-    success: Optional[bool] = None
-    message: Optional[str] = None
-    payload: Optional[TopicSectionSuggestionsPayload] = None
 
 
 class RelatedEntityInput(Schema):
@@ -1098,64 +1079,6 @@ def _require_owned_topic(request, topic_uuid: str) -> Topic:
         raise HttpError(403, "Forbidden")
 
     return topic
-
-
-@api.post(
-    "/{topic_uuid}/sections/suggestions/",
-    response=TopicSectionSuggestionTaskResponse,
-)
-def request_section_suggestions(request, topic_uuid: str):
-    topic = _require_owned_topic(request, topic_uuid)
-    task = generate_section_suggestions.delay(str(topic.uuid))
-    return TopicSectionSuggestionTaskResponse(task_id=task.id)
-
-
-@api.get(
-    "/{topic_uuid}/sections/suggestions/{task_id}",
-    response=TopicSectionSuggestionStatusResponse,
-)
-def section_suggestions_status(request, topic_uuid: str, task_id: str):
-    topic = _require_owned_topic(request, topic_uuid)
-
-    result = AsyncResult(task_id)
-    state = result.state
-    success: Optional[bool] = None
-    message: Optional[str] = None
-    payload_obj: Optional[TopicSectionSuggestionsPayload] = None
-
-    if result.successful():
-        payload = result.result or {}
-        success = bool(payload.get("success", True))
-        message = payload.get("message") or "Section suggestions are ready."
-        payload_data = payload.get("payload")
-        if payload_data is not None:
-            payload_obj = TopicSectionSuggestionsPayload(**payload_data)
-    elif result.failed():
-        success = False
-        message = str(result.result) or "Unable to generate section suggestions."
-
-    if payload_obj is None:
-        latest_suggestion = (
-            TopicSectionSuggestion.objects.filter(topic=topic)
-            .order_by("-created_at", "-id")
-            .first()
-        )
-        if latest_suggestion is not None:
-            payload_obj = TopicSectionSuggestionsPayload(**latest_suggestion.payload)
-            if latest_suggestion.status == TopicSectionSuggestionStatus.ERROR:
-                success = False
-                message = latest_suggestion.error or "Unable to generate section suggestions."
-            else:
-                success = True
-                message = message or "Section suggestions are ready."
-
-    return TopicSectionSuggestionStatusResponse(
-        task_id=task_id,
-        state=state,
-        success=success,
-        message=message,
-        payload=payload_obj,
-    )
 
 
 def _serialize_related_topic_link(link: RelatedTopic) -> RelatedTopicLinkSchema:

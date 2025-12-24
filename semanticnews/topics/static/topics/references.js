@@ -463,6 +463,14 @@
       const data = await api(`/api/topics/${topicUuid}/references/suggestions/${taskId}`);
       const state = (data?.state || '').toLowerCase();
 
+      if (data?.success === false) {
+        const message = data?.message || _('Unable to generate suggestions.');
+        showSuggestionsAlert('error', message);
+        setSuggestionsState('idle');
+        clearSuggestionsPoll();
+        return;
+      }
+
       if (state === 'success' || state === 'succeeded') {
         const message = data?.message || _('Suggestions generated successfully.');
         showSuggestionsAlert('success', message);

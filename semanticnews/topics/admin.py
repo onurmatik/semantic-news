@@ -6,6 +6,7 @@ from .models import (
     TopicTitle,
     TopicSection,
     TopicSectionContent,
+    TopicSectionSuggestion,
     RelatedTopic,
     RelatedEntity,
     RelatedEvent,
@@ -176,3 +177,17 @@ class TopicSectionContentAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+
+@admin.register(TopicSectionSuggestion)
+class TopicSectionSuggestionAdmin(admin.ModelAdmin):
+    list_display = (
+        "topic",
+        "status",
+        "created_by",
+        "created_at",
+        "applied_at",
+    )
+    list_filter = ("status",)
+    search_fields = ("topic__titles__title", "created_by__username")
+    readonly_fields = ("created_at", "applied_at")

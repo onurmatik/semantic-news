@@ -55,6 +55,34 @@ def _serialize_section(section) -> dict:
     }
 
 
+def _extract_response_text(response) -> str:
+    text = getattr(response, "output_text", None)
+    if text:
+        return text
+    try:
+        parts = []
+        for output in response.output:
+            for item in output.content:
+                chunk = getattr(item, "text", None)
+                if chunk:
+                    parts.append(chunk)
+        return "".join(parts).strip()
+    except Exception:
+        return ""
+
+
+def _parse_suggestions_response(response_text: str) -> TopicSectionSuggestionsPayload:
+    if not response_text:
+        raise ValueError("Empty response from LLM.")
+    try:
+        payload = json.loads(response_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("LLM response was not valid JSON.") from exc
+    if isinstance(payload, str):
+        raise ValueError("LLM response did not contain a JSON object.")
+    return TopicSectionSuggestionsPayload(**payload)
+
+
 def _serialize_reference(link: TopicReference) -> dict:
     reference = link.reference
     return {
@@ -152,12 +180,12 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
 
     try:
         with OpenAI() as client:
-            response = client.responses.parse(
+            response = client.responses.create(
                 model=settings.DEFAULT_AI_MODEL,
                 input=prompt,
-                text_format=TopicSectionSuggestionsPayload,
             )
-        suggestions = response.output_parsed
+        response_text = _extract_response_text(response)
+        suggestions = _parse_suggestions_response(response_text)
         valid_section_ids = [section["id"] for section in llm_input["sections"]]
         _validate_suggestions(suggestions, valid_section_ids)
     except Exception as exc:
