@@ -24,6 +24,12 @@ class Source(models.TextChoices):
     AGENT = "agent", "Agent"
 
 
+class TopicSectionSuggestionStatus(models.TextChoices):
+    GENERATED = "generated", "Generated"
+    APPLIED = "applied", "Applied"
+    ERROR = "error", "Error"
+
+
 class Topic(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     embedding = VectorField(dimensions=1536, blank=True, null=True)
@@ -800,6 +806,36 @@ class TopicRecap(models.Model):
 
     def __str__(self):
         return f"Recap for {self.topic}"
+
+
+class TopicSectionSuggestion(models.Model):
+    topic = models.ForeignKey(
+        Topic,
+        related_name="section_suggestions",
+        on_delete=models.CASCADE,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="topic_section_suggestions",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=TopicSectionSuggestionStatus.choices,
+        default=TopicSectionSuggestionStatus.GENERATED,
+    )
+    payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    applied_at = models.DateTimeField(blank=True, null=True)
+    error = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Section suggestion for {self.topic}"
 
 
 #

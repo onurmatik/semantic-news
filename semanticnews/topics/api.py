@@ -34,6 +34,8 @@ from .models import (
     RelatedEntity,
     RelatedEvent,
     Source,
+    TopicSectionSuggestion,
+    TopicSectionSuggestionStatus,
 )
 from .publishing import publish_topic
 from .recaps.api import router as recaps_router
@@ -1113,7 +1115,7 @@ def request_section_suggestions(request, topic_uuid: str):
     response=TopicSectionSuggestionStatusResponse,
 )
 def section_suggestions_status(request, topic_uuid: str, task_id: str):
-    _require_owned_topic(request, topic_uuid)
+    topic = _require_owned_topic(request, topic_uuid)
 
     result = AsyncResult(task_id)
     state = result.state
@@ -1131,6 +1133,21 @@ def section_suggestions_status(request, topic_uuid: str, task_id: str):
     elif result.failed():
         success = False
         message = str(result.result) or "Unable to generate section suggestions."
+
+    if payload_obj is None:
+        latest_suggestion = (
+            TopicSectionSuggestion.objects.filter(topic=topic)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if latest_suggestion is not None:
+            payload_obj = TopicSectionSuggestionsPayload(**latest_suggestion.payload)
+            if latest_suggestion.status == TopicSectionSuggestionStatus.ERROR:
+                success = False
+                message = latest_suggestion.error or "Unable to generate section suggestions."
+            else:
+                success = True
+                message = message or "Section suggestions are ready."
 
     return TopicSectionSuggestionStatusResponse(
         task_id=task_id,

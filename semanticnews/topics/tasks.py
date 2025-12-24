@@ -9,7 +9,7 @@ from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 from semanticnews.references.models import TopicReference
 
-from .models import Topic
+from .models import Topic, TopicSectionSuggestion
 
 
 class TopicSectionSuggestionCreate(BaseModel):
@@ -162,8 +162,14 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
             "message": f"Unable to generate valid section suggestions: {exc}",
         }
 
+    suggestion = TopicSectionSuggestion.objects.create(
+        topic=topic,
+        created_by=topic.created_by,
+        payload=_dump_model(suggestions),
+    )
+
     return {
         "success": True,
         "message": "Section suggestions generated successfully.",
-        "payload": _dump_model(suggestions),
+        "payload": suggestion.payload,
     }
