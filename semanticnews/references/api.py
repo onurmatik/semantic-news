@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from django.utils import timezone
@@ -27,8 +27,12 @@ class ReferenceDetail(Schema):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     meta_published_at: Optional[datetime] = None
+    lead_image_url: Optional[str] = None
+    content_excerpt: Optional[str] = None
     last_fetched_at: Optional[datetime] = None
+    status_code: Optional[int] = None
     fetch_status: Optional[str] = None
+    fetch_error: Optional[str] = None
     added_at: datetime
 
 
@@ -81,18 +85,18 @@ def _serialize_link(link: TopicReference) -> ReferenceDetail:
         meta_title=ref.meta_title or None,
         meta_description=ref.meta_description or None,
         meta_published_at=published_at,
+        lead_image_url=ref.lead_image_url or None,
+        content_excerpt=ref.content_excerpt or None,
         last_fetched_at=last_fetched_at,
+        status_code=ref.status_code,
         fetch_status=ref.fetch_status,
+        fetch_error=ref.fetch_error or None,
         added_at=added_at or timezone.now(),
     )
 
 
 def _should_refresh(reference: Reference) -> bool:
-    if reference.fetch_status == Reference.STATUS_PENDING:
-        return True
-    if reference.last_fetched_at is None:
-        return True
-    return reference.last_fetched_at < timezone.now() - timedelta(hours=6)
+    return reference.should_refresh()
 
 
 @router.get("/{topic_uuid}/references", response=List[ReferenceDetail])

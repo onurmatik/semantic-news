@@ -1,7 +1,7 @@
 import hashlib
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -166,6 +166,13 @@ class Reference(models.Model):
             self.content_version = self.content_version or 1
         self.content_hash = new_hash
 
+    def should_refresh(self) -> bool:
+        if self.fetch_status == self.STATUS_PENDING:
+            return True
+        if self.last_fetched_at is None:
+            return True
+        return self.last_fetched_at < timezone.now() - timedelta(hours=6)
+
     def refresh_metadata(self, *, timeout: int = 8, commit: bool = True) -> ReferenceMetadata:
         headers = {
             "User-Agent": "SemanticNews/1.0 (+https://example.com)",
@@ -181,7 +188,6 @@ class Reference(models.Model):
                 allow_redirects=True,
             )
             metadata = self.extract_metadata(response.text, response.status_code)
-            self.status_code = response.status_code
             self.fetch_status = self.STATUS_SUCCEEDED
             self.fetch_error = ""
         except Exception as exc:
@@ -189,6 +195,7 @@ class Reference(models.Model):
             self.fetch_error = str(exc)
             metadata = ReferenceMetadata(status_code=None, raw_payload={})
 
+        self.status_code = metadata.status_code
         self.last_fetched_at = timezone.now()
 
         if metadata.title:
@@ -196,10 +203,8 @@ class Reference(models.Model):
         if metadata.description:
             self.meta_description = metadata.description
         self.meta_published_at = metadata.published_at
-        if metadata.image_url:
-            self.lead_image_url = metadata.image_url[:500]
-        if metadata.content_excerpt:
-            self.content_excerpt = metadata.content_excerpt
+        self.lead_image_url = metadata.image_url[:500] if metadata.image_url else ""
+        self.content_excerpt = metadata.content_excerpt or ""
 
         self.raw_payload = metadata.raw_payload or {}
         self._update_hash_and_version(self.content_excerpt)
