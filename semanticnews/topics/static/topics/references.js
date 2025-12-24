@@ -456,8 +456,9 @@
   async function pollSuggestionStatus(taskId, attempt = 0) {
     if (!taskId || !topicUuid) return;
 
-    const maxAttempts = 20;
     const pollInterval = 1500;
+    const maxWaitMs = 10 * 60 * 1000;
+    const maxAttempts = Math.ceil(maxWaitMs / pollInterval);
 
     try {
       const data = await api(`/api/topics/${topicUuid}/references/suggestions/${taskId}`);

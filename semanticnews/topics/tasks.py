@@ -71,6 +71,46 @@ def _extract_response_text(response) -> str:
         return ""
 
 
+def _coerce_suggestions_payload(payload: Any) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("LLM response did not contain a JSON object.")
+
+    has_schema_keys = any(
+        key in payload for key in ("create", "update", "reorder", "delete")
+    )
+    if has_schema_keys:
+        return payload
+
+    sections = payload.get("sections")
+    if not isinstance(sections, list):
+        return payload
+
+    updates: list[dict[str, Any]] = []
+    reorder_pairs: list[tuple[int, int]] = []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        section_id = section.get("id")
+        if not isinstance(section_id, int):
+            continue
+        updates.append({"section_id": section_id, "content": section.get("content", {})})
+        order_value = section.get("order")
+        if not isinstance(order_value, int):
+            order_value = section.get("draft_display_order")
+        if isinstance(order_value, int):
+            reorder_pairs.append((order_value, section_id))
+
+    reorder_pairs.sort()
+    reorder = [section_id for _, section_id in reorder_pairs]
+
+    return {
+        "create": [],
+        "update": updates,
+        "reorder": reorder,
+        "delete": [],
+    }
+
+
 def _parse_suggestions_response(response_text: str) -> TopicSectionSuggestionsPayload:
     if not response_text:
         raise ValueError("Empty response from LLM.")
@@ -78,8 +118,7 @@ def _parse_suggestions_response(response_text: str) -> TopicSectionSuggestionsPa
         payload = json.loads(response_text)
     except json.JSONDecodeError as exc:
         raise ValueError("LLM response was not valid JSON.") from exc
-    if isinstance(payload, str):
-        raise ValueError("LLM response did not contain a JSON object.")
+    payload = _coerce_suggestions_payload(payload)
     return TopicSectionSuggestionsPayload(**payload)
 
 
@@ -173,7 +212,15 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
     llm_input = _build_topic_llm_input(topic)
     prompt = (
         "Create/update/reorder/delete topic sections based on references. "
-        "Use 1-based order values for any new sections."
+        "Use 1-based order values for any new sections. "
+        "Respond ONLY with a JSON object matching this schema: "
+        "{"
+        "\"create\": [{\"widget_name\": string, \"content\": object, \"order\": number}], "
+        "\"update\": [{\"section_id\": number, \"content\": object}], "
+        "\"reorder\": [number], "
+        "\"delete\": [number]"
+        "}. "
+        "Use empty arrays for any fields with no changes."
     )
     prompt = append_default_language_instruction(prompt)
     prompt += "\n\nInput:\n" + json.dumps(llm_input, ensure_ascii=False)
