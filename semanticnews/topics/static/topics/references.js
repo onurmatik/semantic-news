@@ -447,7 +447,8 @@
           : null;
         const entry = createIndex != null ? createsByIndex.get(createIndex) : null;
         if (entry) {
-          selectedCreates.push({ ...entry, order: orderCounter });
+          const { __createIndex, ...cleanEntry } = entry;
+          selectedCreates.push({ ...cleanEntry, order: orderCounter });
         }
         return;
       }
