@@ -435,6 +435,17 @@ def set_topic_status(request, payload: TopicStatusUpdateRequest):
     current_status = topic.status
 
     if target_status == current_status:
+        if target_status != "published" or not topic.has_unpublished_changes:
+            return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
+
+        if not topic.title:
+            raise HttpError(400, "A title is required to publish a topic.")
+
+        has_finished_recap = topic.recaps.filter(status="finished", is_deleted=False).exists()
+        if not has_finished_recap:
+            raise HttpError(400, "A recap is required to publish a topic.")
+
+        publish_topic(topic, user)
         return TopicStatusUpdateResponse(topic_uuid=str(topic.uuid), status=topic.status)
 
     allowed_transitions = {
