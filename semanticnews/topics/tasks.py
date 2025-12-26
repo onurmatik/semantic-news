@@ -15,7 +15,7 @@ from .models import Topic, TopicSectionSuggestion
 class TopicSectionSuggestionCreate(BaseModel):
     widget_name: str = Field(min_length=1)
     content: dict[str, Any]
-    order: int = Field(ge=0)
+    order: Optional[int] = Field(default=None, ge=1)
 
     class Config:
         extra = "forbid"
@@ -230,9 +230,13 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
 
     llm_input = _build_topic_llm_input(topic)
     prompt = (
-        "Create/update/reorder/delete topic sections based on references. "
+        "Create/update/reorder/delete topic sections using the provided references as evidence. "
         "Preserve image sections and their order unless a reorder is explicitly justified. "
         "Only use widget_name \"paragraph\" for new sections; keep \"image\" only when returning existing image sections. "
+        "For paragraph content, include a \"text\" field with the full paragraph text. "
+        "If references exist and there are no paragraph sections with meaningful text, "
+        "create at least one new paragraph section grounded in the references. "
+        "If paragraph sections exist but the text is empty, update those sections with a paragraph. "
         "Use 1-based order values for any new sections. "
         "Respond ONLY with a JSON object matching this schema: "
         "{"
