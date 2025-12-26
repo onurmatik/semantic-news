@@ -232,6 +232,7 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
     prompt = (
         "Create/update/reorder/delete topic sections based on references. "
         "Preserve image sections and their order unless a reorder is explicitly justified. "
+        "Only use widget_name \"paragraph\" for new sections; keep \"image\" only when returning existing image sections. "
         "Use 1-based order values for any new sections. "
         "Respond ONLY with a JSON object matching this schema: "
         "{"
