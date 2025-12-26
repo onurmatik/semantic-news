@@ -67,6 +67,7 @@ class ReferenceSuggestionLatestResponse(Schema):
 
 class ReferenceSuggestionApplyRequest(Schema):
     suggestion_id: Optional[int] = None
+    payload: Optional[TopicSectionSuggestionsPayload] = None
 
 
 class ReferenceSuggestionApplyResponse(Schema):
@@ -373,7 +374,7 @@ def apply_reference_suggestions(request, topic_uuid: str, payload: ReferenceSugg
     if suggestion is None:
         raise HttpError(404, "No suggestions found.")
 
-    suggestions = TopicSectionSuggestionsPayload(**suggestion.payload)
+    suggestions = payload.payload or TopicSectionSuggestionsPayload(**suggestion.payload)
     _apply_section_suggestions(topic, suggestions)
 
     suggestion.status = TopicSectionSuggestionStatus.APPLIED

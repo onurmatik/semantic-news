@@ -3,7 +3,7 @@ from celery import shared_task
 from semanticnews.topics.models import Topic
 from semanticnews.topics.tasks import generate_section_suggestions
 
-from .models import Reference
+from .models import Reference, TopicReference
 
 
 def _refresh_stale_references_for_topic(topic: Topic) -> list[Reference]:
@@ -36,4 +36,9 @@ def generate_reference_suggestions(topic_uuid: str, simulate_failure: bool = Fal
     if simulate_failure:
         raise ValueError("Unable to generate reference suggestions.")
 
-    return generate_section_suggestions(topic_uuid)
+    result = generate_section_suggestions(topic_uuid)
+    if result.get("success"):
+        TopicReference.objects.filter(
+            topic__uuid=topic_uuid, is_deleted=False
+        ).update(is_suggested=True)
+    return result

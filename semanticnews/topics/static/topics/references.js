@@ -122,6 +122,12 @@
     }
   }
 
+  function updateApplyState() {
+    if (!suggestionsApplyBtn || !suggestionsPreview) return;
+    const checked = suggestionsPreview.querySelectorAll('input[data-suggestion-type]:checked');
+    suggestionsApplyBtn.disabled = checked.length === 0;
+  }
+
   function setRemoveButtonsDisabled(disabled) {
     if (!listEl) return;
     listEl.querySelectorAll(deleteButtonSelector).forEach((btn) => {
@@ -289,7 +295,8 @@
     const ordered = filteredOrder.map((id) => ({ type: 'existing', id: String(id) }));
 
     const sortedCreates = [...createEntries].sort((a, b) => (a.order || 0) - (b.order || 0));
-    sortedCreates.forEach((entry) => {
+    sortedCreates.forEach((entry, idx) => {
+      entry.__createIndex = idx;
       const desiredOrder = Math.max(1, Number(entry.order || 1));
       const position = Math.min(desiredOrder, ordered.length + 1);
       ordered.splice(position - 1, 0, { type: 'new', entry });
@@ -308,7 +315,25 @@
     const labels = getSectionLabels();
     ordered.forEach((item, index) => {
       const row = document.createElement('div');
-      row.className = 'list-group-item';
+      row.className = 'list-group-item d-flex gap-3';
+
+      const checkboxWrap = document.createElement('div');
+      checkboxWrap.className = 'form-check mt-1';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'form-check-input';
+      checkbox.checked = true;
+      checkbox.dataset.suggestionType = item.type;
+      if (item.type === 'new') {
+        checkbox.dataset.createIndex = String(item.entry.__createIndex ?? index);
+      } else {
+        checkbox.dataset.sectionId = item.id;
+      }
+      checkboxWrap.appendChild(checkbox);
+      row.appendChild(checkboxWrap);
+
+      const content = document.createElement('div');
+      content.className = 'flex-grow-1';
 
       const title = document.createElement('div');
       title.className = 'fw-semibold';
@@ -322,7 +347,7 @@
           ? `${index + 1}. ${label} #${item.id} (${_('updated')})`
           : `${index + 1}. ${label} #${item.id}`;
       }
-      row.appendChild(title);
+      content.appendChild(title);
 
       const detail = document.createElement('pre');
       detail.className = 'small text-secondary mb-0 mt-2';
@@ -332,9 +357,37 @@
         const updateEntry = updatesById.get(item.id);
         detail.textContent = updateEntry ? formatContentPreview(updateEntry.content) : _('No changes suggested.');
       }
-      row.appendChild(detail);
+      content.appendChild(detail);
+      row.appendChild(content);
       suggestionsPreview.appendChild(row);
     });
+
+    if (deleteIds.size) {
+      deleteIds.forEach((id) => {
+        const row = document.createElement('div');
+        row.className = 'list-group-item d-flex gap-3 align-items-start';
+
+        const checkboxWrap = document.createElement('div');
+        checkboxWrap.className = 'form-check mt-1';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-check-input';
+        checkbox.checked = true;
+        checkbox.dataset.suggestionType = 'delete';
+        checkbox.dataset.sectionId = id;
+        checkboxWrap.appendChild(checkbox);
+        row.appendChild(checkboxWrap);
+
+        const content = document.createElement('div');
+        content.className = 'flex-grow-1';
+        const title = document.createElement('div');
+        title.className = 'fw-semibold text-danger';
+        title.textContent = `${_('Delete')} ${labels.get(String(id)) || _('Section')} #${id}`;
+        content.appendChild(title);
+        row.appendChild(content);
+        suggestionsPreview.appendChild(row);
+      });
+    }
 
     const summaryParts = [
       `${_('Created')}: ${createEntries.length}`,
@@ -342,6 +395,60 @@
       `${_('Deleted')}: ${deleteIds.size}`,
     ];
     if (suggestionsSummary) suggestionsSummary.textContent = summaryParts.join(' · ');
+
+    updateApplyState();
+    suggestionsPreview.querySelectorAll('input[data-suggestion-type]').forEach((input) => {
+      input.addEventListener('change', updateApplyState);
+    });
+  }
+
+  function buildSelectedPayload() {
+    if (!latestSuggestionPayload || !suggestionsPreview) return null;
+
+    const selectedExistingIds = new Set();
+    const selectedDeleteIds = new Set();
+    const selectedCreateIndexes = new Set();
+
+    suggestionsPreview.querySelectorAll('input[data-suggestion-type]').forEach((input) => {
+      if (!input.checked) return;
+      const type = input.dataset.suggestionType;
+      if (type === 'new') {
+        if (input.dataset.createIndex != null) {
+          selectedCreateIndexes.add(Number(input.dataset.createIndex));
+        }
+      } else if (type === 'delete') {
+        if (input.dataset.sectionId != null) {
+          selectedDeleteIds.add(String(input.dataset.sectionId));
+        }
+      } else if (input.dataset.sectionId != null) {
+        selectedExistingIds.add(String(input.dataset.sectionId));
+      }
+    });
+
+    const createEntries = Array.isArray(latestSuggestionPayload.create)
+      ? [...latestSuggestionPayload.create]
+      : [];
+    const orderedCreates = createEntries.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const filteredCreates = orderedCreates.filter((entry, idx) => selectedCreateIndexes.has(idx));
+
+    const updateEntries = Array.isArray(latestSuggestionPayload.update)
+      ? latestSuggestionPayload.update.filter((entry) => selectedExistingIds.has(String(entry.section_id)))
+      : [];
+
+    const reorderIds = Array.isArray(latestSuggestionPayload.reorder)
+      ? latestSuggestionPayload.reorder.map(String).filter((id) => selectedExistingIds.has(id))
+      : [];
+
+    const deleteEntries = Array.isArray(latestSuggestionPayload.delete)
+      ? latestSuggestionPayload.delete.map(String).filter((id) => selectedDeleteIds.has(id))
+      : [];
+
+    return {
+      create: filteredCreates,
+      update: updateEntries,
+      reorder: reorderIds,
+      delete: deleteEntries,
+    };
   }
 
   async function fetchLatestSuggestions() {
@@ -380,6 +487,17 @@
       return;
     }
 
+    const selectedPayload = buildSelectedPayload();
+    const hasSelection = selectedPayload
+      && (selectedPayload.create.length
+        || selectedPayload.update.length
+        || selectedPayload.reorder.length
+        || selectedPayload.delete.length);
+    if (!hasSelection) {
+      setModalAlert(_('Select at least one section to apply.'));
+      return;
+    }
+
     if (suggestionsApplyBtn) suggestionsApplyBtn.disabled = true;
     if (suggestionsApplySpinner) suggestionsApplySpinner.classList.remove('d-none');
     setModalAlert('');
@@ -388,7 +506,7 @@
       await api(`/api/topics/${topicUuid}/references/suggestions/apply/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggestion_id: latestSuggestionId }),
+        body: JSON.stringify({ suggestion_id: latestSuggestionId, payload: selectedPayload }),
       });
       window.location.reload();
     } catch (err) {

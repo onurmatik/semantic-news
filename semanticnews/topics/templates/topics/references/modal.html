@@ -1,0 +1,44 @@
+{% load i18n %}
+<div
+    class="modal fade"
+    id="referenceSuggestionsModal"
+    tabindex="-1"
+    aria-labelledby="referenceSuggestionsModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="referenceSuggestionsModalLabel">{% trans "Section suggestions" %}</h5>
+                    <p class="text-secondary small mb-0">
+                        {% trans "Select which section updates you want to apply." %}
+                    </p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-none" role="alert" data-reference-suggestions-modal-alert></div>
+                <p class="text-secondary small mb-2" data-reference-suggestions-summary></p>
+                <div class="list-group" data-reference-suggestions-preview></div>
+                <p class="text-secondary small mb-0 d-none" data-reference-suggestions-empty>
+                    {% trans "No suggestions available." %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    {% trans "Close" %}
+                </button>
+                <button type="button" class="btn btn-success" data-reference-suggestions-apply>
+                    <span
+                        class="spinner-border spinner-border-sm me-2 d-none"
+                        role="status"
+                        aria-hidden="true"
+                        data-reference-suggestions-apply-spinner
+                    ></span>
+                    {% trans "Apply suggestions" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
