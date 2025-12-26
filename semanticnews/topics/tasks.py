@@ -46,6 +46,25 @@ def _dump_model(model: BaseModel) -> dict:
 
 
 def _serialize_section(section) -> dict:
+    if section.widget_name == "image":
+        content = section.content or {}
+        has_image = any(
+            content.get(key)
+            for key in (
+                "image_data",
+                "image_url",
+                "image",
+                "thumbnail_url",
+                "form_image_url",
+            )
+        )
+        return {
+            "id": section.id,
+            "widget_name": section.widget_name,
+            "draft_display_order": section.draft_display_order,
+            "order": section.draft_display_order,
+            "content": {"type": "image", "has_image": has_image},
+        }
     return {
         "id": section.id,
         "widget_name": section.widget_name,
@@ -212,6 +231,7 @@ def generate_section_suggestions(topic_uuid: str) -> dict:
     llm_input = _build_topic_llm_input(topic)
     prompt = (
         "Create/update/reorder/delete topic sections based on references. "
+        "Preserve image sections and their order unless a reorder is explicitly justified. "
         "Use 1-based order values for any new sections. "
         "Respond ONLY with a JSON object matching this schema: "
         "{"
