@@ -385,7 +385,7 @@
     setModalAlert('');
 
     try {
-      await api(`/api/topics/${topicUuid}/references/suggestions/apply`, {
+      await api(`/api/topics/${topicUuid}/references/suggestions/apply/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ suggestion_id: latestSuggestionId }),

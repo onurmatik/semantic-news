@@ -358,7 +358,7 @@ def reference_suggestions_latest(request, topic_uuid: str):
 
 
 @router.post(
-    "/{topic_uuid}/references/suggestions/apply",
+    "/{topic_uuid}/references/suggestions/apply/",
     response=ReferenceSuggestionApplyResponse,
 )
 def apply_reference_suggestions(request, topic_uuid: str, payload: ReferenceSuggestionApplyRequest):
