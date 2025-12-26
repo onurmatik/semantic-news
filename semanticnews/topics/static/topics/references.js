@@ -58,7 +58,9 @@
       let detail = `HTTP ${res.status}`;
       try {
         const data = await res.json();
-        if (data?.detail) detail = data.detail;
+        if (data?.detail) {
+          detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+        }
       } catch (err) {
         // ignore JSON parse failures
       }
@@ -405,46 +407,67 @@
   function buildSelectedPayload() {
     if (!latestSuggestionPayload || !suggestionsPreview) return null;
 
-    const selectedExistingIds = new Set();
     const selectedDeleteIds = new Set();
-    const selectedCreateIndexes = new Set();
-
-    suggestionsPreview.querySelectorAll('input[data-suggestion-type]').forEach((input) => {
-      if (!input.checked) return;
-      const type = input.dataset.suggestionType;
-      if (type === 'new') {
-        if (input.dataset.createIndex != null) {
-          selectedCreateIndexes.add(Number(input.dataset.createIndex));
-        }
-      } else if (type === 'delete') {
-        if (input.dataset.sectionId != null) {
-          selectedDeleteIds.add(String(input.dataset.sectionId));
-        }
-      } else if (input.dataset.sectionId != null) {
-        selectedExistingIds.add(String(input.dataset.sectionId));
-      }
-    });
 
     const createEntries = Array.isArray(latestSuggestionPayload.create)
       ? [...latestSuggestionPayload.create]
       : [];
     const orderedCreates = createEntries.sort((a, b) => (a.order || 0) - (b.order || 0));
-    const filteredCreates = orderedCreates.filter((entry, idx) => selectedCreateIndexes.has(idx));
+    const createsByIndex = new Map(
+      orderedCreates.map((entry, idx) => [entry.__createIndex ?? idx, entry]),
+    );
+    const updatesById = new Map(
+      Array.isArray(latestSuggestionPayload.update)
+        ? latestSuggestionPayload.update.map((entry) => [String(entry.section_id), entry])
+        : [],
+    );
+    const allowReorder = Array.isArray(latestSuggestionPayload.reorder)
+      && latestSuggestionPayload.reorder.length > 0;
 
-    const updateEntries = Array.isArray(latestSuggestionPayload.update)
-      ? latestSuggestionPayload.update.filter((entry) => selectedExistingIds.has(String(entry.section_id)))
-      : [];
+    const selectedCreates = [];
+    const reorderIds = [];
+    const updateEntries = [];
 
-    const reorderIds = Array.isArray(latestSuggestionPayload.reorder)
-      ? latestSuggestionPayload.reorder.map(String).filter((id) => selectedExistingIds.has(id))
-      : [];
+    let orderCounter = 0;
+    suggestionsPreview.querySelectorAll('input[data-suggestion-type]').forEach((input) => {
+      const type = input.dataset.suggestionType;
+      if (!input.checked) return;
+
+      if (type === 'delete') {
+        if (input.dataset.sectionId != null) {
+          selectedDeleteIds.add(String(input.dataset.sectionId));
+        }
+        return;
+      }
+
+      orderCounter += 1;
+      if (type === 'new') {
+        const createIndex = input.dataset.createIndex != null
+          ? Number(input.dataset.createIndex)
+          : null;
+        const entry = createIndex != null ? createsByIndex.get(createIndex) : null;
+        if (entry) {
+          selectedCreates.push({ ...entry, order: orderCounter });
+        }
+        return;
+      }
+
+      if (input.dataset.sectionId != null) {
+        const sectionId = String(input.dataset.sectionId);
+        if (allowReorder) {
+          reorderIds.push(sectionId);
+        }
+        const updateEntry = updatesById.get(sectionId);
+        if (updateEntry) updateEntries.push(updateEntry);
+      }
+    });
 
     const deleteEntries = Array.isArray(latestSuggestionPayload.delete)
       ? latestSuggestionPayload.delete.map(String).filter((id) => selectedDeleteIds.has(id))
       : [];
 
     return {
-      create: filteredCreates,
+      create: selectedCreates,
       update: updateEntries,
       reorder: reorderIds,
       delete: deleteEntries,
