@@ -121,8 +121,19 @@ def refresh_stale_references(topic_uuid: str) -> dict:
     return {"success": True, "refreshed_count": len(refreshed)}
 
 
+def _normalize_suggestions_args(args: tuple) -> str:
+    if not args:
+        return ""
+    if len(args) == 1:
+        return str(args[0])
+    if isinstance(args[0], list):
+        return str(args[1])
+    return str(args[0])
+
+
 @shared_task(name="references.generate_reference_suggestions")
-def generate_reference_suggestions(topic_uuid: str, simulate_failure: bool = False):
+def generate_reference_suggestions(*args, simulate_failure: bool = False):
+    topic_uuid = _normalize_suggestions_args(args)
     if simulate_failure:
         raise ValueError("Unable to generate reference suggestions.")
 

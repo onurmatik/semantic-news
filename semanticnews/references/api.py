@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.timezone import make_naive
 from ninja import Router, Schema
 from ninja.errors import HttpError
+from celery import chord
 from celery.result import AsyncResult
 
 from semanticnews.topics.models import (
@@ -53,6 +54,7 @@ class ReferenceSuggestionStatusResponse(Schema):
     state: str
     success: Optional[bool] = None
     message: Optional[str] = None
+    insights_pending: bool = False
     suggestion_id: Optional[int] = None
     payload: Optional[TopicSectionSuggestionsPayload] = None
 
@@ -97,6 +99,22 @@ def _get_latest_section_suggestion(topic: Topic) -> Optional[TopicSectionSuggest
         .order_by("-created_at", "-id")
         .first()
     )
+
+
+def _get_links_missing_insights(topic: Topic) -> list[TopicReference]:
+    links = (
+        TopicReference.objects.filter(topic=topic, is_deleted=False)
+        .select_related("reference")
+        .only("id", "summary", "key_facts", "reference__content_excerpt")
+    )
+    pending: list[TopicReference] = []
+    for link in links:
+        content_excerpt = (link.reference.content_excerpt or "").strip()
+        if not content_excerpt:
+            continue
+        if not (link.summary or "").strip() or not link.key_facts:
+            pending.append(link)
+    return pending
 
 
 def _apply_section_suggestions(
@@ -286,7 +304,12 @@ def delete_topic_reference(request, topic_uuid: str, link_id: int):
 def request_reference_suggestions(request, topic_uuid: str):
     topic = _require_owned_topic(request, topic_uuid)
 
-    task = generate_reference_suggestions.delay(str(topic.uuid))
+    pending_links = _get_links_missing_insights(topic)
+    if pending_links:
+        header = [generate_reference_insights.s(link.id) for link in pending_links]
+        task = chord(header)(generate_reference_suggestions.s(str(topic.uuid)))
+    else:
+        task = generate_reference_suggestions.delay(str(topic.uuid))
     return ReferenceSuggestionTaskResponse(task_id=task.id)
 
 
@@ -303,6 +326,7 @@ def reference_suggestions_status(request, topic_uuid: str, task_id: str):
     message: Optional[str] = None
     payload_obj: Optional[TopicSectionSuggestionsPayload] = None
     suggestion_id: Optional[int] = None
+    insights_pending = bool(_get_links_missing_insights(topic))
 
     if result.successful():
         payload = result.result or {}
@@ -326,12 +350,17 @@ def reference_suggestions_status(request, topic_uuid: str, task_id: str):
         else:
             success = True if success is None else success
             message = message or "Reference suggestions are ready."
+            insights_pending = False
+
+    if insights_pending and not message:
+        message = "Reference insights are still generating."
 
     return ReferenceSuggestionStatusResponse(
         task_id=task_id,
         state=state,
         success=success,
         message=message,
+        insights_pending=insights_pending,
         suggestion_id=suggestion_id,
         payload=payload_obj,
     )
