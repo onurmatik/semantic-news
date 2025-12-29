@@ -18,7 +18,7 @@ from semanticnews.topics.tasks import TopicSectionSuggestionsPayload, _validate_
 from semanticnews.topics.widgets import get_widget
 
 from .models import Reference, TopicReference
-from .tasks import generate_reference_suggestions
+from .tasks import generate_reference_insights, generate_reference_suggestions
 
 router = Router()
 
@@ -255,6 +255,9 @@ def add_topic_reference(request, topic_uuid: str, payload: ReferenceCreateReques
     elif not link_created and link.added_by is None and user:
         link.added_by = user
         link.save(update_fields=["added_by"])
+
+    if reference.content_excerpt and not link.summary and not link.key_facts:
+        generate_reference_insights.delay(link.id)
 
     return _serialize_link(link)
 
