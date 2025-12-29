@@ -155,13 +155,6 @@ def _serialize_reference(link: TopicReference) -> dict:
         else None,
         "lead_image_url": reference.lead_image_url or None,
         "content_excerpt": reference.content_excerpt or None,
-        "last_fetched_at": reference.last_fetched_at.isoformat()
-        if reference.last_fetched_at
-        else None,
-        "status_code": reference.status_code,
-        "fetch_status": reference.fetch_status,
-        "fetch_error": reference.fetch_error or None,
-        "raw_payload": reference.raw_payload or None,
         "summary": link.summary or None,
         "key_facts": link.key_facts or [],
         "content_version_snapshot": link.content_version_snapshot,

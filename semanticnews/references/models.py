@@ -41,6 +41,14 @@ class ReferenceMetadata:
     raw_payload: Optional[dict] = None
 
 
+def _extract_body_text(soup: BeautifulSoup) -> str:
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    body = soup.body or soup
+    text = body.get_text(" ", strip=True)
+    return " ".join(text.split())
+
+
 class Reference(models.Model):
     STATUS_PENDING = "pending"
     STATUS_SUCCEEDED = "succeeded"
@@ -138,8 +146,7 @@ class Reference(models.Model):
 
         meta_description = _first_meta("description")
 
-        body_text = soup.get_text(" ", strip=True) if soup else ""
-        content_excerpt = body_text[:800]
+        content_excerpt = _extract_body_text(soup) if soup else ""
 
         payload = {"status_code": status_code}
 
