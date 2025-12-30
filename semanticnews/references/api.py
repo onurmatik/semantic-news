@@ -9,6 +9,8 @@ from ninja.errors import HttpError
 from celery import chord
 from celery.result import AsyncResult
 
+from semanticnews.agenda.models import Event, Source
+from semanticnews.profiles.models import UserReference
 from semanticnews.topics.models import (
     Topic,
     TopicSection,
@@ -273,6 +275,27 @@ def add_topic_reference(request, topic_uuid: str, payload: ReferenceCreateReques
     elif not link_created and link.added_by is None and user:
         link.added_by = user
         link.save(update_fields=["added_by"])
+
+    if user:
+        UserReference.objects.get_or_create(user=user, reference=reference)
+
+    if created:
+        event_date = (
+            reference.meta_published_at.date()
+            if reference.meta_published_at
+            else timezone.now().date()
+        )
+        title = reference.meta_title or reference.url
+        event, _ = Event.objects.get_or_create(
+            title=title,
+            date=event_date,
+            defaults={
+                "status": "draft",
+                "created_by": user,
+            },
+        )
+        source, _ = Source.objects.get_or_create(url=reference.url)
+        event.sources.add(source)
 
     if reference.content_excerpt and not link.summary and not link.key_facts:
         generate_reference_insights.delay(link.id)
