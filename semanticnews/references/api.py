@@ -47,6 +47,26 @@ class ReferenceDetail(Schema):
     added_at: datetime
 
 
+class LibraryReferenceTopicDetail(Schema):
+    topic_uuid: str
+    topic_title: Optional[str] = None
+    topic_url: str
+
+
+class LibraryReferenceDetail(Schema):
+    uuid: str
+    url: str
+    domain: Optional[str]
+    meta_title: Optional[str] = None
+    meta_published_at: Optional[datetime] = None
+    added_at: datetime
+    topics: List[LibraryReferenceTopicDetail]
+
+
+class LibraryReferencesResponse(Schema):
+    user_references: List[LibraryReferenceDetail]
+
+
 class ReferenceSuggestionTaskResponse(Schema):
     task_id: str
 
@@ -219,6 +239,30 @@ def _serialize_link(link: TopicReference) -> ReferenceDetail:
     )
 
 
+def _serialize_user_reference(
+    link: UserReference,
+    topics: List[LibraryReferenceTopicDetail],
+) -> LibraryReferenceDetail:
+    ref = link.reference
+    added_at = link.added_at
+    if added_at is not None:
+        added_at = make_naive(added_at)
+
+    published_at = ref.meta_published_at
+    if published_at is not None:
+        published_at = make_naive(published_at)
+
+    return LibraryReferenceDetail(
+        uuid=str(ref.uuid),
+        url=ref.url,
+        domain=ref.domain,
+        meta_title=ref.meta_title or None,
+        meta_published_at=published_at,
+        added_at=added_at or timezone.now(),
+        topics=topics,
+    )
+
+
 def _should_refresh(reference: Reference) -> bool:
     return reference.should_refresh()
 
@@ -233,6 +277,50 @@ def list_topic_references(request, topic_uuid: str):
         .order_by("-added_at")
     )
     return [_serialize_link(link) for link in links]
+
+
+@router.get("/references/library", response=LibraryReferencesResponse)
+def list_library_references(request):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    topic_links = (
+        TopicReference.objects.filter(topic__created_by=user, is_deleted=False)
+        .select_related("reference", "topic", "topic__created_by")
+        .order_by("-added_at")
+    )
+
+    topics_by_reference: dict[int, list[LibraryReferenceTopicDetail]] = {}
+    for link in topic_links:
+        topic = link.topic
+        topic_owner = topic.created_by
+        topic_url = ""
+        if topic_owner:
+            topic_url = f"/{topic_owner.username}/{topic.uuid}/"
+        topics_by_reference.setdefault(link.reference_id, []).append(
+            LibraryReferenceTopicDetail(
+                topic_uuid=str(topic.uuid),
+                topic_title=topic.title,
+                topic_url=topic_url,
+            )
+        )
+
+    user_links = (
+        UserReference.objects.filter(user=user)
+        .select_related("reference")
+        .order_by("-added_at")
+    )
+
+    return LibraryReferencesResponse(
+        user_references=[
+            _serialize_user_reference(
+                link,
+                topics_by_reference.get(link.reference_id, []),
+            )
+            for link in user_links
+        ],
+    )
 
 
 @router.post("/{topic_uuid}/references", response=ReferenceDetail)

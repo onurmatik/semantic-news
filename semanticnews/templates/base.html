@@ -111,6 +111,14 @@
 
             <ul class="navbar-nav ms-auto">
 
+                {% if request.user.is_authenticated %}
+                <li class="nav-item mx-2">
+                    <a id="btnLibraryModal" class="nav-link p-0 active" aria-current="page" href="#libraryModal" data-bs-toggle="modal">
+                        <i class="bi bi-collection"></i>
+                    </a>
+                </li>
+                {% endif %}
+
                 <li class="nav-item mx-2">
                     <a id="btnOffcanvasMenu" class="nav-link p-0 active" aria-current="page" href="#bookmarksOffcanvas" data-bs-toggle="offcanvas">
                         <i class="bi bi-bookmark"></i>
@@ -245,6 +253,36 @@
     </div>
 </div>
 
+{% if request.user.is_authenticated %}
+<div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="libraryModalLabel">{% trans "Library" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center gap-2 text-secondary" data-library-loading>
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                    <span>{% trans "Loading references..." %}</span>
+                </div>
+                <div class="alert alert-danger d-none" role="alert" data-library-error>
+                    {% trans "Unable to load library references." %}
+                </div>
+
+                <div class="mb-4" data-library-section>
+                    <h6 class="mb-3">{% trans "Your references" %}</h6>
+                    <div class="list-group" data-library-user-list></div>
+                    <p class="text-secondary small mb-0 d-none" data-library-user-empty>
+                        {% trans "No user references yet." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 
 <script src="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -255,6 +293,113 @@
 
 {% block extra_js %}{% endblock %}
 
+{% if request.user.is_authenticated %}
+<script>
+    const libraryModal = document.getElementById('libraryModal');
+    if (libraryModal) {
+        const loadingEl = libraryModal.querySelector('[data-library-loading]');
+        const errorEl = libraryModal.querySelector('[data-library-error]');
+        const userListEl = libraryModal.querySelector('[data-library-user-list]');
+        const userEmptyEl = libraryModal.querySelector('[data-library-user-empty]');
+
+        const clearList = listEl => {
+            if (listEl) listEl.innerHTML = '';
+        };
+
+        const formatDate = value => {
+            if (!value) return '';
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return '';
+            return parsed.toLocaleDateString();
+        };
+
+        const buildReferenceItem = (item, includeTopics = false) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item';
+
+            const title = document.createElement('div');
+            title.className = 'fw-semibold small';
+            title.textContent = item.meta_title || item.url;
+
+            const linkRow = document.createElement('div');
+            linkRow.className = 'small text-secondary';
+            const anchor = document.createElement('a');
+            anchor.href = item.url;
+            anchor.className = 'link-secondary text-decoration-none';
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.textContent = item.domain || item.url;
+            linkRow.appendChild(anchor);
+
+            const published = formatDate(item.meta_published_at);
+            if (published) {
+                const publishedSpan = document.createElement('span');
+                publishedSpan.className = 'ms-2';
+                publishedSpan.textContent = `· ${published}`;
+                linkRow.appendChild(publishedSpan);
+            }
+
+            listItem.appendChild(title);
+            listItem.appendChild(linkRow);
+
+            if (includeTopics && Array.isArray(item.topics) && item.topics.length > 0) {
+                const topicLabel = document.createElement('div');
+                topicLabel.className = 'small text-secondary mt-2';
+                topicLabel.textContent = '{{ _("Topics") }}';
+                listItem.appendChild(topicLabel);
+
+                const topicList = document.createElement('div');
+                topicList.className = 'd-flex flex-column gap-1 small';
+                item.topics.forEach(topic => {
+                    if (!topic.topic_url) return;
+                    const topicLink = document.createElement('a');
+                    topicLink.href = topic.topic_url;
+                    topicLink.className = 'link-primary text-decoration-none';
+                    topicLink.textContent = topic.topic_title || topic.topic_url;
+                    topicList.appendChild(topicLink);
+                });
+                if (topicList.childElementCount > 0) {
+                    listItem.appendChild(topicList);
+                }
+            }
+
+            return listItem;
+        };
+
+        const renderLibrary = data => {
+            clearList(userListEl);
+            const userRefs = data.user_references || [];
+
+            userRefs.forEach(item => userListEl.appendChild(buildReferenceItem(item, true)));
+            userEmptyEl?.classList.toggle('d-none', userRefs.length > 0);
+        };
+
+        const loadLibrary = async () => {
+            loadingEl?.classList.remove('d-none');
+            errorEl?.classList.add('d-none');
+            userEmptyEl?.classList.add('d-none');
+
+                try {
+                    const response = await fetch('/api/topics/references/library', {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!response.ok) throw new Error('library-fetch-failed');
+                const data = await response.json();
+                renderLibrary(data);
+                } catch (error) {
+                    errorEl?.classList.remove('d-none');
+                    clearList(userListEl);
+                } finally {
+                    loadingEl?.classList.add('d-none');
+                }
+        };
+
+        libraryModal.addEventListener('show.bs.modal', () => {
+            loadLibrary();
+        });
+    }
+</script>
+{% endif %}
 
 <script>
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
