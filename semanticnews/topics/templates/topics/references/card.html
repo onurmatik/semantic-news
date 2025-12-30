@@ -58,21 +58,23 @@
         </div>
         {% endfor %}
     </div>
-    <div class="px-3 pt-2 d-none" role="alert" data-reference-suggestions-alert>
-        <div class="alert d-flex align-items-start justify-content-between mb-2" data-reference-suggestions-alert-body>
-            <div class="me-2" data-reference-suggestions-message></div>
-            <button type="button" class="btn-close" aria-label="{% trans 'Close' %}" data-reference-suggestions-close></button>
+    {% if edit_mode %}
+        <div class="px-3 pt-2 d-none" role="alert" data-reference-suggestions-alert>
+            <div class="alert d-flex align-items-start justify-content-between mb-2" data-reference-suggestions-alert-body>
+                <div class="me-2" data-reference-suggestions-message></div>
+                <button type="button" class="btn-close" aria-label="{% trans 'Close' %}" data-reference-suggestions-close></button>
+            </div>
         </div>
-    </div>
-    <div class="card-body pt-2{% if not reference_links %} d-none{% endif %}" data-reference-suggestions>
-        <button
-            class="btn btn-outline-primary w-100"
-            type="button"
-            data-reference-suggestions-btn
-            data-check-label="{% trans 'Check suggestions' %}"
-        >
-            {% trans "Get suggestions" %}
-        </button>
-    </div>
+        <div class="card-body pt-2{% if not reference_links %} d-none{% endif %}" data-reference-suggestions>
+            <button
+                class="btn btn-outline-primary w-100"
+                type="button"
+                data-reference-suggestions-btn
+                data-check-label="{% trans 'Check suggestions' %}"
+            >
+                {% trans "Get suggestions" %}
+            </button>
+        </div>
+    {% endif %}
 </div>
 {% endif %}
