@@ -51,6 +51,7 @@ class LibraryReferenceTopicDetail(Schema):
     topic_uuid: str
     topic_title: Optional[str] = None
     topic_url: str
+    status: Optional[str] = None
 
 
 class LibraryReferenceDetail(Schema):
@@ -263,6 +264,46 @@ def _serialize_user_reference(
     )
 
 
+def _get_or_create_reference(url: str, user=None) -> tuple[Reference, bool]:
+    normalized = Reference.normalize_url(url)
+    defaults = {"url": url, "normalized_url": normalized, "domain": ""}
+    reference, created = Reference.objects.get_or_create(
+        normalized_url=normalized,
+        defaults=defaults,
+    )
+
+    # Ensure the stored URL is fetchable (normalized with scheme).
+    if created and (not reference.url or "://" not in reference.url):
+        reference.url = normalized
+        reference.save(update_fields=["url"])
+    elif not created and reference.url and "://" not in reference.url:
+        reference.url = normalized
+        reference.save(update_fields=["url"])
+
+    if _should_refresh(reference):
+        reference.refresh_metadata()
+
+    if created:
+        event_date = (
+            reference.meta_published_at.date()
+            if reference.meta_published_at
+            else timezone.now().date()
+        )
+        title = reference.meta_title or reference.url
+        event, _ = Event.objects.get_or_create(
+            title=title,
+            date=event_date,
+            defaults={
+                "status": "draft",
+                "created_by": user,
+            },
+        )
+        source, _ = Source.objects.get_or_create(url=reference.url)
+        event.sources.add(source)
+
+    return reference, created
+
+
 def _should_refresh(reference: Reference) -> bool:
     return reference.should_refresh()
 
@@ -303,6 +344,7 @@ def list_library_references(request):
                 topic_uuid=str(topic.uuid),
                 topic_title=topic.title,
                 topic_url=topic_url,
+                status=topic.status,
             )
         )
 
@@ -328,23 +370,7 @@ def add_topic_reference(request, topic_uuid: str, payload: ReferenceCreateReques
     topic = _require_owned_topic(request, topic_uuid)
     user = getattr(request, "user", None)
 
-    normalized = Reference.normalize_url(payload.url)
-    defaults = {"url": payload.url, "normalized_url": normalized, "domain": ""}
-    reference, created = Reference.objects.get_or_create(
-        normalized_url=normalized,
-        defaults=defaults,
-    )
-
-    # Ensure the stored URL is fetchable (normalized with scheme).
-    if created and (not reference.url or "://" not in reference.url):
-        reference.url = normalized
-        reference.save(update_fields=["url"])
-    elif not created and reference.url and "://" not in reference.url:
-        reference.url = normalized
-        reference.save(update_fields=["url"])
-
-    if _should_refresh(reference):
-        reference.refresh_metadata()
+    reference, created = _get_or_create_reference(payload.url, user)
 
     link, link_created = TopicReference.objects.get_or_create(
         topic=topic,
@@ -367,28 +393,46 @@ def add_topic_reference(request, topic_uuid: str, payload: ReferenceCreateReques
     if user:
         UserReference.objects.get_or_create(user=user, reference=reference)
 
-    if created:
-        event_date = (
-            reference.meta_published_at.date()
-            if reference.meta_published_at
-            else timezone.now().date()
-        )
-        title = reference.meta_title or reference.url
-        event, _ = Event.objects.get_or_create(
-            title=title,
-            date=event_date,
-            defaults={
-                "status": "draft",
-                "created_by": user,
-            },
-        )
-        source, _ = Source.objects.get_or_create(url=reference.url)
-        event.sources.add(source)
-
     if reference.content_excerpt and not link.summary and not link.key_facts:
         generate_reference_insights.delay(link.id)
 
     return _serialize_link(link)
+
+
+@router.post("/references/library", response=LibraryReferenceDetail)
+def add_library_reference(request, payload: ReferenceCreateRequest):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    reference, _ = _get_or_create_reference(payload.url, user)
+    link, _ = UserReference.objects.get_or_create(user=user, reference=reference)
+
+    topic_links = (
+        TopicReference.objects.filter(
+            topic__created_by=user,
+            is_deleted=False,
+            reference=reference,
+        )
+        .select_related("topic", "topic__created_by")
+    )
+    topics = []
+    for topic_link in topic_links:
+        topic = topic_link.topic
+        topic_owner = topic.created_by
+        topic_url = ""
+        if topic_owner:
+            topic_url = f"/{topic_owner.username}/{topic.uuid}/"
+        topics.append(
+            LibraryReferenceTopicDetail(
+                topic_uuid=str(topic.uuid),
+                topic_title=topic.title,
+                topic_url=topic_url,
+                status=topic.status,
+            )
+        )
+
+    return _serialize_user_reference(link, topics)
 
 
 @router.delete("/{topic_uuid}/references/{link_id}", response={204: None})
