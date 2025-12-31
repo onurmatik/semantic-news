@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (topicUuid) {
           params.set('topic_uuid', topicUuid);
         }
-        const response = await fetch(`/api/topics/suggest?${params.toString()}`);
+        const response = await fetch(`/api/topics/suggest-title?${params.toString()}`);
         if (!response.ok) {
           const message = await readResponseMessage(
             response,

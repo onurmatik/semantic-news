@@ -224,6 +224,26 @@ if (libraryModal) {
           console.error(error);
         }
 
+        try {
+          const params = new URLSearchParams({ limit: '1', topic_uuid: topicUuid });
+          const titleResponse = await fetch(`/api/topics/suggest-title?${params.toString()}`);
+          if (titleResponse.ok) {
+            const titleData = await titleResponse.json();
+            const suggestion = Array.isArray(titleData)
+              ? titleData.find(item => typeof item === 'string' && item.trim())
+              : null;
+            if (suggestion) {
+              await fetch('/api/topics/set-title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic_uuid: topicUuid, title: suggestion }),
+              });
+            }
+          }
+        } catch (error) {
+          console.error(error);
+        }
+
         window.location.href = redirectUrl;
       } catch (error) {
         console.error(error);

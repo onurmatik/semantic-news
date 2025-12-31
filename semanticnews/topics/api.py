@@ -1420,6 +1420,12 @@ class TopicSuggestionList(Schema):
     topics: List[str] = []
 
 
+class TopicTitleSuggestionList(Schema):
+    """Schema representing a list of suggested topic titles."""
+
+    titles: List[str] = []
+
+
 class SuggestTopicsRequest(Schema):
     """Request body for suggesting topics based on available information.
 
@@ -1435,6 +1441,13 @@ class SuggestTopicsRequest(Schema):
     topic_uuid: Optional[str] = None
 
 
+class SuggestTopicTitleRequest(Schema):
+    """Request body for suggesting topic titles based on topic context."""
+
+    topic_uuid: str
+    limit: int = 1
+
+
 def _has_meaningful_context(context: str) -> bool:
     """Return ``True`` when the provided context contains useful content."""
 
@@ -1448,6 +1461,37 @@ def _has_meaningful_context(context: str) -> bool:
     # ``Topic.build_context`` always prefixes a markdown heading. Strip heading
     # characters to detect whether any substantive text remains.
     return bool(stripped.strip("# \n\t"))
+
+
+def suggest_topic_titles(*, topic: Topic, limit: int = 1) -> List[str]:
+    """Return a list of suggested titles for a topic."""
+
+    if limit <= 0:
+        raise HttpError(400, "Limit must be greater than 0.")
+
+    context = topic.build_context()
+    if not topic._context_has_substance(context):
+        raise HttpError(
+            400, "Add content to the topic before requesting title suggestions."
+        )
+
+    prompt = (
+        f"Suggest {limit} concise title{'s' if limit != 1 else ''} for this news topic. "
+        "Use the recap and paragraph context to create a clear, descriptive headline. "
+        "Avoid quotes, trailing punctuation, or overly specific phrasing."
+    )
+    prompt = append_default_language_instruction(prompt)
+    prompt += "\n\nContext:\n\n"
+    prompt += context.strip()
+
+    with OpenAI() as client:
+        response = client.responses.parse(
+            model=settings.DEFAULT_AI_MODEL,
+            input=prompt,
+            text_format=TopicTitleSuggestionList,
+        )
+
+    return [title for title in response.output_parsed.titles if title and title.strip()]
 
 
 def suggest_topics(
@@ -1514,3 +1558,19 @@ def suggest_topics_post(request, payload: SuggestTopicsRequest):
     return suggest_topics(
         about=payload.about, limit=payload.limit, topic_uuid=payload.topic_uuid
     )
+
+
+@api.get("/suggest-title", response=List[str])
+def suggest_topic_title_get(request, topic_uuid: str, limit: int = 1):
+    """Return suggested titles for a topic via GET."""
+
+    topic = _get_owned_topic(request, topic_uuid)
+    return suggest_topic_titles(topic=topic, limit=limit)
+
+
+@api.post("/suggest-title", response=List[str])
+def suggest_topic_title_post(request, payload: SuggestTopicTitleRequest):
+    """Return suggested titles for a topic via POST."""
+
+    topic = _get_owned_topic(request, payload.topic_uuid)
+    return suggest_topic_titles(topic=topic, limit=payload.limit)
