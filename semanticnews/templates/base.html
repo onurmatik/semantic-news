@@ -111,6 +111,14 @@
 
             <ul class="navbar-nav ms-auto">
 
+                {% if request.user.is_authenticated %}
+                <li class="nav-item mx-2">
+                    <a id="btnLibraryModal" class="nav-link p-0 active" aria-current="page" href="#libraryModal" data-bs-toggle="modal">
+                        <i class="bi bi-collection"></i>
+                    </a>
+                </li>
+                {% endif %}
+
                 <li class="nav-item mx-2">
                     <a id="btnOffcanvasMenu" class="nav-link p-0 active" aria-current="page" href="#bookmarksOffcanvas" data-bs-toggle="offcanvas">
                         <i class="bi bi-bookmark"></i>
@@ -245,16 +253,273 @@
     </div>
 </div>
 
+{% if request.user.is_authenticated %}
+<div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true" data-current-username="{{ request.user.username }}">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="libraryModalLabel">{% trans "Library" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center gap-2 text-secondary" data-library-loading>
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                    <span>{% trans "Loading references..." %}</span>
+                </div>
+                <div class="alert alert-danger d-none" role="alert" data-library-error>
+                    {% trans "Unable to load library references." %}
+                </div>
+
+                <div class="mb-4" data-library-section>
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+                        <h6 class="mb-0">{% trans "Your references" %}</h6>
+                        <form class="d-flex" data-library-add-form novalidate>
+                            <div class="input-group input-group-sm">
+                                <input
+                                    type="url"
+                                    class="form-control"
+                                    name="url"
+                                    inputmode="url"
+                                    autocomplete="off"
+                                    placeholder="https://example.com/article"
+                                    required
+                                    data-library-add-input
+                                >
+                                <button class="btn btn-primary" type="submit" data-library-add-submit>
+                                    {% trans "Add" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="text-danger small mb-2 d-none" data-library-add-error></div>
+                    <div class="list-group" data-library-user-list></div>
+                    <p class="text-secondary small mb-0 d-none" data-library-user-empty>
+                        {% trans "No user references yet." %}
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    {% trans "Close" %}
+                </button>
+                <button type="button" class="btn btn-primary" data-library-create-topic>
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" data-library-create-spinner></span>
+                    <span data-library-create-label>{% trans "Create topic" %}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 
 <script src="https://fastly.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
 
 
 {% if request.user.is_authenticated %}
+    <script type="module" src="{% static 'topics/create_topic.js' %}"></script>
 {% endif %}
 
 
 {% block extra_js %}{% endblock %}
 
+{% if request.user.is_authenticated %}
+<script>
+    const libraryModal = document.getElementById('libraryModal');
+    if (libraryModal) {
+        const loadingEl = libraryModal.querySelector('[data-library-loading]');
+        const errorEl = libraryModal.querySelector('[data-library-error]');
+        const userListEl = libraryModal.querySelector('[data-library-user-list]');
+        const userEmptyEl = libraryModal.querySelector('[data-library-user-empty]');
+        const addForm = libraryModal.querySelector('[data-library-add-form]');
+        const addInput = libraryModal.querySelector('[data-library-add-input]');
+        const addErrorEl = libraryModal.querySelector('[data-library-add-error]');
+        const addSubmitBtn = libraryModal.querySelector('[data-library-add-submit]');
+
+        const clearList = listEl => {
+            if (listEl) listEl.innerHTML = '';
+        };
+
+        const formatDate = value => {
+            if (!value) return '';
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return '';
+            return parsed.toLocaleDateString();
+        };
+
+        const buildReferenceItem = (item, includeTopics = false) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item d-flex gap-3';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input mt-1';
+            checkbox.dataset.libraryReference = 'true';
+            if (item.uuid) {
+                checkbox.dataset.referenceUuid = item.uuid;
+            }
+            if (item.url) {
+                checkbox.dataset.referenceUrl = item.url;
+            }
+            checkbox.setAttribute('aria-label', '{{ _("Select reference") }}');
+
+            const content = document.createElement('div');
+            content.className = 'flex-grow-1';
+
+            const title = document.createElement('div');
+            title.className = 'fw-semibold small';
+            title.textContent = item.meta_title || item.url;
+
+            const linkRow = document.createElement('div');
+            linkRow.className = 'small text-secondary';
+            const anchor = document.createElement('a');
+            anchor.href = item.url;
+            anchor.className = 'link-secondary text-decoration-none';
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.textContent = item.domain || item.url;
+            linkRow.appendChild(anchor);
+
+            const published = formatDate(item.meta_published_at);
+            if (published) {
+                const publishedSpan = document.createElement('span');
+                publishedSpan.className = 'ms-2';
+                publishedSpan.textContent = `· ${published}`;
+                linkRow.appendChild(publishedSpan);
+            }
+
+            content.appendChild(title);
+            content.appendChild(linkRow);
+
+            if (includeTopics && Array.isArray(item.topics) && item.topics.length > 0) {
+                const topicList = document.createElement('div');
+                topicList.className = 'd-flex flex-wrap small mt-2';
+                item.topics.forEach((topic, index) => {
+                    if (!topic.topic_url) return;
+                    const topicLink = document.createElement('a');
+                    topicLink.href = topic.topic_url;
+                    topicLink.className = 'link-primary text-decoration-none';
+                    topicLink.textContent =
+                        topic.topic_title || '{{ _("Untitled") }}';
+                    if (index > 0) {
+                        const separator = document.createElement('span');
+                        separator.className = 'text-secondary mx-1';
+                        separator.textContent = '·';
+                        topicList.appendChild(separator);
+                    }
+                    topicList.appendChild(topicLink);
+                });
+                if (topicList.childElementCount > 0) {
+                    content.appendChild(topicList);
+                }
+            } else if (includeTopics) {
+                const topicEmpty = document.createElement('div');
+                topicEmpty.className = 'small text-secondary mt-2';
+                topicEmpty.textContent = '{{ _("No topics yet.") }}';
+                content.appendChild(topicEmpty);
+            }
+
+            listItem.appendChild(checkbox);
+            listItem.appendChild(content);
+
+            return listItem;
+        };
+
+        const renderLibrary = data => {
+            clearList(userListEl);
+            const userRefs = data.user_references || [];
+
+            userRefs.forEach(item => userListEl.appendChild(buildReferenceItem(item, true)));
+            userEmptyEl?.classList.toggle('d-none', userRefs.length > 0);
+        };
+
+        const setAddError = message => {
+            if (!addErrorEl) return;
+            if (message) {
+                addErrorEl.textContent = message;
+                addErrorEl.classList.remove('d-none');
+            } else {
+                addErrorEl.textContent = '';
+                addErrorEl.classList.add('d-none');
+            }
+        };
+
+        const setAddState = isLoading => {
+            if (!addSubmitBtn) return;
+            addSubmitBtn.disabled = isLoading;
+            if (isLoading) {
+                addSubmitBtn.setAttribute('aria-busy', 'true');
+            } else {
+                addSubmitBtn.removeAttribute('aria-busy');
+            }
+        };
+
+        const loadLibrary = async () => {
+            loadingEl?.classList.remove('d-none');
+            errorEl?.classList.add('d-none');
+            userEmptyEl?.classList.add('d-none');
+
+                try {
+                    const response = await fetch('/api/topics/references/library', {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!response.ok) throw new Error('library-fetch-failed');
+                const data = await response.json();
+                renderLibrary(data);
+                } catch (error) {
+                    errorEl?.classList.remove('d-none');
+                    clearList(userListEl);
+                } finally {
+                    loadingEl?.classList.add('d-none');
+                }
+        };
+
+        libraryModal.addEventListener('show.bs.modal', () => {
+            loadLibrary();
+        });
+
+        addForm?.addEventListener('submit', async event => {
+            event.preventDefault();
+            const url = addInput?.value?.trim();
+            setAddError('');
+            if (!url) {
+                setAddError('{{ _("Please enter a URL.") }}');
+                return;
+            }
+
+            setAddState(true);
+            try {
+                const response = await fetch('/api/topics/references/library', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                });
+                if (!response.ok) {
+                    throw new Error('library-add-failed');
+                }
+                const data = await response.json();
+                if (userListEl) {
+                    const existing = data?.uuid
+                        ? userListEl.querySelector(`[data-reference-uuid="${data.uuid}"]`)
+                        : null;
+                    const item = buildReferenceItem(data, true);
+                    if (existing) {
+                        existing.closest('.list-group-item')?.remove();
+                    }
+                    userListEl.prepend(item);
+                }
+                userEmptyEl?.classList.add('d-none');
+                if (addInput) addInput.value = '';
+            } catch (error) {
+                console.error(error);
+                setAddError('{{ _("Unable to add reference.") }}');
+            } finally {
+                setAddState(false);
+            }
+        });
+    }
+</script>
+{% endif %}
 
 <script>
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')

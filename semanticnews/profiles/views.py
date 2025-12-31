@@ -11,6 +11,7 @@ from django.utils.translation import gettext as _
 
 from .forms import DisplayNameForm
 from .models import Profile
+from ..agenda.models import Event
 from ..topics.models import Topic
 
 
@@ -89,12 +90,25 @@ def user_profile(request, username):
     else:
         topics = topics.exclude(status="draft")
 
+    events = (
+        Event.objects.filter(created_by=user)
+        .select_related("created_by")
+        .order_by("-updated_at", "-created_at")
+    )
+
+    if request.user.is_authenticated:
+        if request.user != user:
+            events = events.exclude(status="draft")
+    else:
+        events = events.exclude(status="draft")
+
     profile, c = Profile.objects.get_or_create(user=user)
 
     return render(request, 'profiles/user_profile.html', {
         'profile_user': user,
         'profile': profile,
         'topics': topics,
+        'user_events': events,
     })
 
 

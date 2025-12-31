@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load static %}
 
 {% block content %}
 <div class="container py-4">
@@ -8,14 +9,26 @@
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h1 class="fs-3 mb-0">{% trans "Latest topics" %}</h1>
                 {% if user.is_authenticated %}
-                    <a
-                        class="btn btn-sm btn-outline-secondary"
-                        href="{% url 'topics_create' %}"
-                        title="{% trans 'Add topic' %}"
-                        aria-label="{% trans 'Add topic' %}"
-                    >
-                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                    </a>
+                    <div class="d-flex align-items-center gap-2">
+                        <a
+                            class="btn btn-sm btn-outline-secondary"
+                            href="{% url 'topics_create' %}"
+                            title="{% trans 'Add topic' %}"
+                            aria-label="{% trans 'Add topic' %}"
+                        >
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </a>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#libraryModal"
+                            data-library-start-topic
+                            data-current-username="{{ user.username }}"
+                        >
+                            {% trans "Start from references" %}
+                        </button>
+                    </div>
                 {% endif %}
             </div>
 

@@ -539,6 +539,29 @@ class Topic(models.Model):
                 text_blocks = [text.content for text in texts_qs if text.content]
                 append_section("Text Notes", "\n\n".join(text_blocks))
 
+        # Paragraphs
+        paragraph_blocks = []
+        for section in self.sections_ordered:
+            if section.is_deleted or section.is_draft_deleted:
+                continue
+            if section.widget_name != "paragraph":
+                continue
+
+            content = section.content
+            paragraph_text: str | None = None
+            if isinstance(content, dict):
+                raw_text = content.get("text") or content.get("result")
+                if raw_text is not None:
+                    paragraph_text = str(raw_text).strip()
+            elif isinstance(content, str):
+                paragraph_text = content.strip()
+
+            if paragraph_text:
+                paragraph_blocks.append(paragraph_text)
+
+        if paragraph_blocks:
+            append_section("Paragraphs", "\n\n".join(paragraph_blocks))
+
         # Recaps
         recaps_qs = self.recaps.filter(is_deleted=False, status="finished").order_by(
             "created_at"
