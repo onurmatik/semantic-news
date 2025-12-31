@@ -278,6 +278,14 @@
                     </p>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    {% trans "Close" %}
+                </button>
+                <button type="button" class="btn btn-primary d-none" data-library-create-topic>
+                    {% trans "Create topic" %}
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -315,7 +323,22 @@
 
         const buildReferenceItem = (item, includeTopics = false) => {
             const listItem = document.createElement('div');
-            listItem.className = 'list-group-item';
+            listItem.className = 'list-group-item d-flex gap-3';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input mt-1';
+            checkbox.dataset.libraryReference = 'true';
+            if (item.uuid) {
+                checkbox.dataset.referenceUuid = item.uuid;
+            }
+            if (item.url) {
+                checkbox.dataset.referenceUrl = item.url;
+            }
+            checkbox.setAttribute('aria-label', '{{ _("Select reference") }}');
+
+            const content = document.createElement('div');
+            content.className = 'flex-grow-1';
 
             const title = document.createElement('div');
             title.className = 'fw-semibold small';
@@ -339,14 +362,14 @@
                 linkRow.appendChild(publishedSpan);
             }
 
-            listItem.appendChild(title);
-            listItem.appendChild(linkRow);
+            content.appendChild(title);
+            content.appendChild(linkRow);
 
             if (includeTopics && Array.isArray(item.topics) && item.topics.length > 0) {
                 const topicLabel = document.createElement('div');
                 topicLabel.className = 'small text-secondary mt-2';
                 topicLabel.textContent = '{{ _("Topics") }}';
-                listItem.appendChild(topicLabel);
+                content.appendChild(topicLabel);
 
                 const topicList = document.createElement('div');
                 topicList.className = 'd-flex flex-column gap-1 small';
@@ -355,13 +378,17 @@
                     const topicLink = document.createElement('a');
                     topicLink.href = topic.topic_url;
                     topicLink.className = 'link-primary text-decoration-none';
-                    topicLink.textContent = topic.topic_title || topic.topic_url;
+                    topicLink.textContent =
+                        topic.topic_title || '{{ _("Untitled") }}';
                     topicList.appendChild(topicLink);
                 });
                 if (topicList.childElementCount > 0) {
-                    listItem.appendChild(topicList);
+                    content.appendChild(topicList);
                 }
             }
+
+            listItem.appendChild(checkbox);
+            listItem.appendChild(content);
 
             return listItem;
         };

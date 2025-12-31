@@ -22,6 +22,8 @@ from semanticnews.agenda.models import Category, Event, Source as AgendaSource
 from semanticnews.entities.models import Entity
 from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
+from semanticnews.profiles.models import UserReference
+from semanticnews.references.models import Reference, TopicReference
 
 from .models import (
     Topic,
@@ -342,6 +344,44 @@ class TopicCreateResponse(Schema):
     uuid: str
 
 
+class TopicCreateWithReferencesRequest(Schema):
+    urls: List[str] = []
+    reference_uuids: List[str] = []
+
+
+class TopicCreateWithReferencesResponse(Schema):
+    uuid: str
+    warnings: List[str] = []
+
+
+def _link_reference_to_topic(
+    *,
+    reference: Reference,
+    topic: Topic,
+    user,
+) -> None:
+    link, link_created = TopicReference.objects.get_or_create(
+        topic=topic,
+        reference=reference,
+        defaults={
+            "added_by": user,
+            "content_version_snapshot": reference.content_version or 1,
+        },
+    )
+
+    if not link_created and link.is_deleted:
+        link.is_deleted = False
+        link.added_by = link.added_by or user
+        link.added_at = link.added_at or timezone.now()
+        link.save(update_fields=["is_deleted", "added_by", "added_at"])
+    elif not link_created and link.added_by is None and user:
+        link.added_by = user
+        link.save(update_fields=["added_by"])
+
+    if user:
+        UserReference.objects.get_or_create(user=user, reference=reference)
+
+
 @api.post("/create", response=TopicCreateResponse)
 def create_topic(request):
     """Create a new topic for the authenticated user.
@@ -360,6 +400,61 @@ def create_topic(request):
     topic = Topic.objects.create(created_by=user)
 
     return TopicCreateResponse(uuid=str(topic.uuid))
+
+
+@api.post("/create-with-references", response=TopicCreateWithReferencesResponse)
+def create_topic_with_references(
+    request,
+    payload: TopicCreateWithReferencesRequest,
+):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    warnings: List[str] = []
+
+    with transaction.atomic():
+        topic = Topic.objects.create(created_by=user)
+
+        for url in payload.urls:
+            if not url:
+                continue
+            try:
+                normalized = Reference.normalize_url(url)
+            except ValueError as exc:
+                warnings.append(f"Invalid URL '{url}': {exc}")
+                continue
+
+            defaults = {"url": url, "normalized_url": normalized, "domain": ""}
+            reference, created = Reference.objects.get_or_create(
+                normalized_url=normalized,
+                defaults=defaults,
+            )
+
+            if created and (not reference.url or "://" not in reference.url):
+                reference.url = normalized
+                reference.save(update_fields=["url"])
+            elif not created and reference.url and "://" not in reference.url:
+                reference.url = normalized
+                reference.save(update_fields=["url"])
+
+            if reference.should_refresh():
+                reference.refresh_metadata()
+
+            _link_reference_to_topic(reference=reference, topic=topic, user=user)
+
+        for reference_uuid in payload.reference_uuids:
+            if not reference_uuid:
+                continue
+            try:
+                reference = Reference.objects.get(uuid=reference_uuid)
+            except (Reference.DoesNotExist, ValueError):
+                warnings.append(f"Unknown reference UUID '{reference_uuid}'.")
+                continue
+
+            _link_reference_to_topic(reference=reference, topic=topic, user=user)
+
+    return TopicCreateWithReferencesResponse(uuid=str(topic.uuid), warnings=warnings)
 
 
 class TopicStatusUpdateRequest(Schema):
