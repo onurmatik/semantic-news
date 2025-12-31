@@ -5,6 +5,14 @@ const currentUsername =
 
 if (libraryModal) {
   const createButton = libraryModal.querySelector('[data-library-create-topic]');
+  const createSpinner = libraryModal.querySelector('[data-library-create-spinner]');
+  const createLabel = libraryModal.querySelector('[data-library-create-label]');
+  const addInput = libraryModal.querySelector('[data-library-add-input]');
+  const addSubmitBtn = libraryModal.querySelector('[data-library-add-submit]');
+  const modalCloseButtons = Array.from(
+    libraryModal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close')
+  );
+  let isCreating = false;
 
   const collectSelections = () => {
     const selected = libraryModal.querySelectorAll(
@@ -34,7 +42,38 @@ if (libraryModal) {
       return;
     }
     const { uuids, urls } = collectSelections();
-    createButton.disabled = uuids.length === 0 && urls.length === 0;
+    createButton.disabled = isCreating || (uuids.length === 0 && urls.length === 0);
+    if (isCreating) {
+      createButton.setAttribute('aria-busy', 'true');
+      if (createSpinner) createSpinner.classList.remove('d-none');
+      if (createLabel) createLabel.classList.add('opacity-75');
+    } else {
+      createButton.removeAttribute('aria-busy');
+      if (createSpinner) createSpinner.classList.add('d-none');
+      if (createLabel) createLabel.classList.remove('opacity-75');
+    }
+  };
+
+  const setLoadingState = isLoading => {
+    isCreating = isLoading;
+    if (startButton) {
+      startButton.disabled = isLoading;
+    }
+    if (addInput) {
+      addInput.disabled = isLoading;
+    }
+    if (addSubmitBtn) {
+      addSubmitBtn.disabled = isLoading;
+    }
+    modalCloseButtons.forEach(button => {
+      button.disabled = isLoading;
+    });
+    libraryModal
+      .querySelectorAll('input[data-library-reference][type="checkbox"]')
+      .forEach(input => {
+        input.disabled = isLoading;
+      });
+    setCreateButtonState();
   };
 
   const resetSelections = () => {
@@ -61,9 +100,15 @@ if (libraryModal) {
   libraryModal.addEventListener('show.bs.modal', () => {
     if (createButton) {
       createButton.disabled = true;
-      createButton.removeAttribute('aria-busy');
     }
+    setLoadingState(false);
     resetSelections();
+  });
+
+  libraryModal.addEventListener('hide.bs.modal', event => {
+    if (isCreating) {
+      event.preventDefault();
+    }
   });
 
   if (createButton) {
@@ -73,8 +118,7 @@ if (libraryModal) {
         return;
       }
 
-      createButton.disabled = true;
-      createButton.setAttribute('aria-busy', 'true');
+      setLoadingState(true);
 
       try {
         const response = await fetch('/api/topics/create-with-references', {
@@ -105,11 +149,85 @@ if (libraryModal) {
           throw new Error('Unable to determine topic edit URL.');
         }
 
-        window.location.href = editUrl;
+        const topicUuid = data.uuid;
+        const redirectUrl = data.detail_url || editUrl;
+        if (!topicUuid) {
+          window.location.href = redirectUrl;
+          return;
+        }
+
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const pollInterval = 1500;
+        const maxWaitMs = 10 * 60 * 1000;
+        const maxAttempts = Math.ceil(maxWaitMs / pollInterval);
+
+        try {
+          const suggestResponse = await fetch(
+            `/api/topics/${topicUuid}/references/suggestions/`,
+            { method: 'POST' }
+          );
+          if (!suggestResponse.ok) {
+            throw new Error('Unable to start suggestion request.');
+          }
+          const suggestData = await suggestResponse.json();
+          const taskId = suggestData?.task_id;
+          if (!taskId) {
+            throw new Error('Unable to start suggestion request.');
+          }
+
+          let suggestionPayload = null;
+          let suggestionId = null;
+          for (let attempt = 0; attempt <= maxAttempts; attempt += 1) {
+            const statusResponse = await fetch(
+              `/api/topics/${topicUuid}/references/suggestions/${taskId}`
+            );
+            if (!statusResponse.ok) {
+              throw new Error('Unable to check suggestion status.');
+            }
+            const statusData = await statusResponse.json();
+            const state = (statusData?.state || '').toLowerCase();
+
+            if (statusData?.success === false || state === 'failure' || state === 'failed') {
+              throw new Error(statusData?.message || 'Unable to generate suggestions.');
+            }
+
+            if (state === 'success' || state === 'succeeded') {
+              suggestionPayload = statusData?.payload || null;
+              suggestionId = statusData?.suggestion_id || null;
+              break;
+            }
+
+            if (attempt >= maxAttempts) {
+              throw new Error('Suggestions are taking longer than expected.');
+            }
+
+            await wait(pollInterval);
+          }
+
+          if (suggestionPayload && suggestionId) {
+            const applyResponse = await fetch(
+              `/api/topics/${topicUuid}/references/suggestions/apply/`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  suggestion_id: suggestionId,
+                  payload: suggestionPayload,
+                }),
+              }
+            );
+            if (!applyResponse.ok) {
+              throw new Error('Unable to apply suggestions.');
+            }
+          }
+        } catch (error) {
+          console.error(error);
+        }
+
+        window.location.href = redirectUrl;
       } catch (error) {
         console.error(error);
-        createButton.disabled = false;
-        createButton.removeAttribute('aria-busy');
+        setLoadingState(false);
       }
     });
   }

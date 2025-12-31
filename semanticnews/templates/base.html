@@ -303,7 +303,8 @@
                     {% trans "Close" %}
                 </button>
                 <button type="button" class="btn btn-primary" data-library-create-topic>
-                    {% trans "Create topic" %}
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" data-library-create-spinner></span>
+                    <span data-library-create-label>{% trans "Create topic" %}</span>
                 </button>
             </div>
         </div>
