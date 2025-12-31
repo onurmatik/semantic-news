@@ -1,8 +1,9 @@
 const libraryModal = document.getElementById('libraryModal');
 const startButton = document.querySelector('[data-library-start-topic]');
-const currentUsername = startButton?.dataset.currentUsername;
+const currentUsername =
+  libraryModal?.dataset.currentUsername || startButton?.dataset.currentUsername;
 
-if (libraryModal && startButton) {
+if (libraryModal) {
   const createButton = libraryModal.querySelector('[data-library-create-topic]');
 
   const collectSelections = () => {
@@ -46,10 +47,7 @@ if (libraryModal && startButton) {
     setCreateButtonState();
   };
 
-  startButton.addEventListener('click', () => {
-    if (createButton) {
-      createButton.classList.remove('d-none');
-    }
+  startButton?.addEventListener('click', () => {
     resetSelections();
   });
 
@@ -60,10 +58,12 @@ if (libraryModal && startButton) {
     }
   });
 
-  libraryModal.addEventListener('hidden.bs.modal', () => {
+  libraryModal.addEventListener('show.bs.modal', () => {
     if (createButton) {
-      createButton.classList.add('d-none');
+      createButton.disabled = true;
+      createButton.removeAttribute('aria-busy');
     }
+    resetSelections();
   });
 
   if (createButton) {

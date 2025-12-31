@@ -254,7 +254,7 @@
 </div>
 
 {% if request.user.is_authenticated %}
-<div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true">
+<div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true" data-current-username="{{ request.user.username }}">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -282,7 +282,7 @@
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     {% trans "Close" %}
                 </button>
-                <button type="button" class="btn btn-primary d-none" data-library-create-topic>
+                <button type="button" class="btn btn-primary" data-library-create-topic>
                     {% trans "Create topic" %}
                 </button>
             </div>
@@ -296,6 +296,7 @@
 
 
 {% if request.user.is_authenticated %}
+    <script type="module" src="{% static 'topics/create_topic.js' %}"></script>
 {% endif %}
 
 
