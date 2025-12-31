@@ -32,9 +32,9 @@
             {% blocktrans with created_date=topic.created_at|date created_by=topic.created_by.profile %}Created on {{ created_date }} by <a class="text-info-emphasis" href="{{ user_topics_url }}">{{ created_by }}</a>; not yet published.{% endblocktrans %}
         {% endif %}
         {% if topic.status == "draft" %}
-            <span class="badge bg-warning  pill ms-1">{% trans "Draft" %}</span>
+            <span class="badge bg-warning rounded-pill ms-1">{% trans "Draft" %}</span>
         {% elif topic.status == "archived" %}
-            <span class="badge bg-secondary  pill ms-1">{% trans "Archived" %}</span>
+            <span class="badge bg-secondary rounded-pill ms-1">{% trans "Archived" %}</span>
         {% endif %}
 
     </p>

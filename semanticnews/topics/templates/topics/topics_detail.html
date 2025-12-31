@@ -97,11 +97,11 @@
                 {% endif %}
 
                 {% if topic.status == "draft" %}
-                    <span class="badge bg-warning pill ms-1">{% trans "Draft" %}</span>
+                    <span class="badge bg-warning rounded-pill ms-1">{% trans "Draft" %}</span>
                 {% elif topic.status == "archived" %}
-                    <span class="badge bg-secondary pill ms-1">{% trans "Archived" %}</span>
+                    <span class="badge bg-secondary rounded-pill ms-1">{% trans "Archived" %}</span>
                 {% elif topic.status == "published" and has_unpublished_changes and user == topic.created_by %}
-                    <span class="badge bg-warning text-dark pill ms-1">{% trans "Republish needed" %}</span>
+                    <span class="badge bg-warning text-dark rounded-pill ms-1">{% trans "Republish needed" %}</span>
                 {% endif %}
 
             </p>
