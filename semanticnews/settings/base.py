@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django.contrib.postgres',
 
     'widget_tweaks',
 
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
     'semanticnews.agenda',
     'semanticnews.entities',
     'semanticnews.references',
+    'semanticnews.integrations',
     'semanticnews.topics',
 ]
 
@@ -196,6 +198,12 @@ STATICFILES_DIRS = tuple(str(path) for path in _static_dirs if path.exists())
 
 # AI / LLM configuration
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-5-nano")
+
+
+# External integrations
+NEWSRADAR_BASE_URL = os.getenv("NEWSRADAR_BASE_URL", "")
+NEWSRADAR_API_KEY = os.getenv("NEWSRADAR_API_KEY", "")
+NEWSRADAR_TIMEOUT_SECONDS = int(os.getenv("NEWSRADAR_TIMEOUT_SECONDS", "10"))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

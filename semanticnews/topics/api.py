@@ -24,6 +24,9 @@ from semanticnews.openai import OpenAI
 from semanticnews.prompting import append_default_language_instruction
 from semanticnews.profiles.models import UserReference
 from semanticnews.references.models import Reference, TopicReference
+from semanticnews.integrations.models import ExternalTopicConnection
+from semanticnews.integrations.newsradar import NewsRadarError
+from semanticnews.integrations.services import connect_topic_to_newsradar
 
 from .models import (
     Topic,
@@ -354,6 +357,18 @@ class TopicCreateWithReferencesResponse(Schema):
     warnings: List[str] = []
 
 
+class TopicExternalConnectRequest(Schema):
+    query: Optional[str] = None
+
+
+class TopicExternalConnectionResponse(Schema):
+    provider: str
+    connected: bool
+    external_topic_id: str
+    display_name: Optional[str] = None
+    query: Optional[str] = None
+
+
 def _link_reference_to_topic(
     *,
     reference: Reference,
@@ -455,6 +470,37 @@ def create_topic_with_references(
             _link_reference_to_topic(reference=reference, topic=topic, user=user)
 
     return TopicCreateWithReferencesResponse(uuid=str(topic.uuid), warnings=warnings)
+
+
+@api.post("/{topic_uuid}/external/newsradar/connect", response=TopicExternalConnectionResponse)
+def connect_topic_newsradar(request, topic_uuid: str, payload: TopicExternalConnectRequest):
+    """Create a NewsRadar topic and attach it to a Semantic News topic on demand."""
+
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    try:
+        topic = Topic.objects.get(uuid=topic_uuid)
+    except Topic.DoesNotExist:
+        raise HttpError(404, "Topic not found")
+
+    if topic.created_by_id != user.id:
+        raise HttpError(403, "Forbidden")
+
+    try:
+        result = connect_topic_to_newsradar(topic=topic, query=payload.query)
+    except NewsRadarError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    connection = result.connection
+    return TopicExternalConnectionResponse(
+        provider=connection.provider,
+        connected=result.created or connection.provider == ExternalTopicConnection.PROVIDER_NEWSRADAR,
+        external_topic_id=connection.external_topic_id,
+        display_name=connection.display_name or None,
+        query=connection.query or None,
+    )
 
 
 class TopicStatusUpdateRequest(Schema):
