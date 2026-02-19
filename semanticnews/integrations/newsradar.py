@@ -69,53 +69,86 @@ class NewsRadarClient:
             raise NewsRadarError("Unexpected response payload from /api/auth/me")
         return payload
 
+    def _extract_topic_payload(self, payload: Any, *, endpoint: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(payload, dict):
+            raise NewsRadarError(f"Unexpected response payload from {endpoint}")
+        topic = payload.get("topic") if isinstance(payload.get("topic"), dict) else payload
+        if not isinstance(topic, dict):
+            raise NewsRadarError(f"Unexpected topic payload from {endpoint}")
+        return payload, topic
+
     def create_topic(self, *, title: str, query: str) -> NewsRadarTopicPayload:
-        cleaned_title = (title or "").strip() or "Untitled topic"
+        cleaned_title = (title or "").strip()
         cleaned_query = (query or "").strip() or cleaned_title
+        if not cleaned_query:
+            raise NewsRadarError("Topic query cannot be empty.")
 
-        candidates = [
-            {"title": cleaned_title, "query": cleaned_query},
-            {"name": cleaned_title, "query": cleaned_query},
-            {"title": cleaned_title, "queries": [cleaned_query]},
-            {"name": cleaned_title, "queries": [cleaned_query]},
-        ]
+        payload = self._request(
+            "POST",
+            "/api/topics/",
+            json={
+                "queries": [cleaned_query],
+                "additional_queries_mode": "auto",
+            },
+        )
+        raw_payload, topic = self._extract_topic_payload(payload, endpoint="/api/topics/")
 
-        last_error: NewsRadarError | None = None
-        for body in candidates:
-            try:
-                payload = self._request("POST", "/api/topics/", json=body)
-            except NewsRadarError as exc:
-                last_error = exc
-                continue
+        topic_uuid = str(
+            topic.get("uuid")
+            or topic.get("topic_uuid")
+            or ""
+        ).strip()
+        if not topic_uuid:
+            raise NewsRadarError("Could not determine created topic uuid from response.")
 
-            if not isinstance(payload, dict):
-                raise NewsRadarError("Unexpected response payload from /api/topics/")
+        resolved_title = str(topic.get("title") or topic.get("name") or cleaned_title or cleaned_query)
+        topic_queries = topic.get("queries") if isinstance(topic.get("queries"), list) else None
+        resolved_query = str(
+            topic.get("query")
+            or topic.get("search")
+            or (topic_queries[0] if topic_queries else "")
+            or cleaned_query
+        )
 
-            topic = payload.get("topic") if isinstance(payload.get("topic"), dict) else payload
-            topic_uuid = str(
-                topic.get("uuid")
-                or topic.get("topic_uuid")
-                or ""
-            ).strip()
-            if not topic_uuid:
-                raise NewsRadarError("Could not determine created topic uuid from response.")
+        return NewsRadarTopicPayload(
+            topic_uuid=topic_uuid,
+            title=resolved_title,
+            query=resolved_query,
+            raw=raw_payload,
+        )
 
-            resolved_title = str(topic.get("title") or topic.get("name") or cleaned_title)
-            topic_queries = topic.get("queries") if isinstance(topic.get("queries"), list) else None
-            resolved_query = str(
-                topic.get("query")
-                or topic.get("search")
-                or (topic_queries[0] if topic_queries else "")
-                or cleaned_query
-            )
+    def update_topic(self, *, topic_uuid: str, title: str, query: str | None = None) -> NewsRadarTopicPayload:
+        cleaned_topic_uuid = (topic_uuid or "").strip()
+        cleaned_title = (title or "").strip()
+        cleaned_query = (query or "").strip() or cleaned_title
+        if not cleaned_topic_uuid:
+            raise NewsRadarError("Topic uuid cannot be empty.")
+        if not cleaned_query:
+            raise NewsRadarError("Topic query cannot be empty.")
 
-            return NewsRadarTopicPayload(
-                topic_uuid=topic_uuid,
-                title=resolved_title,
-                query=resolved_query,
-                raw=payload,
-            )
+        payload = self._request(
+            "PATCH",
+            f"/api/topics/{cleaned_topic_uuid}",
+            json={
+                "queries": [cleaned_query],
+                "additional_queries_mode": "auto",
+            },
+        )
+        raw_payload, topic = self._extract_topic_payload(payload, endpoint=f"/api/topics/{cleaned_topic_uuid}")
 
-        if last_error is not None:
-            raise last_error
-        raise NewsRadarError("Failed to create topic in NewsRadar.")
+        resolved_uuid = str(topic.get("uuid") or topic.get("topic_uuid") or cleaned_topic_uuid).strip()
+        resolved_title = str(topic.get("title") or topic.get("name") or cleaned_title or cleaned_query)
+        topic_queries = topic.get("queries") if isinstance(topic.get("queries"), list) else None
+        resolved_query = str(
+            topic.get("query")
+            or topic.get("search")
+            or (topic_queries[0] if topic_queries else "")
+            or cleaned_query
+        )
+
+        return NewsRadarTopicPayload(
+            topic_uuid=resolved_uuid,
+            title=resolved_title,
+            query=resolved_query,
+            raw=raw_payload,
+        )

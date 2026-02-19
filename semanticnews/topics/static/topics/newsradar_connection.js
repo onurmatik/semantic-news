@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const topicUuid = (topicEl.dataset.topicUuid || '').trim();
   const existingExternalTopicId = (topicEl.dataset.newsradarExternalTopicId || '').trim();
   const initiallyConnected = (topicEl.dataset.newsradarConnected || 'false') === 'true';
+  const topicTitleInput = document.getElementById('topicTitleInput');
 
   if (!topicUuid) {
     statusEl.textContent = 'Topic UUID is missing.';
@@ -59,6 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   button.addEventListener('click', async () => {
+    const liveTitle = (topicTitleInput?.textContent || '').trim();
+    const savedTitle = (topicEl.dataset.topicTitle || '').trim();
+    const effectiveTitle = liveTitle || savedTitle;
+    if (!effectiveTitle) {
+      setStatus('Enter topic name first.', 'error');
+      return;
+    }
+
     button.disabled = true;
     setStatus('Connecting to NewsRadar...');
 

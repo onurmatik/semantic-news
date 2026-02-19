@@ -39,3 +39,28 @@ def connect_topic_to_newsradar(*, topic: Topic, query: str | None = None) -> Ext
         metadata=remote.raw,
     )
     return ExternalConnectionResult(connection=connection, created=True)
+
+
+def sync_topic_title_to_newsradar(*, topic: Topic) -> ExternalTopicConnection | None:
+    connection = ExternalTopicConnection.objects.filter(
+        topic=topic,
+        provider=ExternalTopicConnection.PROVIDER_NEWSRADAR,
+    ).first()
+    if connection is None:
+        return None
+
+    normalized_title = (topic.title or "").strip()
+    if not normalized_title:
+        return connection
+
+    client = NewsRadarClient()
+    remote = client.update_topic(
+        topic_uuid=connection.external_topic_id,
+        title=normalized_title,
+        query=normalized_title,
+    )
+    connection.display_name = remote.title
+    connection.query = remote.query
+    connection.metadata = remote.raw
+    connection.save(update_fields=["display_name", "query", "metadata", "updated_at"])
+    return connection

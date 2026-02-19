@@ -26,7 +26,7 @@ from semanticnews.profiles.models import UserReference
 from semanticnews.references.models import Reference, TopicReference
 from semanticnews.integrations.models import ExternalTopicConnection
 from semanticnews.integrations.newsradar import NewsRadarError
-from semanticnews.integrations.services import connect_topic_to_newsradar
+from semanticnews.integrations.services import connect_topic_to_newsradar, sync_topic_title_to_newsradar
 
 from .models import (
     Topic,
@@ -488,8 +488,12 @@ def connect_topic_newsradar(request, topic_uuid: str, payload: TopicExternalConn
     if topic.created_by_id != user.id:
         raise HttpError(403, "Forbidden")
 
+    normalized_title = (topic.title or "").strip()
+    if not normalized_title:
+        raise HttpError(400, "Enter topic name first.")
+
     try:
-        result = connect_topic_to_newsradar(topic=topic, query=payload.query)
+        result = connect_topic_to_newsradar(topic=topic, query=(payload.query or normalized_title))
     except NewsRadarError as exc:
         raise HttpError(400, str(exc)) from exc
 
@@ -633,8 +637,16 @@ def set_topic_title(request, payload: TopicTitleUpdateRequest):
         raise HttpError(403, "Forbidden")
 
     new_title = (payload.title or "").strip()
-    topic.title = new_title or None
-    topic.save()
+    if new_title:
+        topic.title = new_title
+        try:
+            sync_topic_title_to_newsradar(topic=topic)
+        except NewsRadarError as exc:
+            raise HttpError(400, str(exc)) from exc
+        topic.save()
+    else:
+        topic.title = None
+        topic.save()
 
     slug_value = topic.slug
     detail_url = None
