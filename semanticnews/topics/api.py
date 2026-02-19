@@ -25,7 +25,7 @@ from semanticnews.prompting import append_default_language_instruction
 from semanticnews.profiles.models import UserReference
 from semanticnews.references.models import Reference, TopicReference
 from semanticnews.integrations.models import ExternalTopicConnection
-from semanticnews.integrations.newsradar import NewsRadarError
+from semanticnews.integrations.newsradar import NewsRadarClient, NewsRadarError
 from semanticnews.integrations.services import connect_topic_to_newsradar, sync_topic_title_to_newsradar
 
 from .models import (
@@ -369,6 +369,33 @@ class TopicExternalConnectionResponse(Schema):
     query: Optional[str] = None
 
 
+class NewsRadarContentItem(Schema):
+    id: int
+    url: str
+    title: str
+    summary: str
+    source: str
+    published_at: Optional[datetime] = None
+
+
+class TopicExternalContentResponse(Schema):
+    connected: bool
+    items: List[NewsRadarContentItem] = []
+
+
+class TopicExternalScanResponse(Schema):
+    execution_id: int
+    task_id: str
+
+
+class TopicExternalScanStatusResponse(Schema):
+    id: int
+    status: str
+    initiator: str
+    content_item_id: Optional[int] = None
+    error_message: Optional[str] = None
+
+
 def _link_reference_to_topic(
     *,
     reference: Reference,
@@ -504,6 +531,103 @@ def connect_topic_newsradar(request, topic_uuid: str, payload: TopicExternalConn
         external_topic_id=connection.external_topic_id,
         display_name=connection.display_name or None,
         query=connection.query or None,
+    )
+
+
+@api.get("/{topic_uuid}/external/newsradar/content", response=TopicExternalContentResponse)
+def list_topic_newsradar_content(request, topic_uuid: str):
+    topic = _get_owned_topic(request, topic_uuid)
+    connection = ExternalTopicConnection.objects.filter(
+        topic=topic,
+        provider=ExternalTopicConnection.PROVIDER_NEWSRADAR,
+    ).first()
+    if connection is None:
+        return TopicExternalContentResponse(connected=False, items=[])
+
+    try:
+        payload = NewsRadarClient().list_content_by_topic(topic_uuid=connection.external_topic_id)
+    except NewsRadarError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    raw_items = payload.get("items") if isinstance(payload.get("items"), list) else []
+    items: List[NewsRadarContentItem] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            items.append(
+                NewsRadarContentItem(
+                    id=int(item.get("id") or 0),
+                    url=str(item.get("url") or ""),
+                    title=str(item.get("title") or ""),
+                    summary=str(item.get("summary") or ""),
+                    source=str(item.get("source") or ""),
+                    published_at=item.get("published_at"),
+                )
+            )
+        except Exception:
+            continue
+
+    return TopicExternalContentResponse(connected=True, items=[entry for entry in items if entry.id > 0 and entry.url])
+
+
+@api.post("/{topic_uuid}/external/newsradar/scan", response=TopicExternalScanResponse)
+def scan_topic_newsradar_content(request, topic_uuid: str):
+    topic = _get_owned_topic(request, topic_uuid)
+    connection = ExternalTopicConnection.objects.filter(
+        topic=topic,
+        provider=ExternalTopicConnection.PROVIDER_NEWSRADAR,
+    ).first()
+    if connection is None:
+        raise HttpError(400, "Connect topic to NewsRadar first.")
+
+    try:
+        payload = NewsRadarClient().start_web_search_execution(topic_uuid=connection.external_topic_id)
+    except NewsRadarError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    execution_id = int(payload.get("execution_id") or 0)
+    task_id = str(payload.get("task_id") or "").strip()
+    if execution_id <= 0 or not task_id:
+        raise HttpError(400, "Unexpected response payload from NewsRadar web-search execution.")
+
+    return TopicExternalScanResponse(execution_id=execution_id, task_id=task_id)
+
+
+@api.get("/{topic_uuid}/external/newsradar/scan/{execution_id}", response=TopicExternalScanStatusResponse)
+def get_topic_newsradar_scan_status(request, topic_uuid: str, execution_id: int):
+    topic = _get_owned_topic(request, topic_uuid)
+    connection = ExternalTopicConnection.objects.filter(
+        topic=topic,
+        provider=ExternalTopicConnection.PROVIDER_NEWSRADAR,
+    ).first()
+    if connection is None:
+        raise HttpError(400, "Connect topic to NewsRadar first.")
+
+    try:
+        payload = NewsRadarClient().get_execution(execution_id=execution_id)
+    except NewsRadarError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    status = str(payload.get("status") or "").strip()
+    initiator = str(payload.get("initiator") or "").strip() or "user"
+    response_execution_id = int(payload.get("id") or execution_id)
+    if response_execution_id <= 0 or not status:
+        raise HttpError(400, "Unexpected response payload from NewsRadar execution status.")
+
+    content_item_id = payload.get("content_item_id")
+    if content_item_id is not None:
+        try:
+            content_item_id = int(content_item_id)
+        except (TypeError, ValueError):
+            content_item_id = None
+
+    return TopicExternalScanStatusResponse(
+        id=response_execution_id,
+        status=status,
+        initiator=initiator,
+        content_item_id=content_item_id if isinstance(content_item_id, int) and content_item_id > 0 else None,
+        error_message=str(payload.get("error_message") or "").strip() or None,
     )
 
 

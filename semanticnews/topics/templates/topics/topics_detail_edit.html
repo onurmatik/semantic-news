@@ -124,18 +124,36 @@
 
             <div id="publishTopicError" class="alert alert-danger small d-none mt-2" role="alert"></div>
 
-            <div class="alert alert-light border d-flex align-items-center justify-content-between gap-2 flex-wrap mb-0" id="newsradarConnectionPanel">
-                <div class="small">
-                    <div class="fw-semibold">{% trans "NewsRadar connection" %}</div>
-                    <div class="text-secondary" id="newsradarConnectionStatus" aria-live="polite">
-                        {% if newsradar_connection %}
-                            {% trans "Connected." %}
-                        {% else %}
-                            {% trans "Not connected yet." %}
-                        {% endif %}
+            <div class="alert alert-light border mb-0" id="newsradarConnectionPanel">
+                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                    <div class="small">
+                        <div class="fw-semibold">{% trans "NewsRadar connection" %}</div>
+                        <div class="text-secondary" id="newsradarConnectionStatus" aria-live="polite">
+                            {% if newsradar_connection %}
+                                {% trans "Connected." %}
+                            {% else %}
+                                {% trans "Not connected yet." %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="newsradarConnectionBtn">{% trans "Connect" %}</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="newsradarScanBtn">{% trans "Scan" %}</button>
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm" id="newsradarConnectionBtn">{% trans "Connect" %}</button>
+                <div class="mt-3 border-top pt-3">
+                    <ul class="nav nav-tabs" id="newsradarTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="newsradar-content-tab" data-bs-toggle="tab" data-bs-target="#newsradar-content-pane" type="button" role="tab" aria-controls="newsradar-content-pane" aria-selected="true">{% trans "NewsRadar content" %}</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3" id="newsradarTabsContent">
+                        <div class="tab-pane fade show active" id="newsradar-content-pane" role="tabpanel" aria-labelledby="newsradar-content-tab" tabindex="0">
+                            <div id="newsradarContentStatus" class="small text-secondary mb-2" aria-live="polite"></div>
+                            <div id="newsradarContentList" class="d-flex flex-column gap-2"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>

@@ -39,7 +39,14 @@ class NewsRadarClient:
             "Accept": "application/json",
         }
 
-    def _request(self, method: str, path: str, *, json: dict[str, Any] | None = None) -> Any:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
         url = f"{self.base_url}{path}"
         try:
             response = requests.request(
@@ -47,6 +54,7 @@ class NewsRadarClient:
                 url,
                 headers=self._headers(),
                 json=json,
+                params=params,
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
@@ -152,3 +160,46 @@ class NewsRadarClient:
             query=resolved_query,
             raw=raw_payload,
         )
+
+    def list_content_by_topic(
+        self,
+        *,
+        topic_uuid: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        cleaned_topic_uuid = (topic_uuid or "").strip()
+        if not cleaned_topic_uuid:
+            raise NewsRadarError("Topic uuid cannot be empty.")
+        payload = self._request(
+            "GET",
+            f"/api/contents/topics/{cleaned_topic_uuid}",
+            params={"limit": max(1, min(limit, 200)), "offset": max(0, offset)},
+        )
+        if not isinstance(payload, dict):
+            raise NewsRadarError("Unexpected response payload from topic content feed.")
+        return payload
+
+    def start_web_search_execution(self, *, topic_uuid: str, initiator: str = "user") -> dict[str, Any]:
+        cleaned_topic_uuid = (topic_uuid or "").strip()
+        if not cleaned_topic_uuid:
+            raise NewsRadarError("Topic uuid cannot be empty.")
+        payload = self._request(
+            "POST",
+            "/api/executions/web-search/",
+            json={
+                "topic_uuid": cleaned_topic_uuid,
+                "initiator": (initiator or "user").strip() or "user",
+            },
+        )
+        if not isinstance(payload, dict):
+            raise NewsRadarError("Unexpected response payload from web-search execution.")
+        return payload
+
+    def get_execution(self, *, execution_id: int) -> dict[str, Any]:
+        if execution_id <= 0:
+            raise NewsRadarError("Execution id must be a positive integer.")
+        payload = self._request("GET", f"/api/executions/{execution_id}/")
+        if not isinstance(payload, dict):
+            raise NewsRadarError("Unexpected response payload from execution detail.")
+        return payload
