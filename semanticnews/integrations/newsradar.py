@@ -13,7 +13,7 @@ class NewsRadarError(Exception):
 
 @dataclass
 class NewsRadarTopicPayload:
-    topic_id: str
+    topic_uuid: str
     title: str
     query: str
     raw: dict[str, Any]
@@ -91,24 +91,26 @@ class NewsRadarClient:
             if not isinstance(payload, dict):
                 raise NewsRadarError("Unexpected response payload from /api/topics/")
 
-            topic_id = str(
-                payload.get("uuid")
-                or payload.get("id")
-                or payload.get("topic_uuid")
+            topic = payload.get("topic") if isinstance(payload.get("topic"), dict) else payload
+            topic_uuid = str(
+                topic.get("uuid")
+                or topic.get("topic_uuid")
                 or ""
             ).strip()
-            if not topic_id:
-                raise NewsRadarError("Could not determine created topic id from response.")
+            if not topic_uuid:
+                raise NewsRadarError("Could not determine created topic uuid from response.")
 
-            resolved_title = str(payload.get("title") or payload.get("name") or cleaned_title)
+            resolved_title = str(topic.get("title") or topic.get("name") or cleaned_title)
+            topic_queries = topic.get("queries") if isinstance(topic.get("queries"), list) else None
             resolved_query = str(
-                payload.get("query")
-                or payload.get("search")
+                topic.get("query")
+                or topic.get("search")
+                or (topic_queries[0] if topic_queries else "")
                 or cleaned_query
             )
 
             return NewsRadarTopicPayload(
-                topic_id=topic_id,
+                topic_uuid=topic_uuid,
                 title=resolved_title,
                 query=resolved_query,
                 raw=payload,

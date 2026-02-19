@@ -16,6 +16,7 @@ from semanticnews.agenda.localities import (
 )
 from semanticnews.agenda.models import Event
 from semanticnews.references.models import TopicReference
+from semanticnews.integrations.models import ExternalTopicConnection
 from semanticnews.topics.widgets import WIDGET_REGISTRY, load_widgets
 from semanticnews.topics.widgets.rendering import build_renderable_section
 
@@ -444,6 +445,10 @@ def topics_detail_edit(request, topic_uuid, username):
         return HttpResponseForbidden()
 
     context = _build_topic_page_context(topic, request.user, edit_mode=True)
+    context["newsradar_connection"] = ExternalTopicConnection.objects.filter(
+        topic=topic,
+        provider=ExternalTopicConnection.PROVIDER_NEWSRADAR,
+    ).first()
     if request.user.is_authenticated:
         context["user_topics"] = Topic.objects.filter(created_by=request.user).exclude(
             uuid=topic.uuid

@@ -17,6 +17,8 @@
         data-topic-uuid="{{ topic.uuid }}"
         data-topic-slug="{{ topic.slug|default:'' }}"
         data-topic-title="{{ topic.title|default_if_none:'' }}"
+        data-newsradar-connected="{% if newsradar_connection %}true{% else %}false{% endif %}"
+        data-newsradar-external-topic-id="{{ newsradar_connection.external_topic_id|default:'' }}"
         data-topic-detail-url="{{ topic.get_absolute_url }}"
         data-topic-detail-uuid-url="{% url 'topics_detail_redirect' topic_uuid=topic.uuid username=topic.created_by.username %}"
         data-topic-has-unpublished-changes="{{ has_unpublished_changes|yesno:'true,false' }}"
@@ -122,6 +124,20 @@
 
             <div id="publishTopicError" class="alert alert-danger small d-none mt-2" role="alert"></div>
 
+            <div class="alert alert-light border d-flex align-items-center justify-content-between gap-2 flex-wrap mb-0" id="newsradarConnectionPanel">
+                <div class="small">
+                    <div class="fw-semibold">{% trans "NewsRadar connection" %}</div>
+                    <div class="text-secondary" id="newsradarConnectionStatus" aria-live="polite">
+                        {% if newsradar_connection %}
+                            {% trans "Connected." %}
+                        {% else %}
+                            {% trans "Not connected yet." %}
+                        {% endif %}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="newsradarConnectionBtn">{% trans "Connect" %}</button>
+            </div>
+
         </div>
 
     </div>
@@ -173,6 +189,7 @@
     <script src="{% static 'topics/topic_events.js' %}"></script>
     <script src="{% static 'topics/topic_publish.js' %}"></script>
     <script src="{% static 'topics/topic_title.js' %}"></script>
+    <script src="{% static 'topics/newsradar_connection.js' %}"></script>
     <script src="{% static 'topics/generation_button.js' %}"></script>
     <script src="{% static 'topics/related_topics.js' %}"></script>
     <script src="{% static 'topics/related_events.js' %}"></script>
